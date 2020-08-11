@@ -56,7 +56,9 @@ rule assembler_conversion:
         f"{ANIMAL}.asm.p_ctg.gfa"
     output:
         f"{ANIMAL}.contigs.fasta"
-    shell: "gfatools gfa2fa -s {input} > {output}"
+    resources:
+        mem_mb = 6000
+    shell: "gfatools gfa2fa {input} > {output}"
 
 rule validation_yak:
     input: 
@@ -64,6 +66,9 @@ rule validation_yak:
         contigs = f"{ANIMAL}.contigs.fasta"
     output:
         f"{PROCESSED_DATA_PATH}/{ANIMAL}.asm-ccs.qv.txt"
+    threads: 16
+    resources:
+        mem_mb = 5000
     shell:
         """
         yak count -b 37 -t {threads} -o ccs.yak {input.reads}
@@ -76,7 +81,7 @@ rule validation_auN:
         f"{ANIMAL}.contigs.fasta"
     output:
         f"{PROCESSED_DATA_PATH}/{ANIMAL}.asm.auN.txt"
-    shell: "k8 calN50.js {input} > {output}"
+    shell: "k8 ~/bin/calN50.js {input} > {output}"
 
 rule validation_refalign:
     input:
@@ -85,6 +90,9 @@ rule validation_refalign:
         asm = f"{ANIMAL}.contigs.fasta"
     output:
         f"{PROCESSED_DATA_PATH}/{ANIMAL}.NGA50.txt"
+    threads: 16
+    resources:
+        mem_mb = 3500
     shell:
         """
         minigraph -xasm -K1.9g --show-unmap=yes -t {threads} {input.ref} {input.asm} > asm.paf
