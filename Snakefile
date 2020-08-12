@@ -18,7 +18,8 @@ reads_infile_dict = pair_name_to_infiles()
 
 rule all:
     input:
-        expand(f"{PROCESSED_DATA_PATH}/{ANIMAL}.{{ext}}",ext=FINAL_EXTS)
+        expand(f"{PROCESSED_DATA_PATH}/{ANIMAL}.{{ext}}",ext=FINAL_EXTS),
+        directory("busco_results")
 
 rule raw_read_conversion:
     input:
@@ -51,6 +52,7 @@ rule assembler_hifiasm:
     threads: 24
     shell: f"hifiasm -o {ANIMAL}.asm -t {{threads}} {{input}}"
 
+##Requires gfatools installed
 rule assembler_conversion:
     input:
         f"{ANIMAL}.asm.p_ctg.gfa"
@@ -60,6 +62,7 @@ rule assembler_conversion:
         mem_mb = 6000
     shell: "gfatools gfa2fa {input} > {output}"
 
+##Requires yak installed
 rule validation_yak:
     input: 
         reads = f"{PROCESSED_DATA_PATH}/{ANIMAL}.fq.gz",
@@ -76,6 +79,7 @@ rule validation_yak:
         """
         #inspect completeness
 
+##Requires k8 and calN50.js installed
 rule validation_auN:
     input:
         f"{ANIMAL}.contigs.fasta"
@@ -83,6 +87,7 @@ rule validation_auN:
         f"{PROCESSED_DATA_PATH}/{ANIMAL}.asm.auN.txt"
     shell: "k8 ~/bin/calN50.js {input} > {output}"
 
+##Requires minigraph and paftools.js installed
 rule validation_refalign:
     input:
         ref = f"{REF_GENOME}",
@@ -99,10 +104,24 @@ rule validation_refalign:
         paftools.js asmstat {input.ref_fai} asm.paf > {output}
         """
 
+##Requires busco (and metaeuk) installed
+rule validation_busco:
+    input:
+        f"{ANIMAL}.contigs.fasta"    
+    output:
+        directory('busco_results')
+    threads: 24
+    resources:
+        mem_mb = 3000
+    shell: "busco --cpu {threads} -i {input} -o {output}"
+    
 rule generate_reffai:
     input:
         f"{REF_GENOME}"
     output:
         "{input}.fai"
+    envmodules:
+        "gcc/8.2.0",
+        "samtools/1.6"   
     shell: "samtools faidx {input}"
 
