@@ -9,3 +9,4 @@ __pycache__/
 !Snakefile
 !*.yml
 !*.py
+!*.css
