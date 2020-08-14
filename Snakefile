@@ -16,10 +16,16 @@ def pair_name_to_infiles():
  
 reads_infile_dict = pair_name_to_infiles()
 
+##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
+localrules: analysis_report
+#workdir: "../bovine_data"
+
+##DEFINE RULES
 rule all:
     input:
-        expand(f"{PROCESSED_DATA_PATH}/{ANIMAL}.{{ext}}",ext=FINAL_EXTS),
-        directory("busco_results")
+        "analysis_report.pdf"
+        #expand(f"{PROCESSED_DATA_PATH}/{ANIMAL}.{{ext}}",ext=FINAL_EXTS),
+        #directory("busco_results")
 
 rule raw_read_conversion:
     input:
@@ -68,7 +74,7 @@ rule validation_yak:
         reads = f"{PROCESSED_DATA_PATH}/{ANIMAL}.fq.gz",
         contigs = f"{ANIMAL}.contigs.fasta"
     output:
-        f"{PROCESSED_DATA_PATH}/{ANIMAL}.asm-ccs.qv.txt"
+        f"{ANIMAL}.asm-ccs.qv.txt"
     threads: 16
     resources:
         mem_mb = 5000
@@ -84,8 +90,8 @@ rule validation_auN:
     input:
         f"{ANIMAL}.contigs.fasta"
     output:
-        f"{PROCESSED_DATA_PATH}/{ANIMAL}.asm.auN.txt"
-    shell: "k8 ~/bin/calN50.js {input} > {output}"
+        f"{ANIMAL}.asm.auN.txt"    
+    shell: "k8 ~/bin/calN50.js -s 0.01 {input} > {output}"
 
 ##Requires minigraph and paftools.js installed
 rule validation_refalign:
@@ -94,7 +100,7 @@ rule validation_refalign:
         ref_fai  = f"{REF_GENOME}.fai",
         asm = f"{ANIMAL}.contigs.fasta"
     output:
-        f"{PROCESSED_DATA_PATH}/{ANIMAL}.NGA50.txt"
+        f"{ANIMAL}.NGA50.txt"
     threads: 16
     resources:
         mem_mb = 3500
@@ -109,11 +115,16 @@ rule validation_busco:
     input:
         f"{ANIMAL}.contigs.fasta"    
     output:
-        directory('busco_results')
+        out_dir = directory("busco_results"),
+        summary = "busco_short_summary.txt"
     threads: 24
     resources:
         mem_mb = 3000
-    shell: "busco --cpu {threads} -i {input} -o {output}"
+    shell: 
+        """
+        busco --cpu {threads} -i {input} -o {output.out_dir}
+        cp {output.out_dir}/short_summary*.txt {output.summary}
+        """
     
 rule generate_reffai:
     input:
@@ -125,3 +136,11 @@ rule generate_reffai:
         "samtools/1.6"   
     shell: "samtools faidx {input}"
 
+rule analysis_report:
+    input:
+        expand(f"{ANIMAL}.{{ext}}",ext=FINAL_EXTS),
+        "busco_short_summary.txt"
+    output:
+        "analysis_report.pdf"
+    shell:
+        f"python denovo_assembly_statistics.py --animal {ANIMAL} --assembler hifiasm --jobname ./logs/hifiasm.out --outfile {{output}}"

@@ -65,7 +65,6 @@ def kmer_QV(animal):
                 raw_QV, adjusted_QV = (float(i) for i in line.rstrip().split()[1:])
     return (coverage, raw_QV, adjusted_QV)
 
-import glob
 def busco_report():
     with open('busco_short_summary.txt') as file_in:
         for line in file_in:
