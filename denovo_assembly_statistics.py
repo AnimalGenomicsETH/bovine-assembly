@@ -61,7 +61,7 @@ def kmer_QV(animal):
 
 import glob
 def busco_report():
-    for filename in glob.glob('short_summary.*.busco_results.txt'):
+    for filename in glob.glob('busco_results/short_summary.*.busco_results.txt'):
         with open(filename) as file_in:
             for line in file_in:
                 if 'lineage dataset' in line:
@@ -69,8 +69,24 @@ def busco_report():
                 if 'C:' in line:
                     return LD_set, line.strip().rstrip()
 
+def load_resource_benchmark(jobname):
+    info_calls = {'CPU time':'cputime', 'Run time':'walltime', 'Max Memory':'max_mem', 'Average Memory':'mean_mem', 'Delta Memory':'delta_mem'}
+    data = dict()
+    reached_resources = False 
+    with open(jobname,'r') as benchmark:
+        for line in benchmark:
+            if not reached_resources:
+                reached_resources = 'Resource usage summary:' in line
+            elif len(data) == len(info_calls):
+                return data
+            elif len(line) > 1:
+                code, raw_val = line.strip().split(' :')
+                if code not in info_calls:
+                    continue
+                val = int(float(raw_val.strip().split()[0]))
+                data[info_calls[code]] = val
             
-#pip install md2pdf
+
 import os
 def generate_markdown_string(args):
     build_str = '# Assembly Report\n'
@@ -78,11 +94,13 @@ def generate_markdown_string(args):
     build_str += f'Animal ID: **{args.animal}**\n\n' \
                  f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
 
+    resource_stats = load_resource_benchmark(args.jobname)
+
     build_str += '## Assembler details\n' \
                  f'Assembler: **{args.assembler}**\n\n' \
-                 f'Runtime (wall/cpu): {args.walltime} / {args.cputime}\n\n' \
-                 f'>_average threading_ = {args.cputime/args.walltime}\n\n' \
-                 f'Memory (mean/max): {args.mean_mem} / {args.max_mem}\n\n'
+                 f'Runtime (wall/cpu): {resource_stats["walltime"]}s / {resource_stats["cputime"]}s\n\n' \
+                 f'>_average threading_ = {resource_stats["cputime"]/resource_stats["walltime"]:.3f}\n\n' \
+                 f'Memory (mean/max): {resource_stats["mean_mem"]}mb / {resource_stats["max_mem"]}mb\n\n'
 
     build_str += '## Assembly metrics\n'
 
@@ -115,8 +133,6 @@ def generate_markdown_string(args):
     build_str += '### BUSCO analysis\n' \
                  f'Lineage: {lineage}\n\nAnalysis: {busco_string}\n'
 
-    
-
     with open('assembly_report.md','w') as file_out:
         file_out.write(build_str)
     
@@ -128,18 +144,22 @@ def main():
     parser = argparse.ArgumentParser(description='Produce assembly report.')
     parser.add_argument('--animal', default='', type=str)
     parser.add_argument('--assembler', default='', type=str)
-    parser.add_argument('--walltime', default=1, type=int)
-    parser.add_argument('--cputime', default=0, type=int)
-    parser.add_argument('--max_mem', default=0, type=int)
-    parser.add_argument('--mean_mem', default=0, type=int)
+    parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
+    parser.add_argument('--jobname', default='', type=str)
 
     args = parser.parse_args()
     generate_markdown_string(args)
 
     css_path = 'github.css' if os.path.isfile('github.css') else ''
-    md2pdf('out2.pdf',md_file_path='assembly_report.md',css_file_path=css_path,base_url=os.getcwd())
+    md2pdf(args.outfile,md_file_path='assembly_report.md',css_file_path=css_path,base_url=os.getcwd())
     
 if __name__ == "__main__":
     main()
 
+
+
+                
+                
+            
+    
     
