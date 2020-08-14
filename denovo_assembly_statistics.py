@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import datetime
 
-def load_auNCurve(animal):
+def load_auNCurves(animal):
     auN_values, metrics = [[],[]], dict()
     
     with open(f'{animal}.asm.auN.txt','r') as file_in:
@@ -16,15 +16,18 @@ def load_auNCurve(animal):
                  
     return auN_values, metrics
     
-            
-def plot_auNCurve(animal):
-    data, metrics = load_auNCurve(animal)
+from numpy import linspace            
+def plot_auNCurves(animal):
+    data, metrics = load_auNCurves(animal)
+    auN_data, aln_metrics = load_NGA(animal)
     
-    fig, (ax_N,ax_L) = plt.subplots(2,sharex=True,figsize=(7, 4), dpi=300)
+    fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(7, 4), dpi=300)
     
-    x_vals = list(range(0,101,10))
-    ax_N.plot(x_vals,data[0],'r')
-    ax_L.plot(x_vals,data[1],'b')
+    x_vals = linspace(0,100,len(data[0]))
+    ax_N.plot(x_vals,data[0],'forestgreen',label='Nx')
+    ax_N.plot(x_vals,auN_data[0],'darkorange',label='NGx')
+    ax_N.plot(x_vals,auN_data[1],'darkmagenta',label='NGAx')
+    ax_L.plot(x_vals,data[1],'forestgreen')
 
     for ax in (ax_N,ax_L):
         ax.set_yscale('log')
@@ -32,22 +35,26 @@ def plot_auNCurve(animal):
 
     ax_N.set_title('Nx',fontsize=18)
     ax_N.set_ylabel('contig length',fontsize=14)
+    ax_N.legend()
     
     ax_L.set_title('Lx',fontsize=18)
     ax_L.set_ylabel('number of contigs',fontsize=14)
 
     plt.tight_layout()
-    fig.savefig('auN_curve.png')
+    fig.savefig('auN_curves.png')
 
-    return metrics
+    return metrics, aln_metrics
 
 def load_NGA(animal):
-    data = dict()
+    auN_data, data = [], dict()
     with open(f'{animal}.NGA50.txt','r') as file_in:
         for line in file_in:
-            (key, value) = line.rstrip().split()
-            data[key] = value
-    return data
+            if line[:2] == 'NG':
+                auN_data.append(int(line.split()[1]))
+            else:
+                (key, value) = line.rstrip().split()
+                data[key] = value
+    return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
 def kmer_QV(animal):
     with open(f'{animal}.asm-ccs.qv.txt','r') as file_in:
@@ -102,26 +109,25 @@ def generate_markdown_string(args):
 
     build_str += '## Assembly metrics\n'
 
-    asm_metrics = plot_auNCurve(args.animal)
+    asm_metrics, aln_metrics = plot_auNCurves(args.animal)
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.2f}gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]}\n\n'
 
     build_str += f'Contig length and quantity\n\n' \
-                 '![alt text](auN_curve.png)' \
-                 'apples on a stick\n\n' \
+                 '![alt text](auN_curves.png)' \
                  f'auN value: {asm_metrics["AU"]}\n\n'
 
-    NGA_data = load_NGA(args.animal)
+    #auN_data, NGA_data = load_NGA(args.animal)
 
     build_str += '---\n\n'
     build_str += 'Reference metrics\n' \
                  '+ Coverage\n' \
-                 f'  + Rcov: {NGA_data["Rcov"]}\n' \
-                 f'  + Qcov: {NGA_data["Qcov"]}\n' \
-                 '+ Contig lengths\n' \
-                 f'  + NG50: {NGA_data["NG50"]}\n' \
-                 f'  + NGA50: {NGA_data["NGA50"]}\n' \
-                 f'  + auNGA: {NGA_data["AUNGA"]}\n' \
+                 f'  + Rcov: {aln_metrics["Rcov"]}\n' \
+                 f'  + Rdup: {aln_metrics["Rdup"]}\n' \
+                 f'  + Qcov: {aln_metrics["Qcov"]}\n' \
+                 '+ Contigs\n' \
+                 f'  + breaks: {aln_metrics["#breaks"]}\n' \
+                 f'  + auNGA: {aln_metrics["AUNGA"]}\n'
 
     kmer_stats = kmer_QV(args.animal)
     build_str += '### K-mer validation\n' \
@@ -130,7 +136,7 @@ def generate_markdown_string(args):
 
     lineage, busco_string = busco_report()
     build_str += '### BUSCO analysis\n' \
-                 f'Lineage: {lineage}\n\nAnalysis: {busco_string}\n'
+                 f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n'
 
     #with open('assembly_report.md','w') as file_out:
     return build_str
@@ -154,16 +160,8 @@ def main():
 
     md_string = generate_markdown_string(args)
     md2pdf(args.outfile,md_content=md_string,css_file_path=css_path,base_url=os.getcwd())
-    if not args.keepfig:
-        os.remove('auN_curve.png')
+    if not args.keepfig and os.path.isfile('auN_curves.png'):
+        os.remove('auN_curves.png')
     
 if __name__ == "__main__":
     main()
-
-
-
-                
-                
-            
-    
-    
