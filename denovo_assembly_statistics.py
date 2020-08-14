@@ -40,7 +40,6 @@ def plot_auNCurve(animal):
     fig.savefig('auN_curve.png')
 
     return metrics
-    #plt.show(block=False)
 
 def load_NGA(animal):
     data = dict()
@@ -61,13 +60,12 @@ def kmer_QV(animal):
 
 import glob
 def busco_report():
-    for filename in glob.glob('busco_results/short_summary.*.busco_results.txt'):
-        with open(filename) as file_in:
-            for line in file_in:
-                if 'lineage dataset' in line:
-                    LD_set = line.split()[5]
-                if 'C:' in line:
-                    return LD_set, line.strip().rstrip()
+    with open('busco_short_summary.txt') as file_in:
+        for line in file_in:
+            if 'lineage dataset' in line:
+                LD_set = line.split()[5]
+            if 'C:' in line:
+                return LD_set, line.strip().rstrip()
 
 def load_resource_benchmark(jobname):
     info_calls = {'CPU time':'cputime', 'Run time':'walltime', 'Max Memory':'max_mem', 'Average Memory':'mean_mem', 'Delta Memory':'delta_mem'}
@@ -107,9 +105,10 @@ def generate_markdown_string(args):
     asm_metrics = plot_auNCurve(args.animal)
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.2f}gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]}\n\n'
-    
+
     build_str += f'Contig length and quantity\n\n' \
-                 '![alt text](auN_curve.png)\n\n' \
+                 '![alt text](auN_curve.png)' \
+                 'apples on a stick\n\n' \
                  f'auN value: {asm_metrics["AU"]}\n\n'
 
     NGA_data = load_NGA(args.animal)
@@ -133,8 +132,8 @@ def generate_markdown_string(args):
     build_str += '### BUSCO analysis\n' \
                  f'Lineage: {lineage}\n\nAnalysis: {busco_string}\n'
 
-    with open('assembly_report.md','w') as file_out:
-        file_out.write(build_str)
+    #with open('assembly_report.md','w') as file_out:
+    return build_str
     
 
 import argparse
@@ -146,12 +145,17 @@ def main():
     parser.add_argument('--assembler', default='', type=str)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
     parser.add_argument('--jobname', default='', type=str)
+    parser.add_argument('--keepfig', default=False, type=bool)
+    
 
     args = parser.parse_args()
-    generate_markdown_string(args)
-
     css_path = 'github.css' if os.path.isfile('github.css') else ''
-    md2pdf(args.outfile,md_file_path='assembly_report.md',css_file_path=css_path,base_url=os.getcwd())
+    
+
+    md_string = generate_markdown_string(args)
+    md2pdf(args.outfile,md_content=md_string,css_file_path=css_path,base_url=os.getcwd())
+    if not args.keepfig:
+        os.remove('auN_curve.png')
     
 if __name__ == "__main__":
     main()
