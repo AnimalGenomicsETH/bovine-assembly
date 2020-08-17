@@ -1,9 +1,9 @@
 ANIMAL = "BSWCHEF120152514636"
 RAW_DATA_PATH = f"/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/{ANIMAL}"
 PROCESSED_DATA_PATH = f"/cluster/work/pausch/alex/assembly/{ANIMAL}"
-REF_GENOME = "/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz"
+#REF_GENOME = "/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz"
 
-FINAL_EXTS = ["asm-ccs.qv.txt", "NGA50.txt", "asm.auN.txt"]
+FINAL_EXTS = ["asm-ccs.qv.txt", "NGA50.txt", "auN.txt"]
 
 from pathlib import Path   
 
@@ -18,14 +18,17 @@ reads_infile_dict = pair_name_to_infiles()
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
 localrules: analysis_report
-#workdir: "../bovine_data"
 
-##DEFINE RULES
+##DEFINE CONFIG SETUP
+configfile: 'run_parameters.yaml'
+workdir: config['workdir']
+
+#------------#
+#DEFINE RULES#
+#------------#
 rule all:
     input:
         "analysis_report.pdf"
-        #expand(f"{PROCESSED_DATA_PATH}/{ANIMAL}.{{ext}}",ext=FINAL_EXTS),
-        #directory("busco_results")
 
 rule raw_read_conversion:
     input:
@@ -90,23 +93,24 @@ rule validation_auN:
     input:
         f"{ANIMAL}.contigs.fasta"
     output:
-        f"{ANIMAL}.asm.auN.txt"    
+        f"{ANIMAL}.auN.txt"
     shell: "k8 ~/bin/calN50.js -s 0.01 {input} > {output}"
 
 ##Requires minigraph and paftools.js installed
 rule validation_refalign:
     input:
-        ref = f"{REF_GENOME}",
-        ref_fai  = f"{REF_GENOME}.fai",
+        ref = config["ref_genome"],
+        ref_fai  = "{input.ref}.fai",
         asm = f"{ANIMAL}.contigs.fasta"
     output:
         f"{ANIMAL}.NGA50.txt"
     threads: 16
     resources:
-        mem_mb = 3500
+        mem_mb = 3500,
+        walltime = "2:00"
     shell:
         """
-        minigraph -xasm -K1.9g --show-unmap=yes -t {threads} {input.ref} {input.asm} > asm.paf
+        minigraph -xasm -K1.9g --show-unmap=yes -t {threads} {input.ref} {input.asm} > asm.paf    
         paftools.js asmstat {input.ref_fai} asm.paf > {output}
         """
 
@@ -128,7 +132,7 @@ rule validation_busco:
     
 rule generate_reffai:
     input:
-        f"{REF_GENOME}"
+        config["ref_genome"]
     output:
         "{input}.fai"
     envmodules:

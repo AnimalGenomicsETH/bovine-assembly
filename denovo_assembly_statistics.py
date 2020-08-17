@@ -4,7 +4,7 @@ import datetime
 def load_auNCurves(animal):
     auN_values, metrics = [[],[]], dict()
     
-    with open(f'{animal}.asm.auN.txt','r') as file_in:
+    with open(f'{animal}.auN.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'NL':
                 x, Nx, Lx  = (int(i) for i in line.rstrip().split()[1:])

@@ -1,0 +1,2 @@
+workdir: "../new_world"
+ref_genome: "/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz"

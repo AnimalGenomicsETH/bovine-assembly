@@ -8,5 +8,6 @@ __pycache__/
 
 !Snakefile
 !*.yml
+!*.yaml
 !*.py
 !*.css
