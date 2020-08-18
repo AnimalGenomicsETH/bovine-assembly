@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
 import datetime
 
-def load_auNCurves(animal):
+def load_auNCurves(animal,assembler):
     auN_values, metrics = [[],[]], dict()
     
-    with open(f'{animal}.auN.txt','r') as file_in:
+    with open(f'{animal}_{assembler}.auN.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'NL':
                 x, Nx, Lx  = (int(i) for i in line.rstrip().split()[1:])
@@ -17,9 +17,9 @@ def load_auNCurves(animal):
     return auN_values, metrics
     
 from numpy import linspace            
-def plot_auNCurves(animal):
-    data, metrics = load_auNCurves(animal)
-    auN_data, aln_metrics = load_NGA(animal)
+def plot_auNCurves(animal,assembler):
+    data, metrics = load_auNCurves(animal,assembler)
+    auN_data, aln_metrics = load_NGA(animal,assembler)
     
     fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(7, 4), dpi=300)
     
@@ -45,9 +45,9 @@ def plot_auNCurves(animal):
 
     return metrics, aln_metrics
 
-def load_NGA(animal):
+def load_NGA(animal,assembler):
     auN_data, data = [], dict()
-    with open(f'{animal}.NGA50.txt','r') as file_in:
+    with open(f'{animal}_{assembler}.NGA50.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'NG':
                 auN_data.append(int(line.split()[1]))
@@ -56,8 +56,8 @@ def load_NGA(animal):
                 data[key] = value
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
-def kmer_QV(animal):
-    with open(f'{animal}.asm-ccs.qv.txt','r') as file_in:
+def kmer_QV(animal,assembler):
+    with open(f'{animal}_{assembler}.asm-ccs.qv.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'CV':
                 coverage = float(line.rstrip().split()[1])
@@ -65,8 +65,8 @@ def kmer_QV(animal):
                 raw_QV, adjusted_QV = (float(i) for i in line.rstrip().split()[1:])
     return (coverage, raw_QV, adjusted_QV)
 
-def busco_report():
-    with open('busco_short_summary.txt') as file_in:
+def busco_report(animal,assembler):
+    with open(f'{animal}_{assembler}_busco_short_summary.txt') as file_in:
         for line in file_in:
             if 'lineage dataset' in line:
                 LD_set = line.split()[5]

@@ -1,2 +1,11 @@
-workdir: "../new_world"
-ref_genome: "/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz"
+workdir: '../first_test'
+raw_data: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS'
+ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
+animal: 'BSWCHEF120152514636'
+assemblers:
+  - 'hifiasm'
+  #- 'canu'
+target_metrics:
+  - 'asm-ccs.qv.txt'
+  - 'NGA50.txt'
+  - 'auN.txt'
