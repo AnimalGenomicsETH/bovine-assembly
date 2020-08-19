@@ -15,7 +15,7 @@ reads_infile_dict = pair_name_to_infiles()
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
 localrules: analysis_report, raw_merge_files
 
-for _dir in ['data','results']:
+for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
 
 #------------#
@@ -43,6 +43,7 @@ rule raw_merge_files:
     shell: 'cat {input} > {output}'
 
 if 'hifiasm' in config['assemblers']:
+    Path('hifiasm').mkdir(exist_ok=True)
     rule assembler_hifiasm:
         input:
             'data/{animal}.hifi.fq.gz'
@@ -52,13 +53,27 @@ if 'hifiasm' in config['assemblers']:
         resources:
             mem_mb = 6000,
             walltime = "8:00"
+        shell: 'hifiasm -o hifiasm/{wildcards.animal}.asm -t {threads} {input}'
+
+if 'canu' in config['assemblers']:
+    Path('canu').mkdir(exist_ok=True)
+    localrules: assembler_canu
+    rule assembler_canu:
+        input:
+            'data/{animal}.hifi.fq.gz'
+        output:
+            'canu/{animal}.contigs.fasta'
         shell:
             '''
-            mkdir -p hifiasm
-            hifiasm -o {wildcards.animal}.asm -t {threads} {input}
+            canu -p {wildcards.animal} -d canu genomeSize=2.7g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g onSuccess="touch {wildcards.animal}.complete"
+            while  [  ! -f {wildcards.animal}.complete ]
+              do
+                sleep 60
+              done
+            echo "complete file found, ending sleep loop"
+            rm {wildcards.animal}.complete
             '''
-if 'canu' in config['assemblers']:
-    print('here')
+            
             
 ##Requires gfatools installed
 rule assembler_hifi_conversion:
@@ -82,8 +97,8 @@ rule validation_yak:
         mem_mb = 5000
     shell:
         '''
-        yak count -b 37 -t {threads} -o ccs.yak {input.reads}
-        yak qv -t {threads} ccs.yak {input.contigs} > {output}
+        yak count -b 37 -t {threads} -o intermediates/ccs.yak {input.reads}
+        yak qv -t {threads} intermediates/ccs.yak {input.contigs} > {output}
         '''
         #inspect completeness
 
@@ -109,8 +124,25 @@ rule validation_refalign:
         walltime = '2:00'
     shell:
         '''
-        minigraph -xasm -K1.9g --show-unmap=yes -t {threads} {input.ref} {input.asm} > asm.paf    
-        paftools.js asmstat {input.ref_fai}.fai asm.paf > {output}
+        minigraph -xasm -K1.9g --show-unmap=yes -t {threads} {input.ref} {input.asm} > intermediates/asm.paf    
+        paftools.js asmstat {input.ref_fai} intermediates/asm.paf > {output}
+        '''
+
+rule validation_asmgene:
+    input:
+        asm = '{assembler}/{animal}.contigs.fasta',
+        reads = 'data/{animal}.hifi.fq.gz',
+        cDNAs = config['cDNAs']
+    output:
+        'results/{animal}_{assembler}.asmgene.txt'
+    threads: 24
+    resources:
+        mem_mb = 2500
+    shell:
+        '''
+        minimap2 -cxsplice:hq -t {threads} {input.asm} {input.cDNAs} > intermediates/{animal}_{assembler}_asm_aln.paf
+        minimap2 -cxsplice:hq -t {threads} {input.reads} {input.cDNAs} > intermediates/{animal}_{assembler}_ref_aln.paf
+        paftools.js asmgene -i.97 intermediates/{animal}_{assembler}_ref_aln.paf intermediates/{animal}_{assembler}_asm_aln.paf > {output}
         '''
 
 ##Requires busco (and metaeuk) installed
@@ -118,7 +150,7 @@ rule validation_busco:
     input:
         '{assembler}/{animal}.contigs.fasta'    
     output:
-        out_dir = directory('results/{animal}_{assembler}_busco_results'),
+        out_dir = directory('{animal}_{assembler}_busco_results'),
         summary = 'results/{animal}_{assembler}_busco_short_summary.txt'
     threads: 24
     resources:
@@ -142,5 +174,6 @@ rule analysis_report:
         'results/{animal}_{assembler}_busco_short_summary.txt'
     output:
         '{animal}_{assembler}_analysis_report.pdf'
-    shell:
-        'python denovo_assembly_statistics.py --animal {wildcards.animal} --assembler {wildcards.assembler} --jobname ./logs/assembler_{wildcards.assembler}/animal-{wildcards.animal}.out --outfile {output}'
+    params:
+        base_dir = workflow.basedir
+    shell: 'python {params.base_dir}/denovo_assembly_statistics.py --animal {wildcards.animal} --assembler {wildcards.assembler} --outfile {output}'

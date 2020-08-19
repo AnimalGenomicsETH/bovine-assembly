@@ -4,7 +4,7 @@ import datetime
 def load_auNCurves(animal,assembler):
     auN_values, metrics = [[],[]], dict()
     
-    with open(f'{animal}_{assembler}.auN.txt','r') as file_in:
+    with open(f'results/{animal}_{assembler}.auN.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'NL':
                 x, Nx, Lx  = (int(i) for i in line.rstrip().split()[1:])
@@ -47,7 +47,7 @@ def plot_auNCurves(animal,assembler):
 
 def load_NGA(animal,assembler):
     auN_data, data = [], dict()
-    with open(f'{animal}_{assembler}.NGA50.txt','r') as file_in:
+    with open(f'results/{animal}_{assembler}.NGA50.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'NG':
                 auN_data.append(int(line.split()[1]))
@@ -57,7 +57,7 @@ def load_NGA(animal,assembler):
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
 def kmer_QV(animal,assembler):
-    with open(f'{animal}_{assembler}.asm-ccs.qv.txt','r') as file_in:
+    with open(f'results/{animal}_{assembler}.asm-ccs.qv.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'CV':
                 coverage = float(line.rstrip().split()[1])
@@ -66,18 +66,18 @@ def kmer_QV(animal,assembler):
     return (coverage, raw_QV, adjusted_QV)
 
 def busco_report(animal,assembler):
-    with open(f'{animal}_{assembler}_busco_short_summary.txt') as file_in:
+    with open(f'results/{animal}_{assembler}_busco_short_summary.txt') as file_in:
         for line in file_in:
             if 'lineage dataset' in line:
                 LD_set = line.split()[5]
             if 'C:' in line:
                 return LD_set, line.strip().rstrip()
 
-def load_resource_benchmark(jobname):
+def load_resource_benchmark(animal,assembler):
     info_calls = {'CPU time':'cputime', 'Run time':'walltime', 'Max Memory':'max_mem', 'Average Memory':'mean_mem', 'Delta Memory':'delta_mem'}
     data = dict()
     reached_resources = False 
-    with open(jobname,'r') as benchmark:
+    with open(f'logs/assembler_{assembler}/animal-{animal}.out','r') as benchmark:
         for line in benchmark:
             if not reached_resources:
                 reached_resources = 'Resource usage summary:' in line
@@ -98,7 +98,7 @@ def generate_markdown_string(args):
     build_str += f'Animal ID: **{args.animal}**\n\n' \
                  f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
 
-    resource_stats = load_resource_benchmark(args.jobname)
+    resource_stats = load_resource_benchmark(args.animal,args.assembler)
 
     build_str += '## Assembler details\n' \
                  f'Assembler: **{args.assembler}**\n\n' \
@@ -108,7 +108,7 @@ def generate_markdown_string(args):
 
     build_str += '## Assembly metrics\n'
 
-    asm_metrics, aln_metrics = plot_auNCurves(args.animal)
+    asm_metrics, aln_metrics = plot_auNCurves(args.animal,args.assembler)
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.2f}gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]}\n\n'
 
@@ -128,23 +128,22 @@ def generate_markdown_string(args):
                  f'  + breaks: {aln_metrics["#breaks"]}\n' \
                  f'  + auNGA: {aln_metrics["AUNGA"]}\n'
 
-    kmer_stats = kmer_QV(args.animal)
+    kmer_stats = kmer_QV(args.animal,args.assembler)
     build_str += '### K-mer validation\n' \
                  f'Coverage: {kmer_stats[0]:.1%}\n\n' \
                  f'QV (raw/adjusted): {kmer_stats[1]} / {kmer_stats[2]}\n\n'
 
-    lineage, busco_string = busco_report()
+    lineage, busco_string = busco_report(args.animal,args.assembler)
     build_str += '### BUSCO analysis\n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n'
 
     #with open('assembly_report.md','w') as file_out:
     return build_str
-    
 
 import argparse
 from md2pdf.core import md2pdf
 
-def main():
+def main(direct_input=None):
     parser = argparse.ArgumentParser(description='Produce assembly report.')
     parser.add_argument('--animal', default='', type=str)
     parser.add_argument('--assembler', default='', type=str)
@@ -153,7 +152,7 @@ def main():
     parser.add_argument('--keepfig', default=False, type=bool)
     
 
-    args = parser.parse_args()
+    args = parser.parse_args(direct_input)
     css_path = 'github.css' if os.path.isfile('github.css') else ''
     
 
