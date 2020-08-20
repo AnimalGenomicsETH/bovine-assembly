@@ -91,14 +91,15 @@ rule validation_yak:
         reads = 'data/{animal}.hifi.fq.gz',
         contigs = '{assembler}/{animal}.contigs.fasta'
     output:
-        'results/{animal}_{assembler}.asm-ccs.qv.txt'
+        yak = 'intermediates/{animal}_{assembler}.yal',
+        qv = 'results/{animal}_{assembler}.asm-ccs.qv.txt'
     threads: 16
     resources:
         mem_mb = 5000
     shell:
         '''
-        yak count -b 37 -t {threads} -o intermediates/ccs.yak {input.reads}
-        yak qv -t {threads} intermediates/ccs.yak {input.contigs} > {output}
+        yak count -b 37 -t {threads} -o {output.yak} {input.reads}
+        yak qv -t {threads} {output.yak} {input.contigs} > {output.qv}
         '''
         #inspect completeness
 
@@ -117,15 +118,16 @@ rule validation_refalign:
         ref_fai  = f'{config["ref_genome"]}.fai',
         asm = '{assembler}/{animal}.contigs.fasta'
     output:
-        'results/{animal}_{assembler}.NGA50.txt'
+        paf = 'intermediates/{animal}_{assembler}_asm.paf',
+        NGA = 'results/{animal}_{assembler}.NGA50.txt'
     threads: 16
     resources:
         mem_mb = 3500,
         walltime = '2:00'
     shell:
         '''
-        minigraph -xasm -K1.9g --show-unmap=yes -t {threads} {input.ref} {input.asm} > intermediates/asm.paf    
-        paftools.js asmstat {input.ref_fai} intermediates/asm.paf > {output}
+        minigraph -xasm -K1.9g --show-unmap=yes -t {threads} {input.ref} {input.asm} > {output.paf}    
+        paftool.js asmstat {input.ref_fai} {output.paf} > {output.NGA}
         '''
 
 rule validation_asmgene:
@@ -134,15 +136,17 @@ rule validation_asmgene:
         reads = 'data/{animal}.hifi.fq.gz',
         cDNAs = config['cDNAs']
     output:
-        'results/{animal}_{assembler}.asmgene.txt'
+        asm_paf = 'intermediates/{animal}_{assembler}_asm_aln.paf',
+        ref_paf = 'intermediates/{animal}_{assembler}_ref_aln.paf',
+        asmgene = 'results/{animal}_{assembler}.asmgene.txt'
     threads: 24
     resources:
         mem_mb = 2500
     shell:
         '''
-        minimap2 -cxsplice:hq -t {threads} {input.asm} {input.cDNAs} > intermediates/{animal}_{assembler}_asm_aln.paf
-        minimap2 -cxsplice:hq -t {threads} {input.reads} {input.cDNAs} > intermediates/{animal}_{assembler}_ref_aln.paf
-        paftools.js asmgene -i.97 intermediates/{animal}_{assembler}_ref_aln.paf intermediates/{animal}_{assembler}_asm_aln.paf > {output}
+        minimap2 -cxsplice:hq -t {threads} {input.asm} {input.cDNAs} > {outputs.asm_paf}
+        minimap2 -cxsplice:hq -t {threads} {input.reads} {input.cDNAs} > {outputs.ref_paf}
+        paftools.js asmgene -i.97 {output.ref_paf} {output.asm_paf} > {output.asmgene}
         '''
 
 ##Requires busco (and metaeuk) installed
