@@ -1,4 +1,3 @@
-#mkdir split
 rule split:
     input:
         '/cluster/work/pausch/alex/assembly/BSWCHEF120152514636/BSWCHEF120152514636.fq.gz'
@@ -18,3 +17,21 @@ rule rezip:
         pigz -p {threads} --recursive  split/{animal}.*.fq
         ls split/{animal}.[0-9][0-9][0-9][0-9].fq.gz > $FOFN.$tid
         '''
+
+rule merge:
+    input:
+        list to merge
+    output:
+        readdb
+    shell:
+        meryl sum
+
+rule prep_for_count:
+    input:
+        reads
+    output:
+        something
+    run:
+        if file larger than 10GB -> split
+        else dont
+

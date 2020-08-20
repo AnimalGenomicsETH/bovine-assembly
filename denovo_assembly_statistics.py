@@ -21,7 +21,7 @@ def plot_auNCurves(animal,assembler):
     data, metrics = load_auNCurves(animal,assembler)
     auN_data, aln_metrics = load_NGA(animal,assembler)
     
-    fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(7, 4), dpi=300)
+    fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(4, 2.5))
     
     x_vals = linspace(0,100,len(data[0]))
     ax_N.plot(x_vals,data[0],'forestgreen',label='Nx')
@@ -75,21 +75,22 @@ def busco_report(animal,assembler):
 
 def load_resource_benchmark(animal,assembler):
     info_calls = {'CPU time':'cputime', 'Run time':'walltime', 'Max Memory':'max_mem', 'Average Memory':'mean_mem', 'Delta Memory':'delta_mem'}
-    data = dict()
+    data = {code:0 for code in info_calls.values()}
+    data['walltime'] = 1
     reached_resources = False 
     with open(f'logs/assembler_{assembler}/animal-{animal}.out','r') as benchmark:
         for line in benchmark:
             if not reached_resources:
                 reached_resources = 'Resource usage summary:' in line
             elif len(data) == len(info_calls):
-                return data
+                break
             elif len(line) > 1:
                 code, raw_val = line.strip().split(' :')
                 if code not in info_calls:
                     continue
                 val = int(float(raw_val.strip().split()[0]))
                 data[info_calls[code]] = val
-            
+    return data         
 
 import os
 def generate_markdown_string(args):
@@ -99,7 +100,7 @@ def generate_markdown_string(args):
                  f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
 
     resource_stats = load_resource_benchmark(args.animal,args.assembler)
-
+    print(resource_stats)
     build_str += '## Assembler details\n' \
                  f'Assembler: **{args.assembler}**\n\n' \
                  f'Runtime (wall/cpu): {resource_stats["walltime"]}s / {resource_stats["cputime"]}s\n\n' \

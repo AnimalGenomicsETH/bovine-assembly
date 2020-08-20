@@ -63,18 +63,18 @@ if 'canu' in config['assemblers']:
             'data/{animal}.hifi.fq.gz'
         output:
             'canu/{animal}.contigs.fasta'
+        log: 'logs/assembler_canu/animal-{animal}.out'
+        params:
+            '{animal}.complete'
         shell:
             '''
-            canu -p {wildcards.animal} -d canu genomeSize=2.7g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g onSuccess="touch {wildcards.animal}.complete"
-            while  [  ! -f {wildcards.animal}.complete ]
-              do
-                sleep 60
-              done
+            canu -p {wildcards.animal} -d canu genomeSize=2.7g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g onSuccess="touch {params}" > {log}
+            while [ ! -e canu/{params} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
-            rm {wildcards.animal}.complete
+            rm canu/{params}
             '''
-            
-            
+
+
 ##Requires gfatools installed
 rule assembler_hifi_conversion:
     input:
