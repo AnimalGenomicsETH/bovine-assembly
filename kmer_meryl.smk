@@ -1,13 +1,15 @@
 configfile: 'merqury_config.yaml'
 
-localrules: kmer_completeness, QV_stats, populate_hist, asm_CN_only
+localrules: kmer_completeness, QV_stats, populate_hist, asm_CN_only, make_plots
     
 rule all:
     input: 
         'cow_hifiasm.qv.stats',
         'cow_hifiasm.completeness.stats',
         'cow_hifiasm.only.hist',
-        'cow_hifiasm.spectra-cn.hist'
+        'cow_hifiasm.spectra-cn.hist',
+        'cow_hifiasm.spectra-asm.ln.png',
+        'cow_hifiasm.spectra-cn.ln.png'
         
 rule count_read_kmers:
     input:
@@ -75,7 +77,7 @@ rule intersect_CN:
         asm = '{animal}_{assembler}.meryl',
         reads = '{animal}.hifi.meryl'
     output:
-        directory('read.k.{animal}_{assembler}.{code}.{i}.meryl')
+        directory('read.k.{animal}_{assembler}.{code,.*}.{i,.*}.meryl')
     threads: 12
     resources:
         mem_mb = 2000
@@ -135,6 +137,7 @@ rule populate_hist:
         '{animal}_{assembler}.spectra-cn.hist'
     shell:
         '''
+        printf "Copies\tkmer_multiplicity\tCount\n" > {output}
         meryl histogram {input.read_only} | awk '{{print "read-only\t"$0}}' >> {output}
         meryl histogram {input.cn1} | awk -v cn=1 '{{print cn"\t"$0}}' >> {output}
         meryl histogram {input.cn2} | awk -v cn=2 '{{print cn"\t"$0}}' >> {output}
@@ -154,6 +157,31 @@ rule asm_CN_only:
 	    DISTINCT=`meryl statistics {input} | head -n3 | tail -n1 | awk '{{print $2}}'`
 	    MULTI=$(($PRESENT-$DISTINCT))
 	    printf "1\t0\t$DISTINCT\n2\t0\t$MULTI" > {output}
+        '''
+
+rule asm_hist:
+    input:
+        asm_0 = 'read.k.{animal}_{assembler}.0.meryl',
+        asm = 'read.k.{animal}_{assembler}...meryl'
+    output:
+        '{animal}_{assembler}.spectra-asm.hist'
+    shell:
+        '''
+        printf "Assembly\tkmer_multiplicity\tCount\n" > {output}
+        meryl histogram {input.asm_0} | awk '{{print "read-only\t"$0}}' >> {output}
+        meryl histogram {input.asm} | awk -v hap="{wildcards.animal}_{wildcards.assembler}" '{{print hap"\t"$0}}' >> {output}
+        '''
+
+rule asm_dst:
+    input:
+        '{animal}_{assembler}.0.meryl'
+    output:
+        '{animal}_{assembler}.dist_only.hist'
+    shell:
+        '''
+        set +e > /dev/null
+        ASM1_ONLY=$(meryl statistics {input} | head -n3 | tail -n1 | awk '{{print $2}}')
+		echo -e "{wildcards.animal}_{wildcards.assembler}\t0\t$ASM1_ONLY" > {output}
         '''
 
 rule QV_stats:
@@ -188,4 +216,26 @@ rule kmer_completeness:
         TOTAL=$(meryl statistics {input.read_solid}  | head -n 3 | tail -n 1 | awk '{{print $2}}')
         ASM=$(meryl statistics {input.asm_solid}  | head -n 3 | tail -n 1 | awk '{{print $2}}')
         printf "{wildcards.animal}_{wildcards.assembler}\\tall\\t$ASM\\t$TOTAL" | awk '{{print $0"\t"((100*$3)/$4)}}' >> {output}
+        '''
+
+rule make_plots:
+    input:
+        spc_hist = '{animal}_{assembler}.spectra-cn.hist',
+        asm_hist = '{animal}_{assembler}.spectra-asm.hist',
+        histonly = '{animal}_{assembler}.only.hist',
+        distonly = '{animal}_{assembler}.dist_only.hist' 
+    output:
+        '{animal}_{assembler}.spectra-asm.ln.png',
+        '{animal}_{assembler}.spectra-cn.ln.png'
+    params:
+        path = config['merqury_path'],
+        r_lib = config['r_lib']
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    shell:
+        '''
+        export R_LIBS_USER={params.r_lib}
+        Rscript {params.path}/plot/plot_spectra_cn.R -f {input.asm_hist} -o {wildcards.animal}_{wildcards.assembler}.spectra-asm -z {input.distonly}
+        Rscript {params.path}/plot/plot_spectra_cn.R -f {input.spc_hist} -o {wildcards.animal}_{wildcards.assembler}.spectra-cn -z {input.histonly}
         '''

@@ -1,2 +1,3 @@
 merqury_path: '/cluster/work/pausch/alex/software/merqury'
 k-mers: 21
+r_lib: '/cluster/work/pausch/alex/software/R_packages'
