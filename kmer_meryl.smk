@@ -11,21 +11,22 @@ rule all:
         'cow_hifiasm.only.hist',
         'cow_hifiasm.spectra-cn.hist',
         'cow_hifiasm.spectra-asm.ln.png',
-        'cow_hifiasm.spectra-cn.ln.png',
-        'cow.hifi.meryl'
+        'cow_hifiasm.spectra-cn.ln.png'
 
 checkpoint split_reads:
     input:
         'data/{animal}.fq.gz'
     output:
         directory('split_{animal}')
+    params:
+        config['split_size']
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
     shell:
         '''
         mkdir -p split_{wildcards.animal}
-        zcat {input} | split -a 2 -d -C 10GiB --filter='pigz -p 6 > $FILE.fq.gz' - split_{wildcards.animal}/chunk_
+        zcat {input} | split -a 2 -d -C {params}GiB --filter='pigz -p 6 > $FILE.fq.gz' - split_{wildcards.animal}/chunk_
         '''
 
 rule count_many:
@@ -38,13 +39,12 @@ rule count_many:
         mem_mb = 3000
     params:
         K = config['k-mers'],
-        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/1100
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
         'meryl count k={params.K} memory={params.mem} threads={threads} output {output} {input}'
 
 def aggregate_split_input(wildcards):
     checkpoint_output = checkpoints.split_reads.get(**wildcards).output[0]
-    print('CPO',checkpoint_output)
     return expand('split_{animal}/chunk_{sample}.meryl',animal=wildcards.animal,sample=glob_wildcards(os.path.join(checkpoint_output, 'chunk_{sample}.fq.gz')).sample)
     
 rule merge_many:
@@ -56,26 +56,11 @@ rule merge_many:
     resources:
         mem_mb = 4000
     params:
-        K = config['k-mers']
+        K = config['k-mers'],
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
-        '''
-        meryl union-sum k={params.K} threads={threads} output {output} {input}
-        '''
+        'meryl union-sum k={params.K} memory={params.mem} threads={threads} output {output} {input} '
 
-#rule count_read_kmers:
-#    input:
-#        'data/{animal}.fq.gz'
-#    output:
-#        directory('{animal}.hifi.meryl')
-#    threads: 18
-#    resources:
-#        mem_mb = 3000
-#    params:
-#        K = config['k-mers'],
-#        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/1100
-#    run:
-#        'meryl count k={params.K} memory={params.mem} threads={threads} output {output} {input}'
-       
 rule count_asm_kmers:
     input:
         '{assembler}/{animal}.contigs.fasta'
@@ -86,12 +71,11 @@ rule count_asm_kmers:
         mem_mb = 3000
     params:
         K = config['k-mers'],
-        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/1100
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
         'meryl count k={params.K} memory={params.mem} threads={threads} output {output} {input}'
 
-
-rule difference_reads:
+rule exclusive_kmers:
     input:
         asm = '{animal}_{assembler}.meryl',
         reads = '{animal}.hifi.meryl'
@@ -102,28 +86,10 @@ rule difference_reads:
     resources:
         mem_mb = 2000
     params:
-        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/1000
-    shell:
-        '''
-        meryl difference threads={threads} memory={params.mem} output {output.reads} {input.reads} {input.asm}
-        meryl difference threads={threads} memory={params.mem} output {output.asm} {input.    asm} {input.reads}
-        '''
-
-#rule difference_CN:
-#    input:
-#        asm = '{animal}_{assembler}.meryl',
-#        reads = '{animal}.hifi.meryl'
-#    output:
-#        directory('{animal}_{assembler}.0.meryl')
-#    threads: 12
-#    resources:
-#        mem_mb = 2000
-#    params:
-#        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/1000
-#    shell:
-#        '''
-#        meryl difference threads={threads} memory={params.mem} output {output} {input.asm} {input.reads}
-#        '''
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
+    run:
+        for out, r1, r2 in zip(output,input,reversed(input)):
+            shell(f'meryl difference threads={{threads}} memory={{params.mem}} output {out} {r1} {r2}')
 
 rule intersect_CN:
     input:
@@ -135,11 +101,9 @@ rule intersect_CN:
     resources:
         mem_mb = 2000
     params:
-        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/1000
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
-        '''
-        meryl intersect threads={threads} memory={params.mem} output {output} {input.reads} {wildcards.code} {wildcards.i} {input.asm}
-        '''
+        'meryl intersect threads={threads} memory={params.mem} output {output} {input.reads} {wildcards.code} {wildcards.i} {input.asm}'
 
 rule solid_reads:
     input:
@@ -151,7 +115,7 @@ rule solid_reads:
         mem_mb = 2000
     params:
         hist = '{animal}.hist',
-        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/1000,
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj'],
         path = config['merqury_path']
     shell:
         '''
@@ -171,12 +135,9 @@ rule solid_kmers:
     resources:
         mem_mb = 2000
     params:
-        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/1000
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/ocnfig['mem_adj']
     shell:
-        '''
-        meryl intersect threads={threads} memory={params.mem} output {output} {input.asm} {input.solid_read}
-        '''
-        
+        'meryl intersect threads={threads} memory={params.mem} output {output} {input.asm} {input.solid_read}'        
 
 rule populate_hist:
     input:
