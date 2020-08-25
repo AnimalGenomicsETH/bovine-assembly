@@ -6,12 +6,7 @@ localrules: split_reads, kmer_completeness, QV_stats, populate_hist, asm_CN_only
     
 rule all:
     input: 
-        'cow_hifiasm.qv.stats',
-        'cow_hifiasm.completeness.stats',
-        'cow_hifiasm.only.hist',
-        'cow_hifiasm.spectra-cn.hist',
-        'cow_hifiasm.spectra-asm.ln.png',
-        'cow_hifiasm.spectra-cn.ln.png'
+        multiext('cow_hifiasm','.qv.stats', '.completeness.stats', '.only.hist', '.spectra-cn.hist', '.spectra-asm.ln.png', '.spectra-cn.ln.png')
 
 checkpoint split_reads:
     input:
