@@ -27,7 +27,8 @@ rule all:
 
 rule raw_read_conversion:
     input:
-        lambda wildcards: reads_infile_dict[wildcards.read_name]
+        f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam'
+        #lambda wildcards: reads_infile_dict[wildcards.read_name]
     output:
         'data/{read_name}.fastq.gz'
     threads: 8
@@ -37,7 +38,8 @@ rule raw_read_conversion:
 
 rule raw_merge_files:
     input:
-        expand('data/{data_coll_run}.fastq.gz',data_coll_run=reads_infile_dict.keys())
+        expand('data/{ID}.fastq.gz',ID=glob_wildcards(f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam').read_name)
+        #expand('data/{data_coll_run}.fastq.gz',data_coll_run=reads_infile_dict.keys())
     output:
         'data/{animal}.hifi.fq.gz'
     shell: 'cat {input} > {output}'
