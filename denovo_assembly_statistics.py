@@ -67,6 +67,16 @@ def kmer_QV(animal,assembler):
                 raw_QV, adjusted_QV = (float(i) for i in line.rstrip().split()[1:])
     return (coverage, raw_QV, adjusted_QV)
 
+def load_asmgene(animal,assembler):
+    table = dict()
+    with open(f'results/{animal}_{assembler}.asmgene.txt','r') as file_in:
+        for line in file_in:
+            if line[0] != 'X':
+                continue
+            parts = line.rstrip().split()
+            table[parts[1]] = tuple(int(i) for i in parts[2:])
+    return table
+
 def busco_report(animal,assembler):
     with open(f'results/{animal}_{assembler}_busco_short_summary.txt') as file_in:
         for line in file_in:
@@ -96,10 +106,8 @@ def load_resource_benchmark(animal,assembler):
     data['walltime'] = 1
     return data         
 
-import os
 def generate_markdown_string(args):
-    build_str = '<!-- markdown-extras: code-friendly, toc -->\n\n' \
-                '# Assembly Report\n'
+    build_str = '# Assembly Report\n'
 
     build_str += f'Animal ID: **{args.animal}**\n\n' \
                  f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
@@ -142,31 +150,47 @@ def generate_markdown_string(args):
 
     lineage, busco_string = busco_report(args.animal,args.assembler)
     build_str += '### BUSCO analysis\n' \
-                 f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n'
+                 f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
+    
+    gene_map = load_asmgene(args.animal,args.assembler)
+    build_str += '| | Ref | asm |\n' \
+                 '| -------- | -------- |\n'
+
+    for row, values in gene_map.items():
+        build_str += f'| {row} | {" | ".join(map(str, values))} |\n'
+
 
     #with open('assembly_report.md','w') as file_out:
     return build_str
 
 import argparse
-from md2pdf.core import md2pdf
+from pathlib import Path
+from markdown2 import markdown
+from weasyprint import HTML, CSS
+
+def custom_PDF_writer(output,md_content,css):
+    raw_html = markdown(md_content, extras=['tables','header_ids','toc','code-friendly'])
+    full_html = raw_html.toc_html + raw_html
+    html = HTML(string=full_html,base_url=str(Path().cwd()))
+    html.write_pdf(output,stylesheets=[CSS(filename=css)])  
 
 def main(direct_input=None):
     parser = argparse.ArgumentParser(description='Produce assembly report.')
-    parser.add_argument('--animal', default='', type=str)
-    parser.add_argument('--assembler', default='', type=str)
+    parser.add_argument('--animal', type=str, required=True)
+    parser.add_argument('--assembler', nargs='+', required=True)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
-    parser.add_argument('--jobname', default='', type=str)
     parser.add_argument('--keepfig', action='store_true')
-    parser.add_argument('--css', default='github.css', type=str)
+    parser.add_argument('--css', default='', type=str)
 
     args = parser.parse_args(direct_input)
-    css_path = args.css if os.path.isfile(args.css) else ''
+    css_path = args.css if Path(args.css).is_file() else ''
 
     md_string = generate_markdown_string(args)
     print(md_string)
-    md2pdf(args.outfile,md_content=md_string,css_file_path=css_path,base_url=os.getcwd())
-    if not args.keepfig and os.path.isfile(f'{animal}_{assembler}_auN_curves.png'):
-        os.remove(f'{animal}_{assembler}_auN_curves.png')
+
+    custom_PDF_writer(args.outfile,md_string,css_path)
+    if not args.keepfig:
+        Path(f'{args.animal}_{args.assembler}_auN_curves.png').unlink(missing_ok=True)
     
 if __name__ == "__main__":
     main()
