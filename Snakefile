@@ -23,7 +23,7 @@ for _dir in ['data','results','intermediates']:
 #------------#
 rule all:
     input:
-        expand('{animal}_{assembler}_analysis_report.pdf',animal=config['animal'],assembler=config['assemblers'])
+        expand('{animal}_analysis_report.pdf',animal=config['animal'])
 
 rule raw_read_conversion:
     input:
@@ -177,15 +177,16 @@ rule generate_reffai:
 
 rule analysis_report:
     input:
-        expand('results/{{animal}}_{{assembler}}.{ext}',ext=config['target_metrics']),
-        'results/{animal}_{assembler}_busco_short_summary.txt'
+        expand('results/{{animal}}_{assembler}.{ext}',assembler=config['assemblers'],ext=config['target_metrics']),
+        expand('results/{{animal}}_{assembler}_busco_short_summary.txt',assembler=config['assemblers']),
+        assemblers = config['assemblers']
     output:
-        '{animal}_{assembler}_analysis_report.pdf'
+        '{animal}_analysis_report.pdf'
     params:
         base_dir = workflow.basedir
     log:
-        'logs/analysis_report/animal-{animal}.assembler-{assembler}.out'
-    shell: 'python {params.base_dir}/denovo_assembly_statistics.py --animal {wildcards.animal} --assembler {wildcards.assembler} --outfile {output} --css {params.base_dir}/github.css > {log}'
+        'logs/analysis_report/animal-{animal}.out'
+    shell: 'python {params.base_dir}/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {input.assemblers} --outfile {output} --css {params.base_dir}/github.css > {log}'
 
 onsuccess:
     print('Cleaning up intermediate files')

@@ -106,29 +106,25 @@ def load_resource_benchmark(animal,assembler):
     data['walltime'] = 1
     return data         
 
-def generate_markdown_string(args):
-    build_str = '# Assembly Report\n'
+def generate_markdown_string(animal,assembler):
+    build_str = f'# Assembler: **{assembler}**\n'
 
-    build_str += f'Animal ID: **{args.animal}**\n\n' \
-                 f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
-
-    resource_stats = load_resource_benchmark(args.animal,args.assembler)
+    resource_stats = load_resource_benchmark(animal,assembler)
     
-    build_str += '## Assembler details\n' \
-                 f'Assembler: **{args.assembler}**\n\n' \
+    build_str += '## Resource details\n' \
                  f'Runtime (wall/cpu): {resource_stats["walltime"]}s / {resource_stats["cputime"]}s\n\n' \
                  f'>_average threading_ = {resource_stats["cputime"]/resource_stats["walltime"]:.3f}\n\n' \
                  f'Memory (mean/max): {resource_stats["mean_mem"]}mb / {resource_stats["max_mem"]}mb\n\n'
 
     build_str += '## Assembly metrics\n'
 
-    asm_metrics, aln_metrics = plot_auNCurves(args.animal,args.assembler)
+    asm_metrics, aln_metrics = plot_auNCurves(animal,assembler)
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.2f}gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]}\n\n'
 
     build_str += f'Contig length and quantity\n\n' \
                  f'**N50** {asm_metrics["N50"]/1e6:.2f}mb\n\n' \
-                 f'![alt text]({args.animal}_{args.assembler}_auN_curves.png)' \
+                 f'![alt text]({animal}_{assembler}_auN_curves.png)' \
                  f'auN value: {asm_metrics["AU"]}\n\n'
 
     #auN_data, NGA_data = load_NGA(args.animal)
@@ -143,24 +139,22 @@ def generate_markdown_string(args):
                  f'  + breaks: {aln_metrics["#breaks"]}\n' \
                  f'  + auNGA: {aln_metrics["AUNGA"]}\n'
 
-    kmer_stats = kmer_QV(args.animal,args.assembler)
+    kmer_stats = kmer_QV(animal,assembler)
     build_str += '### K-mer validation\n' \
                  f'Coverage: {kmer_stats[0]:.1%}\n\n' \
                  f'QV (raw/adjusted): {kmer_stats[1]} / {kmer_stats[2]}\n\n'
 
-    lineage, busco_string = busco_report(args.animal,args.assembler)
+    lineage, busco_string = busco_report(animal,assembler)
     build_str += '### BUSCO analysis\n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
     
-    gene_map = load_asmgene(args.animal,args.assembler)
+    gene_map = load_asmgene(animal,assembler)
     build_str += '| | Ref | asm |\n' \
                  '| -------- | -------- |\n'
 
     for row, values in gene_map.items():
         build_str += f'| {row} | {" | ".join(map(str, values))} |\n'
 
-
-    #with open('assembly_report.md','w') as file_out:
     return build_str
 
 import argparse
@@ -168,16 +162,17 @@ from pathlib import Path
 from markdown2 import markdown
 from weasyprint import HTML, CSS
 
-def custom_PDF_writer(output,md_content,css):
+def custom_PDF_writer(output,prepend_str,md_content,css):
+    header = markdown(prepend_str)
     raw_html = markdown(md_content, extras=['tables','header_ids','toc','code-friendly'])
-    full_html = raw_html.toc_html + raw_html
+    full_html = header + raw_html.toc_html + raw_html
     html = HTML(string=full_html,base_url=str(Path().cwd()))
     html.write_pdf(output,stylesheets=[CSS(filename=css)])  
 
 def main(direct_input=None):
     parser = argparse.ArgumentParser(description='Produce assembly report.')
     parser.add_argument('--animal', type=str, required=True)
-    parser.add_argument('--assembler', nargs='+', required=True)
+    parser.add_argument('--assemblers', nargs='+', required=True)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
     parser.add_argument('--keepfig', action='store_true')
     parser.add_argument('--css', default='', type=str)
@@ -185,12 +180,18 @@ def main(direct_input=None):
     args = parser.parse_args(direct_input)
     css_path = args.css if Path(args.css).is_file() else ''
 
-    md_string = generate_markdown_string(args)
-    print(md_string)
+    prepend_str = f'Animal ID: **{args.animal}**\n\n' \
+                  f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n' \
+                  '# Table of contents'
 
-    custom_PDF_writer(args.outfile,md_string,css_path)
+    md_string = ''
+    for assembler in args.assemblers:
+        md_string += generate_markdown_string(args.animal,assembler)
+    
+    custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:
-        Path(f'{args.animal}_{args.assembler}_auN_curves.png').unlink(missing_ok=True)
+        for assembler in args.assemblers:
+            Path(f'{args.animal}_{assembler}_auN_curves.png').unlink(missing_ok=True)
     
 if __name__ == "__main__":
     main()
