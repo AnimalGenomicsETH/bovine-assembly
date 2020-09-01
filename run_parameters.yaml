@@ -10,3 +10,4 @@ target_metrics:
   - 'asm-ccs.qv.txt'
   - 'NGA50.txt'
   - 'auN.txt'
+  - 'asmgene.txt'

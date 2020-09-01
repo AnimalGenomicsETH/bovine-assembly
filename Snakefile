@@ -51,10 +51,10 @@ if 'hifiasm' in config['assemblers']:
             'data/{animal}.hifi.fq.gz'
         output:
             'hifiasm/{animal}.asm.p_ctg.gfa'
-        threads: 24
+        threads: 36
         resources:
-            mem_mb = 6000,
-            walltime = "8:00"
+            mem_mb = 3100,
+            walltime = '16:00'
         shell: 'hifiasm -o hifiasm/{wildcards.animal}.asm -t {threads} {input}'
 
 if 'canu' in config['assemblers']:
@@ -70,7 +70,7 @@ if 'canu' in config['assemblers']:
             '{animal}.complete'
         shell:
             '''
-            canu -p {wildcards.animal} -d canu genomeSize=2.7g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g onSuccess="touch {params}" > {log}
+            canu -p {wildcards.animal} -d canu genomeSize=3g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g onSuccess="touch {params}" > {log}
             while [ ! -e canu/{params} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
             rm canu/{params}
@@ -93,7 +93,7 @@ rule validation_yak:
         reads = 'data/{animal}.hifi.fq.gz',
         contigs = '{assembler}/{animal}.contigs.fasta'
     output:
-        yak = 'intermediates/{animal}_{assembler}.yal',
+        yak = temp('intermediates/{animal}_{assembler}.yak'),
         qv = 'results/{animal}_{assembler}.asm-ccs.qv.txt'
     threads: 16
     resources:
@@ -120,16 +120,16 @@ rule validation_refalign:
         ref_fai  = f'{config["ref_genome"]}.fai',
         asm = '{assembler}/{animal}.contigs.fasta'
     output:
-        paf = 'intermediates/{animal}_{assembler}_asm.paf',
+        paf = temp('intermediates/{animal}_{assembler}_asm.paf'),
         NGA = 'results/{animal}_{assembler}.NGA50.txt'
-    threads: 16
+    threads: 24
     resources:
-        mem_mb = 3500,
+        mem_mb = 3000,
         walltime = '2:00'
     shell:
         '''
-        minigraph -xasm -K1.9g --show-unmap=yes -t {threads} {input.ref} {input.asm} > {output.paf}    
-        paftool.js asmstat {input.ref_fai} {output.paf} > {output.NGA}
+        minigraph -k 21 -xasm  --show-unmap=yes -t {threads} {input.ref} {input.asm} > {output.paf}    
+        paftools.js asmstat {input.ref_fai} {output.paf} > {output.NGA}
         '''
 
 rule validation_asmgene:
@@ -138,16 +138,16 @@ rule validation_asmgene:
         reads = 'data/{animal}.hifi.fq.gz',
         cDNAs = config['cDNAs']
     output:
-        asm_paf = 'intermediates/{animal}_{assembler}_asm_aln.paf',
-        ref_paf = 'intermediates/{animal}_{assembler}_ref_aln.paf',
+        asm_paf = temp('intermediates/{animal}_{assembler}_asm_aln.paf'),
+        ref_paf = temp('intermediates/{animal}_{assembler}_ref_aln.paf'),
         asmgene = 'results/{animal}_{assembler}.asmgene.txt'
     threads: 24
     resources:
         mem_mb = 2500
     shell:
         '''
-        minimap2 -cxsplice:hq -t {threads} {input.asm} {input.cDNAs} > {outputs.asm_paf}
-        minimap2 -cxsplice:hq -t {threads} {input.reads} {input.cDNAs} > {outputs.ref_paf}
+        minimap2 -cxsplice:hq -t {threads} {input.asm} {input.cDNAs} > {output.asm_paf}
+        minimap2 -cxsplice:hq -t {threads} {input.reads} {input.cDNAs} > {output.ref_paf}
         paftools.js asmgene -i.97 {output.ref_paf} {output.asm_paf} > {output.asmgene}
         '''
 
@@ -160,7 +160,8 @@ rule validation_busco:
         summary = 'results/{animal}_{assembler}_busco_short_summary.txt'
     threads: 24
     resources:
-        mem_mb = 3000
+        mem_mb = 3000,
+        walltime = '12:00'
     shell: 
         '''
         busco --cpu {threads} -i {input} -o {output.out_dir}
@@ -182,4 +183,10 @@ rule analysis_report:
         '{animal}_{assembler}_analysis_report.pdf'
     params:
         base_dir = workflow.basedir
-    shell: 'python {params.base_dir}/denovo_assembly_statistics.py --animal {wildcards.animal} --assembler {wildcards.assembler} --outfile {output}'
+    log:
+        'logs/analysis_report/animal-{animal}.assembler-{assembler}.out'
+    shell: 'python {params.base_dir}/denovo_assembly_statistics.py --animal {wildcards.animal} --assembler {wildcards.assembler} --outfile {output} --css {params.base_dir}/github.css > {log}'
+
+onsuccess:
+    print('Cleaning up intermediate files')
+    shell('rm -rf intermediates')

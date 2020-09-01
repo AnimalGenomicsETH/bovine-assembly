@@ -10,6 +10,8 @@ def load_auNCurves(animal,assembler):
                 x, Nx, Lx  = (int(i) for i in line.rstrip().split()[1:])
                 auN_values[0].append(Nx)
                 auN_values[1].append(Lx)
+                if x == 50:
+                    metrics['N50'] = Nx
                 #[x//10] = (Nx,Lx)
             elif line[:2] != 'CC':
                 metrics[line[:2]] = int(line.split()[-1])
@@ -21,7 +23,7 @@ def plot_auNCurves(animal,assembler):
     data, metrics = load_auNCurves(animal,assembler)
     auN_data, aln_metrics = load_NGA(animal,assembler)
     
-    fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(4, 2.5))
+    fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(6, 4))
     
     x_vals = linspace(0,100,len(data[0]))
     ax_N.plot(x_vals,data[0],'forestgreen',label='Nx')
@@ -41,7 +43,7 @@ def plot_auNCurves(animal,assembler):
     ax_L.set_ylabel('number of contigs',fontsize=14)
 
     plt.tight_layout()
-    fig.savefig('auN_curves.png')
+    fig.savefig(f'{animal}_{assembler}_auN_curves.png')
 
     return metrics, aln_metrics
 
@@ -75,32 +77,35 @@ def busco_report(animal,assembler):
 
 def load_resource_benchmark(animal,assembler):
     info_calls = {'CPU time':'cputime', 'Run time':'walltime', 'Max Memory':'max_mem', 'Average Memory':'mean_mem', 'Delta Memory':'delta_mem'}
-    data = {code:0 for code in info_calls.values()}
-    data['walltime'] = 1
+    data = dict()
     reached_resources = False 
     with open(f'logs/assembler_{assembler}/animal-{animal}.out','r') as benchmark:
         for line in benchmark:
             if not reached_resources:
                 reached_resources = 'Resource usage summary:' in line
             elif len(data) == len(info_calls):
-                break
+                return data
             elif len(line) > 1:
                 code, raw_val = line.strip().split(' :')
                 if code not in info_calls:
                     continue
                 val = int(float(raw_val.strip().split()[0]))
                 data[info_calls[code]] = val
+    #default values
+    data = {code:0 for code in info_calls.values()}
+    data['walltime'] = 1
     return data         
 
 import os
 def generate_markdown_string(args):
-    build_str = '# Assembly Report\n'
+    build_str = '<!-- markdown-extras: code-friendly, toc -->\n\n' \
+                '# Assembly Report\n'
 
     build_str += f'Animal ID: **{args.animal}**\n\n' \
                  f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
 
     resource_stats = load_resource_benchmark(args.animal,args.assembler)
-    print(resource_stats)
+    
     build_str += '## Assembler details\n' \
                  f'Assembler: **{args.assembler}**\n\n' \
                  f'Runtime (wall/cpu): {resource_stats["walltime"]}s / {resource_stats["cputime"]}s\n\n' \
@@ -114,7 +119,8 @@ def generate_markdown_string(args):
                  f'Total contigs: {asm_metrics["NN"]}\n\n'
 
     build_str += f'Contig length and quantity\n\n' \
-                 '![alt text](auN_curves.png)' \
+                 f'**N50** {asm_metrics["N50"]/1e6:.2f}mb\n\n' \
+                 f'![alt text]({args.animal}_{args.assembler}_auN_curves.png)' \
                  f'auN value: {asm_metrics["AU"]}\n\n'
 
     #auN_data, NGA_data = load_NGA(args.animal)
@@ -150,17 +156,17 @@ def main(direct_input=None):
     parser.add_argument('--assembler', default='', type=str)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
     parser.add_argument('--jobname', default='', type=str)
-    parser.add_argument('--keepfig', default=False, type=bool)
-    
+    parser.add_argument('--keepfig', action='store_true')
+    parser.add_argument('--css', default='github.css', type=str)
 
     args = parser.parse_args(direct_input)
-    css_path = 'github.css' if os.path.isfile('github.css') else ''
-    
+    css_path = args.css if os.path.isfile(args.css) else ''
 
     md_string = generate_markdown_string(args)
+    print(md_string)
     md2pdf(args.outfile,md_content=md_string,css_file_path=css_path,base_url=os.getcwd())
-    if not args.keepfig and os.path.isfile('auN_curves.png'):
-        os.remove('auN_curves.png')
+    if not args.keepfig and os.path.isfile(f'{animal}_{assembler}_auN_curves.png'):
+        os.remove(f'{animal}_{assembler}_auN_curves.png')
     
 if __name__ == "__main__":
     main()
