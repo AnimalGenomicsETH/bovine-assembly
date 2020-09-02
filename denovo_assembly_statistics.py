@@ -3,7 +3,7 @@ import datetime
 
 def load_auNCurves(animal,assembler):
     auN_values, metrics = [[],[]], dict()
-    
+
     with open(f'results/{animal}_{assembler}.auN.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'NL':
@@ -15,16 +15,16 @@ def load_auNCurves(animal,assembler):
                 #[x//10] = (Nx,Lx)
             elif line[:2] != 'CC':
                 metrics[line[:2]] = int(line.split()[-1])
-                 
+
     return auN_values, metrics
-    
-from numpy import linspace            
+
+from numpy import linspace
 def plot_auNCurves(animal,assembler):
     data, metrics = load_auNCurves(animal,assembler)
     auN_data, aln_metrics = load_NGA(animal,assembler)
-    
+
     fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(6, 4))
-    
+
     x_vals = linspace(0,100,len(data[0]))
     ax_N.plot(x_vals,data[0],'forestgreen',label='Nx')
     ax_N.plot(x_vals,auN_data[0],'darkorange',label='NGx')
@@ -38,7 +38,7 @@ def plot_auNCurves(animal,assembler):
     ax_N.set_title('Nx',fontsize=18)
     ax_N.set_ylabel('contig length',fontsize=14)
     ax_N.legend()
-    
+
     ax_L.set_title('Lx',fontsize=18)
     ax_L.set_ylabel('number of contigs',fontsize=14)
 
@@ -88,7 +88,7 @@ def busco_report(animal,assembler):
 def load_resource_benchmark(animal,assembler):
     info_calls = {'CPU time':'cputime', 'Run time':'walltime', 'Max Memory':'max_mem', 'Average Memory':'mean_mem', 'Delta Memory':'delta_mem'}
     data = dict()
-    reached_resources = False 
+    reached_resources = False
     with open(f'logs/assembler_{assembler}/animal-{animal}.out','r') as benchmark:
         for line in benchmark:
             if not reached_resources:
@@ -104,14 +104,14 @@ def load_resource_benchmark(animal,assembler):
     #default values
     data = {code:0 for code in info_calls.values()}
     data['walltime'] = 1
-    return data         
+    return data
 
 def generate_markdown_string(animal,assembler):
     build_str = '\n\n---\n\n' \
                 f'# Assembler: **{assembler}**\n'
 
     resource_stats = load_resource_benchmark(animal,assembler)
-    
+
     build_str += '## resource details\n' \
                  f'Runtime (wall/cpu): {resource_stats["walltime"]}s / {resource_stats["cputime"]}s\n\n' \
                  f'>*average threading* = {resource_stats["cputime"]/resource_stats["walltime"]:.1f}\n\n' \
@@ -143,14 +143,16 @@ def generate_markdown_string(animal,assembler):
     build_str += '## validation results\n\n'
 
     kmer_stats = kmer_QV(animal,assembler)
-    build_str += '### K-mer validation\n' \
+    build_str += '### k-mer spectra\n' \
                  f'Coverage: {kmer_stats[0]:.1%}\n\n' \
                  f'QV (raw/adjusted): {kmer_stats[1]} / {kmer_stats[2]}\n\n'
 
     lineage, busco_string = busco_report(animal,assembler)
-    build_str += '### BUSCO analysis\n' \
+    build_str += '### BUSCO \n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
-    
+
+    build_str += '### asmgene\n'
+
     gene_map = load_asmgene(animal,assembler)
     build_str += '| | Ref | asm |\n' \
                  '| -------- | -------- |\n'
@@ -170,7 +172,7 @@ def custom_PDF_writer(output,prepend_str,md_content,css):
     raw_html = markdown(md_content, extras=['tables','header_ids','toc','code-friendly','cuddled-lists'])
     full_html = header + raw_html.toc_html + raw_html
     html = HTML(string=full_html,base_url=str(Path().cwd()))
-    html.write_pdf(output,stylesheets=[CSS(filename=css)])  
+    html.write_pdf(output,stylesheets=[CSS(filename=css)])
 
 def main(direct_input=None):
     parser = argparse.ArgumentParser(description='Produce assembly report.')
@@ -190,11 +192,11 @@ def main(direct_input=None):
     md_string = ''
     for assembler in args.assemblers:
         md_string += generate_markdown_string(args.animal,assembler)
-    
+
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:
         for assembler in args.assemblers:
             Path(f'{args.animal}_{assembler}_auN_curves.png').unlink(missing_ok=True)
-    
+
 if __name__ == "__main__":
     main()
