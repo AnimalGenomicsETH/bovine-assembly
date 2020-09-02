@@ -107,16 +107,17 @@ def load_resource_benchmark(animal,assembler):
     return data         
 
 def generate_markdown_string(animal,assembler):
-    build_str = f'# Assembler: **{assembler}**\n'
+    build_str = '\n\n---\n\n' \
+                f'# Assembler: **{assembler}**\n'
 
     resource_stats = load_resource_benchmark(animal,assembler)
     
-    build_str += '## Resource details\n' \
+    build_str += '## resource details\n' \
                  f'Runtime (wall/cpu): {resource_stats["walltime"]}s / {resource_stats["cputime"]}s\n\n' \
-                 f'>_average threading_ = {resource_stats["cputime"]/resource_stats["walltime"]:.3f}\n\n' \
+                 f'>*average threading* = {resource_stats["cputime"]/resource_stats["walltime"]:.1f}\n\n' \
                  f'Memory (mean/max): {resource_stats["mean_mem"]}mb / {resource_stats["max_mem"]}mb\n\n'
 
-    build_str += '## Assembly metrics\n'
+    build_str += '## assembly metrics\n'
 
     asm_metrics, aln_metrics = plot_auNCurves(animal,assembler)
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.2f}gb\n\n' \
@@ -131,13 +132,15 @@ def generate_markdown_string(animal,assembler):
 
     build_str += '---\n\n'
     build_str += 'Reference metrics\n' \
-                 '+ Coverage\n' \
-                 f'  + Rcov: {aln_metrics["Rcov"]}\n' \
-                 f'  + Rdup: {aln_metrics["Rdup"]}\n' \
-                 f'  + Qcov: {aln_metrics["Qcov"]}\n' \
-                 '+ Contigs\n' \
-                 f'  + breaks: {aln_metrics["#breaks"]}\n' \
-                 f'  + auNGA: {aln_metrics["AUNGA"]}\n'
+                 '* Coverage\n' \
+                 f'  * Rcov: {aln_metrics["Rcov"]}\n' \
+                 f'  * Rdup: {aln_metrics["Rdup"]}\n' \
+                 f'  * Qcov: {aln_metrics["Qcov"]}\n' \
+                 '* Contigs\n' \
+                 f'  * breaks: {aln_metrics["#breaks"]}\n' \
+                 f'  * auNGA: {aln_metrics["AUNGA"]}\n'
+
+    build_str += '## validation results\n\n'
 
     kmer_stats = kmer_QV(animal,assembler)
     build_str += '### K-mer validation\n' \
@@ -164,7 +167,7 @@ from weasyprint import HTML, CSS
 
 def custom_PDF_writer(output,prepend_str,md_content,css):
     header = markdown(prepend_str)
-    raw_html = markdown(md_content, extras=['tables','header_ids','toc','code-friendly'])
+    raw_html = markdown(md_content, extras=['tables','header_ids','toc','code-friendly','cuddled-lists'])
     full_html = header + raw_html.toc_html + raw_html
     html = HTML(string=full_html,base_url=str(Path().cwd()))
     html.write_pdf(output,stylesheets=[CSS(filename=css)])  
