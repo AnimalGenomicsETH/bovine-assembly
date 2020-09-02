@@ -1,16 +1,18 @@
 from glob import glob
 
 configfile: 'merqury_config.yaml'
+workdir: '../second_test'
 
 localrules: split_reads, kmer_completeness, QV_stats, populate_hist, asm_CN_only, make_plots
+
     
 rule all:
     input: 
-        multiext('cow_hifiasm','.qv.stats', '.completeness.stats', '.only.hist', '.spectra-cn.hist', '.spectra-asm.ln.png', '.spectra-cn.ln.png')
+        multiext('BSWCHEF120152514636_hifiasm','.qv.stats', '.completeness.stats', '.only.hist', '.spectra-cn.hist', '.spectra-asm.ln.png', '.spectra-cn.ln.png')
 
 checkpoint split_reads:
     input:
-        'data/{animal}.fq.gz'
+        'data/{animal}.hifi.fq.gz'
     output:
         directory('split_{animal}')
     params:

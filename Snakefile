@@ -64,7 +64,7 @@ if 'canu' in config['assemblers']:
         input:
             'data/{animal}.hifi.fq.gz'
         output:
-            'canu/{animal}.contigs.fasta'
+            'canu/{animal}.contigs_raw.fasta'
         log: 'logs/assembler_canu/animal-{animal}.out'
         params:
             '{animal}.complete'
@@ -74,8 +74,26 @@ if 'canu' in config['assemblers']:
             while [ ! -e canu/{params} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
             rm canu/{params}
+            mv canu/{wildcards.animal}.contigs.fasta {output}
             '''
+    include: 'purge_duplicates.smk'
 
+if 'flye' in config['assemblers']:
+    Path('flye').mkdir(exist_ok=True)
+    rule assembler_flye:
+        input:
+            'data/{animal}.hifi.fq.gz'
+        output:
+            'flye/{animal}.contigs.fasta'
+        threads: 36
+        resources:
+            mem_mb = 4500,
+            walltime = '20:00'
+        shell:
+            '''
+            flye --pacbio-hifi {input} -t {threads} --keep-haplotypes -o flye
+            mv flye assembly.fasta {output}
+            '''
 
 ##Requires gfatools installed
 rule assembler_hifi_conversion:

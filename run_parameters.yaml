@@ -6,8 +6,10 @@ animal: 'BSWCHEF120152514636'
 assemblers:
   - 'hifiasm'
   - 'canu'
+  - 'flye'
 target_metrics:
   - 'asm-ccs.qv.txt'
   - 'NGA50.txt'
   - 'auN.txt'
   - 'asmgene.txt'
+pd_root: '/cluster/work/pausch/alex/software/purge_dups'
