@@ -1,4 +1,4 @@
-localrules: cut_and_split, purge_dups
+localrules: cut_and_split, purge_dups, assess_purging, KMC_analysis
 
 rule map_reads:
     input:
@@ -23,7 +23,7 @@ rule cut_and_split:
     shell:
         '''
         {params}/bin/pbcstat {input.paf} -O canu
-        {params}/bin/calcuts PB.stat > cutoffs -O canu
+        {params}/bin/calcuts canu/PB.stat > canu/cutoffs
         {params}/bin/split_fa {input.contigs} > {output.splits}
         '''
 
@@ -43,31 +43,62 @@ rule purge_dups:
         paf = 'canu/{animal}_ctg-aln.paf',
         contigs = 'canu/{animal}.contigs_raw.fasta'
     output:
-        'canu/{animal}.contigs.fasta'
-        #rename contigs
-        #'canu/{animal}.spectra.png'
+        contigs = 'canu/{animal}.purged.fa',
+    params:
+        config['pd_root']
     shell:
         '''
-        {config["pd_root"]}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > canu/dups.bed
-        {config["pd_root"]}/bin/get_seqs canu/dups.bed {input.contigs} -p canu/{wildcards.animal}
-        touch {output}
+        {params}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > canu/dups.bed
+        {params}/bin/get_seqs canu/dups.bed {input.contigs} -p canu/{wildcards.animal}
         '''
+
+rule assess_purging:
+    input:
+        'canu/{animal}.matrix'
+    output:
+        'canu/{animal}.contigs.fasta'
+    shell:
+        'mv canu/{wildcards.animal}.purged.fa {output}'
 
 rule KMC_reads:
     input:
         'data/{animal}.hifi.fq.gz'
     output:
-        'canu/{animal}_kmer_reads'
+        multiext('canu/{animal}_kmer_reads','','kmc_pre','kmc_suf')
+    threads: 12
+    resources:
+        mem_mb = 3000,
+        disk_scratch = 15000
+    params:
+        out = lambda wildcards: f'canu/{wildcards.animal}_kmer_reads',
+        memory = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj'],
+        root = config['kmc_root'],
+        K = config['k-mers']
     shell:
-        '{config["kmc_root"}/bin/kmc -ci0 -cs5000 -t {threads} -m {params.memory} -k {config["kmer"]} {input} {output}'
+        '''
+        {params.root}/bin/kmc -ci0 -cs5000 -t{threads} -fq -m{params.memory} -k{params.K} {input} {params.out} $TMPDIR
+        touch canu/{wildcards.animal}_kmer_reads
+        '''
 
 rule KMC_ref:
     input:
-        'canu/{animal}.contigs.fasta'
+        'canu/{animal}.purged.fa'
     output:
-        'canu/{animal}_kmer_asm'
+        multiext('canu/{animal}_kmer_asm','','kmc_pre','kmer_suf')
+    threads: 12
+    resources:
+        mem_mb = 3000,
+        disk_scratch = 15000
+    params:
+        out = lambda wildcards: f'canu/{wildcards.animal}_kmer_asm',
+        memory = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj'],
+        root = config['kmc_root'],
+        K = config['k-mers']
     shell:
-        '{config["kmc_root"]}/bin/kmc -ci0 -t {threads} -fm -m {params.memory} -k {config["kmer"]} {input} {output}'
+        '''
+        {params.root}/bin/kmc -ci0 -t{threads} -fm -m{params.memory} -k{params.K} {input} {params.out} $TMPDIR
+        touch canu/{wildcards.animal}_kmer_asm
+        '''
 
 rule KMC_analysis:
     input:
@@ -76,8 +107,10 @@ rule KMC_analysis:
     output:
         matrix = 'canu/{animal}.matrix',
         plot = 'canu/{animal}.spectra.png'
+    params:
+        config['kmc_root']
     shell:
         '''
-        {config["kmc_root"]}/bin/kmc_tools analyze {input.reads} {inputs.asm} {output.matrix}
-        python3 {config["kmc_root"]}/spectra.py {output.matrix} {output.plot}
+        {params}/bin/kmc_tools analyze {input.reads} {input.asm} {output.matrix}
+        python3 {params}/spectra.py {output.matrix} {output.plot}
         '''

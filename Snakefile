@@ -87,7 +87,7 @@ if 'flye' in config['assemblers']:
             'flye/{animal}.contigs.fasta'
         threads: 36
         resources:
-            mem_mb = 6000,
+            mem_mb = 6500,
             walltime = '20:00'
         shell:
             '''
