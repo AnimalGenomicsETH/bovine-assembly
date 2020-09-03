@@ -132,7 +132,7 @@ rule solid_kmers:
     resources:
         mem_mb = 2000
     params:
-        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/ocnfig['mem_adj']
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
         'meryl intersect threads={threads} memory={params.mem} output {output} {input.asm} {input.solid_read}'        
 
@@ -164,6 +164,7 @@ rule asm_CN_only:
         '{animal}_{assembler}.only.hist'
     shell:
         '''
+        set +e > /dev/null
         PRESENT=`meryl statistics {input} | head -n4 | tail -n1 | awk '{{print $2}}'`
 	    DISTINCT=`meryl statistics {input} | head -n3 | tail -n1 | awk '{{print $2}}'`
 	    MULTI=$(($PRESENT-$DISTINCT))

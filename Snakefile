@@ -70,7 +70,7 @@ if 'canu' in config['assemblers']:
             '{animal}.complete'
         shell:
             '''
-            canu -p {wildcards.animal} -d canu genomeSize=3g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g onSuccess="touch {params}" > {log}
+            canu -p {wildcards.animal} -d canu genomeSize={config["genome_est"]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params}" > {log}
             while [ ! -e canu/{params} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
             rm canu/{params}
@@ -87,11 +87,11 @@ if 'flye' in config['assemblers']:
             'flye/{animal}.contigs.fasta'
         threads: 36
         resources:
-            mem_mb = 4500,
+            mem_mb = 6000,
             walltime = '20:00'
         shell:
             '''
-            flye --pacbio-hifi {input} -t {threads} --keep-haplotypes -o flye
+            flye --pacbio-hifi {input} -t {threads} --keep-haplotypes -o flye --resume
             mv flye assembly.fasta {output}
             '''
 

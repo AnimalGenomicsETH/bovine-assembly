@@ -3,10 +3,11 @@ raw_data: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/
 ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
 cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
 animal: 'BSWCHEF120152514636'
+genome_est: 3.1
 assemblers:
   - 'hifiasm'
   - 'canu'
-  - 'flye'
+  #- 'flye'
 target_metrics:
   - 'asm-ccs.qv.txt'
   - 'NGA50.txt'
