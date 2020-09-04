@@ -64,16 +64,17 @@ if 'canu' in config['assemblers']:
         input:
             'data/{animal}.hifi.fq.gz'
         output:
-            'canu/{animal}.contigs_raw.fasta'
+            'canu/{animal}.contigs_raw.fa'
         log: 'logs/assembler_canu/animal-{animal}.out'
         params:
-            '{animal}.complete'
+            temp = '{animal}.complete',
+            g_est = config['genome_est']
         shell:
             '''
-            canu -p {wildcards.animal} -d canu genomeSize={config["genome_est"]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params}" > {log}
-            while [ ! -e canu/{params} ]; do sleep 60; done
+            canu -p {wildcards.animal} -d canu genomeSize={params.g_est}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" > {log}
+            while [ ! -e canu/{params.temp} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
-            rm canu/{params}
+            rm canu/{params.temp}
             mv canu/{wildcards.animal}.contigs.fasta {output}
             '''
     include: 'purge_duplicates.smk'
