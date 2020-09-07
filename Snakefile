@@ -18,17 +18,23 @@ localrules: analysis_report, raw_merge_files
 for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
 
+include: 'kmer_meryl.smk'
+
+wildcard_constraints:
+    animal = r'\w+',
+    assembler = r'\w+'
+ 
 #------------#
 #DEFINE RULES#
 #------------#
 rule all:
     input:
-        expand('{animal}_analysis_report.pdf',animal=config['animal'])
+        expand('{animal}_analysis_report.pdf',animal=config['animal']),
+        f'dummy_file_hifiasm_{config["animal"]}.txt'
 
 rule raw_read_conversion:
     input:
         f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam'
-        #lambda wildcards: reads_infile_dict[wildcards.read_name]
     output:
         'data/{read_name}.fastq.gz'
     threads: 8
@@ -39,7 +45,6 @@ rule raw_read_conversion:
 rule raw_merge_files:
     input:
         expand('data/{ID}.fastq.gz',ID=glob_wildcards(f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam').read_name)
-        #expand('data/{data_coll_run}.fastq.gz',data_coll_run=reads_infile_dict.keys())
     output:
         'data/{animal}.hifi.fq.gz'
     shell: 'cat {input} > {output}'
@@ -56,6 +61,16 @@ if 'hifiasm' in config['assemblers']:
             mem_mb = 3100,
             walltime = '16:00'
         shell: 'hifiasm -o hifiasm/{wildcards.animal}.asm -t {threads} {input}'
+
+ ##Requires gfatools installed
+rule assembler_hifi_conversion:
+    input:
+        'hifiasm/{animal}.asm.p_ctg.gfa'
+    output:
+        'hifiasm/{animal}.contigs.fasta'
+    resources:
+        mem_mb = 6000
+    shell: 'gfatools gfa2fa {input} > {output}'
 
 if 'canu' in config['assemblers']:
     Path('canu').mkdir(exist_ok=True)
@@ -89,22 +104,12 @@ if 'flye' in config['assemblers']:
         threads: 36
         resources:
             mem_mb = 6500,
-            walltime = '20:00'
+            walltime = '24:00'
         shell:
             '''
-            flye --pacbio-hifi {input} -t {threads} --keep-haplotypes -o flye --resume
-            mv flye assembly.fasta {output}
+            flye --pacbio-hifi {input} -t {threads} --keep-haplotypes -o flye
+            mv flye/assembly.fasta {output}
             '''
-
-##Requires gfatools installed
-rule assembler_hifi_conversion:
-    input:
-        'hifiasm/{animal}.asm.p_ctg.gfa'
-    output:
-        'hifiasm/{animal}.contigs.fasta'
-    resources:
-        mem_mb = 6000
-    shell: 'gfatools gfa2fa {input} > {output}'
 
 ##Requires yak installed
 rule validation_yak:
@@ -175,16 +180,19 @@ rule validation_busco:
     input:
         '{assembler}/{animal}.contigs.fasta'    
     output:
-        out_dir = directory('{animal}_{assembler}_busco_results'),
+        out_dir = directory('{assembler}/{animal}_BUSCO'),
         summary = 'results/{animal}_{assembler}_busco_short_summary.txt'
+    params:
+        tmp_dir = '{animal}_{assembler}_busco_results'
     threads: 24
     resources:
         mem_mb = 3000,
         walltime = '12:00'
     shell: 
         '''
-        busco --cpu {threads} -i {input} -o {output.out_dir}
-        cp {output.out_dir}/short_summary*.txt {output.summary}
+        busco --cpu {threads} -i {input} -o {params.tmp_dir}
+        cp {params.tmp_dir}/short_summary*.txt {output.summary}
+        mv {params.tmp_dir} {output.out_dir}
         '''
     
 rule generate_reffai:

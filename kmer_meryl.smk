@@ -1,20 +1,21 @@
 from glob import glob
 
-configfile: 'merqury_config.yaml'
-workdir: '../second_test'
+#configfile: 'merqury_config.yaml'
+#workdir: '../second_test'
 
-localrules: split_reads, kmer_completeness, QV_stats, populate_hist, asm_CN_only, make_plots
+localrules: split_reads, kmer_completeness, QV_stats, populate_hist, asm_CN_only, make_plots, merqury_submit
 
     
-rule all:
-    input: 
-        multiext('BSWCHEF120152514636_hifiasm','.qv.stats', '.completeness.stats', '.only.hist', '.spectra-cn.hist', '.spectra-asm.ln.png', '.spectra-cn.ln.png')
+#rule all:
+#   input:
+#       'data/BSWCHEF120152514636.hifi.meryl'
+       # multiext('BSWCHEF120152514636_hifiasm','.qv.stats', '.completeness.stats', '.only.hist', '.spectra-cn.hist', '.spectra-asm.ln.png', '.spectra-cn.ln.png')
 
 checkpoint split_reads:
     input:
         'data/{animal}.hifi.fq.gz'
     output:
-        directory('split_{animal}')
+        directory('split_{animal}/')
     params:
         config['split_size']
     envmodules:
@@ -28,9 +29,9 @@ checkpoint split_reads:
 
 rule count_many:
     input:
-        'split_{animal}/{sample}.fq.gz'
+        'split_{animal}/chunk_{sample}.fq.gz'
     output:
-        directory('split_{animal}/{sample}.meryl')
+        directory('split_{animal}/chunk_{sample}.meryl')
     threads: 18
     resources:
         mem_mb = 3000
@@ -43,12 +44,12 @@ rule count_many:
 def aggregate_split_input(wildcards):
     checkpoint_output = checkpoints.split_reads.get(**wildcards).output[0]
     return expand('split_{animal}/chunk_{sample}.meryl',animal=wildcards.animal,sample=glob_wildcards(os.path.join(checkpoint_output, 'chunk_{sample}.fq.gz')).sample)
-    
+
 rule merge_many:
     input:
         aggregate_split_input
     output:
-        directory('{animal}.hifi.meryl')
+        directory('data/{animal}.hifi.meryl')
     threads: 12
     resources:
         mem_mb = 4000
@@ -56,13 +57,13 @@ rule merge_many:
         K = config['k-mers'],
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
-        'meryl union-sum k={params.K} memory={params.mem} threads={threads} output {output} {input} '
+        'echo {input}; echo "hello"; meryl union-sum k={params.K} memory={params.mem} threads={threads} output {output} {input} '
 
 rule count_asm_kmers:
     input:
         '{assembler}/{animal}.contigs.fasta'
     output:
-        directory('{animal}_{assembler}.meryl')
+        directory('{assembler}/{animal}.contigs.meryl')
     threads: 12
     resources:
         mem_mb = 3000
@@ -71,6 +72,24 @@ rule count_asm_kmers:
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
         'meryl count k={params.K} memory={params.mem} threads={threads} output {output} {input}'
+
+
+rule merqury_submit:
+    input:
+        read_db = 'data/{animal}.hifi.meryl',
+        asm_db = '{assembler}/{animal}.contigs.meryl',
+        asm = '{assembler}/{animal}.contigs.fasta'
+    output:
+        'dummy_file_{assembler}_{animal}.txt'
+    params:
+        mq_dir = config['merqury_root']
+    shell:
+        '''
+        export MERQURY={params.mq_dir}
+        $MERQURY/_submit_merqury.sh {input.read_db} {input.asm} {wildcards.animal}_{wildcards.assembler}
+        touch {output}
+        '''
+
 
 rule exclusive_kmers:
     input:
@@ -113,7 +132,7 @@ rule solid_reads:
     params:
         hist = '{animal}.hist',
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj'],
-        path = config['merqury_path']
+        path = config['merqury_root']
     shell:
         '''
         meryl histogram {input} > {params.hist}
@@ -240,7 +259,7 @@ rule make_plots:
         '{animal}_{assembler}.spectra-asm.ln.png',
         '{animal}_{assembler}.spectra-cn.ln.png'
     params:
-        path = config['merqury_path'],
+        path = config['merqury_root'],
         r_lib = config['r_lib']
     envmodules:
         'gcc/8.2.0',
