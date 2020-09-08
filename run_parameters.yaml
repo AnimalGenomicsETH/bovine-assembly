@@ -10,7 +10,7 @@ split_size: 10
 assemblers:
   - 'hifiasm'
   - 'canu'
- # - 'flye'
+  - 'flye'
 target_metrics:
   - 'asm-ccs.qv.txt'
   - 'NGA50.txt'

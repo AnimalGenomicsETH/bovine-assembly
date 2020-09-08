@@ -1,4 +1,4 @@
-merqury_path: '/cluster/work/pausch/alex/software/merqury'
+merqury_root: '/cluster/work/pausch/alex/software/merqury'
 k-mers: 21
 split_size: 10
 animal: 'BSWCHEF120152514636'

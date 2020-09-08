@@ -52,7 +52,11 @@ def load_NGA(animal,assembler):
     with open(f'results/{animal}_{assembler}.NGA50.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'NG':
-                auN_data.append(int(line.split()[1]))
+                try:
+                    auN_data.append(int(line.split()[1]))
+                except ValueError:
+                    auN_data.append(0)
+                    print(f'Undefined result for {line.split()[0][2:]}')
             else:
                 (key, value) = line.rstrip().split()
                 data[key] = value
@@ -108,7 +112,7 @@ def load_resource_benchmark(animal,assembler):
 
 def generate_markdown_string(animal,assembler,build_str,summary_str):
     build_str += '\n\n---\n\n' \
-                f'# Assembler: **{assembler}**\n'
+                f'# assembler: *{assembler}*\n'
 
     resource_stats = load_resource_benchmark(animal,assembler)
 
@@ -139,7 +143,7 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
                  f'  * Qcov: {aln_metrics["Qcov"]}\n' \
                  '* Contigs\n' \
                  f'  * breaks: {aln_metrics["#breaks"]}\n' \
-                 f'  * auNGA: {aln_metrics["AUNGA"]}\n'
+                 f'  * auNGA: {aln_metrics["AUNGA"]}\n\n'
 
     build_str += '## validation results\n\n'
 
@@ -162,7 +166,9 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
         build_str += f'| {row} | {" | ".join(map(str, values))} |\n'
 
     summary_str += f'| **{assembler}** | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]} | ' \
-                   f'{asm_metrics["N50"]} | {asm_metrics["L50"]} | {busco_string[10:15]} | {kmer_stats[2]}'
+                   f'{asm_metrics["N50"]} | {asm_metrics["L50"]} | {busco_string[10:15]} | {kmer_stats[2]:.1f} |\n'
+
+    return build_str, summary_str
 
 import argparse
 from pathlib import Path
@@ -193,11 +199,11 @@ def main(direct_input=None):
 
     md_string = ''
     summary_string = '# summary \n' \
-                     '| assembler | size (gb) | contigs | N50 | L50 | completeness | QV |\n' \
-                     '| :-------- | --------- | ------- | --- | --- | ------------ | -- |\n'
+                     '| assembler | size | contigs | N50 | L50 | completeness | QV |\n' \
+                     '| :-------- | ---- | ------- | --- | --- | ------------ | -- |\n'
 
     for assembler in args.assemblers:
-        generate_markdown_string(args.animal,assembler,md_string,summary_string)
+        md_string, summary_string = generate_markdown_string(args.animal,assembler,md_string,summary_string)
 
     md_string = summary_string + md_string
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
