@@ -1,6 +1,0 @@
-merqury_root: '/cluster/work/pausch/alex/software/merqury'
-k-mers: 21
-split_size: 10
-animal: 'BSWCHEF120152514636'
-mem_adj: 1100
-r_lib: '/cluster/work/pausch/alex/software/R_packages'
