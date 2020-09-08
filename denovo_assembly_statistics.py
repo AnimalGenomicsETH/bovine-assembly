@@ -12,7 +12,7 @@ def load_auNCurves(animal,assembler):
                 auN_values[1].append(Lx)
                 if x == 50:
                     metrics['N50'] = Nx
-                #[x//10] = (Nx,Lx)
+                    metrics['L50'] = Lx
             elif line[:2] != 'CC':
                 metrics[line[:2]] = int(line.split()[-1])
 
@@ -106,8 +106,8 @@ def load_resource_benchmark(animal,assembler):
     data['walltime'] = 1
     return data
 
-def generate_markdown_string(animal,assembler):
-    build_str = '\n\n---\n\n' \
+def generate_markdown_string(animal,assembler,build_str,summary_str):
+    build_str += '\n\n---\n\n' \
                 f'# Assembler: **{assembler}**\n'
 
     resource_stats = load_resource_benchmark(animal,assembler)
@@ -120,18 +120,19 @@ def generate_markdown_string(animal,assembler):
     build_str += '## assembly metrics\n'
 
     asm_metrics, aln_metrics = plot_auNCurves(animal,assembler)
-    build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.2f}gb\n\n' \
+    build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f}gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]}\n\n'
 
     build_str += f'Contig length and quantity\n\n' \
                  f'**N50** {asm_metrics["N50"]/1e6:.2f}mb\n\n' \
-                 f'![alt text]({animal}_{assembler}_auN_curves.png)' \
+                 f'![auN curve]({animal}_{assembler}_auN_curves.png)' \
                  f'auN value: {asm_metrics["AU"]}\n\n'
 
-    #auN_data, NGA_data = load_NGA(args.animal)
+    if assembler == 'canu':
+        build_str += 'Purged coverage:\n' \
+                     f'![raw](canu/{animal}.contigs_raw.spectra.png) ![purged](canu/{animal}.purged.spectra.png)\n\n'
 
-    build_str += '---\n\n'
-    build_str += 'Reference metrics\n' \
+    build_str += '### reference metrics\n' \
                  '* Coverage\n' \
                  f'  * Rcov: {aln_metrics["Rcov"]}\n' \
                  f'  * Rdup: {aln_metrics["Rdup"]}\n' \
@@ -155,12 +156,13 @@ def generate_markdown_string(animal,assembler):
 
     gene_map = load_asmgene(animal,assembler)
     build_str += '| | Ref | asm |\n' \
-                 '| -------- | -------- |\n'
+                 '| -- | -- | -- |\n'
 
     for row, values in gene_map.items():
         build_str += f'| {row} | {" | ".join(map(str, values))} |\n'
 
-    return build_str
+    summary_str += f'| **{assembler}** | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]} | ' \
+                   f'{asm_metrics["N50"]} | {asm_metrics["L50"]} | {busco_string[10:15]} | {kmer_stats[2]}'
 
 import argparse
 from pathlib import Path
@@ -187,12 +189,17 @@ def main(direct_input=None):
 
     prepend_str = f'Animal ID: **{args.animal}**\n\n' \
                   f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n' \
-                  '# Table of contents'
+                  '# table of contents'
 
     md_string = ''
-    for assembler in args.assemblers:
-        md_string += generate_markdown_string(args.animal,assembler)
+    summary_string = '# summary \n' \
+                     '| assembler | size (gb) | contigs | N50 | L50 | completeness | QV |\n' \
+                     '| :-------- | --------- | ------- | --- | --- | ------------ | -- |\n'
 
+    for assembler in args.assemblers:
+        generate_markdown_string(args.animal,assembler,md_string,summary_string)
+
+    md_string = summary_string + md_string
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:
         for assembler in args.assemblers:
