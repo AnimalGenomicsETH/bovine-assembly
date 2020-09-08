@@ -7,8 +7,8 @@ __pycache__/
 #except for
 
 !Snakefile
-!*.smk
-!*.yml
-!*.yaml
-!*.py
-!*.css
+!snakepit/*.smk
+!snakepit/*.yml
+!snakepit/*.yaml
+!scripts/*.py
+!scripts/*.css

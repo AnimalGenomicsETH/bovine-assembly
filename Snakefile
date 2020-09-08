@@ -1,4 +1,4 @@
-configfile: 'run_parameters.yaml'
+configfile: 'snakepit/run_parameters.yaml'
 workdir: config['workdir']
 
 from pathlib import Path   
@@ -18,7 +18,7 @@ localrules: analysis_report, raw_merge_files
 for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
 
-include: 'kmer_meryl.smk'
+include: 'snakepit/kmer_meryl.smk'
 
 wildcard_constraints:
     animal = r'\w+',
@@ -92,7 +92,7 @@ if 'canu' in config['assemblers']:
             rm canu/{params.temp}
             mv canu/{wildcards.animal}.contigs.fasta {output}
             '''
-    include: 'purge_duplicates.smk'
+    include: 'snakepit/purge_duplicates.smk'
 
 if 'flye' in config['assemblers']:
     Path('flye').mkdir(exist_ok=True)
@@ -213,7 +213,7 @@ rule analysis_report:
         base_dir = workflow.basedir
     log:
         'logs/analysis_report/animal-{animal}.out'
-    shell: 'python {params.base_dir}/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {input.assemblers} --outfile {output} --css {params.base_dir}/github.css > {log}'
+    shell: 'python {params.base_dir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {input.assemblers} --outfile {output} --css {params.base_dir}/github.css > {log}'
 
 onsuccess:
     print('Cleaning up intermediate files')

@@ -1,0 +1,23 @@
+workdir: '../second_test'
+raw_data: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS'
+ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
+cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
+animal: 'BSWCHEF120152514636'
+k-mers: 21
+genome_est: 3.1
+mem_adj: 1100
+split_size: 10
+assemblers:
+  - 'hifiasm'
+  - 'canu'
+  - 'flye'
+target_metrics:
+  - 'asm-ccs.qv.txt'
+  - 'NGA50.txt'
+  - 'auN.txt'
+  - 'asmgene.txt'
+##sources of non-bin programs
+pd_root: '/cluster/work/pausch/alex/software/purge_dups'
+kmc_root: '/cluster/work/pausch/alex/software/KMC'
+merqury_root: '/cluster/work/pausch/alex/software/merqury'
+r_lib: '/cluster/work/pausch/alex/software/R_packages'
