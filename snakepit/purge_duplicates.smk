@@ -2,10 +2,10 @@ localrules: cut_and_split, purge_dups, assess_purging
 
 rule map_reads:
     input:
-        asm = 'canu/{animal}.contigs_raw.fa',
+        asm = '{assembler}/{animal}.contigs_raw.fa',
         reads = 'data/{animal}.hifi.fq.gz'
     output:
-        'canu/{animal}_read_aln.paf'
+        '{assembler}/{animal}_read_aln.paf'
     threads: 24
     resources:
         mem_mb = 2500
@@ -14,24 +14,24 @@ rule map_reads:
  
 rule cut_and_split:
     input:
-        paf = 'canu/{animal}_read_aln.paf',
-        contigs = 'canu/{animal}.contigs_raw.fa'
+        paf = '{assembler}/{animal}_read_aln.paf',
+        contigs = '{assembler}/{animal}.contigs_raw.fa'
     output:
-        splits = 'canu/{animal}.split.fasta'
+        splits = '{assembler}/{animal}.split.fasta'
     params:
         config['pd_root']
     shell:
         '''
-        {params}/bin/pbcstat {input.paf} -O canu
-        {params}/bin/calcuts canu/PB.stat > canu/cutoffs
+        {params}/bin/pbcstat {input.paf} -O {wildcards.assembler}
+        {params}/bin/calcuts {wildcards.assembler}/PB.stat > {wildcard.assembler}/cutoffs
         {params}/bin/split_fa {input.contigs} > {output.splits}
         '''
 
 rule map_splits:
     input:
-        'canu/{animal}.split.fasta'
+        '{assembler}/{animal}.split.fasta'
     output:
-        'canu/{animal}_ctg-aln.paf'
+        '{assembler}/{animal}_ctg-aln.paf'
     threads: 24
     resources:
         mem_mb = 2500
@@ -40,32 +40,33 @@ rule map_splits:
 
 rule purge_dups:
     input:
-        paf = 'canu/{animal}_ctg-aln.paf',
-        contigs = 'canu/{animal}.contigs_raw.fa'
+        paf = '{assembler}/{animal}_ctg-aln.paf',
+        contigs = '{assembler}/{animal}.contigs_raw.fa'
     output:
-        contigs = 'canu/{animal}.purged.fa',
+        contigs = '{assembler}/{animal}.purged.fa',
+        bed = '{assembler}/{animal}_dups.bed'
     params:
         config['pd_root']
     shell:
         '''
-        {params}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > canu/dups.bed
-        {params}/bin/get_seqs canu/dups.bed {input.contigs} -p canu/{wildcards.animal}
+        {params}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > {output.bed}
+        {params}/bin/get_seqs {output.bed} {input.contigs} -p {wildcards.assembler}/{wildcards.animal}
         '''
 
 rule assess_purging:
     input:
-        expand('canu/{{animal}}.{sample}.matrix',sample=['purged','contigs_raw'])
+        expand('{{assembler}}/{{animal}}.{sample}.matrix',sample=['purged','contigs_raw'])
     output:
-        'canu/{animal}.contigs.fasta'
+        '{assembler}/{animal}.contigs.fasta'
     shell:
-        'mv canu/{wildcards.animal}.purged.fa {output}'
+        'mv {assembler}/{wildcards.animal}.purged.fa {output}'
 
 rule KMC_reads:
     input:
         'data/{animal}.hifi.fq.gz'
     output:
-        base = 'canu/{animal}_kmer_reads',
-        raw = multiext('canu/{animal}_kmer_reads','','.kmc_pre','.kmc_suf')
+        base = '{assembler}/{animal}_kmer_reads',
+        raw = multiext('{assembler}/{animal}_kmer_reads','','.kmc_pre','.kmc_suf')
     threads: 12
     resources:
         mem_mb = 4000,
@@ -82,10 +83,10 @@ rule KMC_reads:
 
 rule KMC_ref:
     input:
-        'canu/{animal}.{sample}.fa'
+        '{assembler}/{animal}.{sample}.fa'
     output:
-        base = 'canu/{animal}_kmer_{sample}',
-        raw = multiext('canu/{animal}_kmer_{sample}','.kmc_pre','.kmc_suf')
+        base = '{assembler}/{animal}_kmer_{sample}',
+        raw = multiext('{assembler}/{animal}_kmer_{sample}','.kmc_pre','.kmc_suf')
     threads: 12
     resources:
         mem_mb = 3000,
@@ -103,11 +104,11 @@ rule KMC_ref:
 
 rule KMC_analysis:
     input:
-        reads = 'canu/{animal}_kmer_reads',
-        asm = 'canu/{animal}_kmer_{sample}'
+        reads = '{assembler}/{animal}_kmer_reads',
+        asm = '{assembler}/{animal}_kmer_{sample}'
     output:
-        matrix = 'canu/{animal}.{sample}.matrix',
-        plot = 'canu/{animal}.{sample}.spectra.png'
+        matrix = '{assembler}/{animal}.{sample}.matrix',
+        plot = '{assembler}/{animal}.{sample}.spectra.png'
     threads: 2
     resources:
         mem_mb = 20000
