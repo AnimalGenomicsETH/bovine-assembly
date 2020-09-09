@@ -1,4 +1,4 @@
-localrules: split_reads, merqury_submit
+localrules: split_reads, merqury_submit, merqury_formatting
 
 checkpoint split_reads:
     input:
@@ -69,14 +69,24 @@ rule merqury_submit:
         asm_db = '{assembler}/{animal}.contigs.meryl',
         asm = '{assembler}/{animal}.contigs.fasta'
     output:
-        'dummy_file_{assembler}_{animal}.txt'
+        multiext('{assembler}/{animal}','.qv','.completeness.stats')
     params:
         mq_dir = config['merqury_root']
     shell:
         '''
         export MERQURY={params.mq_dir}
-        $MERQURY/_submit_merqury.sh {input.read_db} {input.asm} {wildcards.animal}_{wildcards.assembler}
+        $MERQURY/_submit_merqury.sh {input.read_db} {input.asm} {wildcards.assembler}/{wildcards.animal}
         touch {output}
         '''
 
-
+rule merqury_formatting:
+    input:
+        qv = '{assembler}/{animal}.qv',
+        completeness = '{assembler}/{animal}.completeness.stats'
+    output:
+        'results/{animal}_{assembler}.merqury.stats.txt'
+    shell:
+        '''
+        awk '{{print "QV" $4}}' {input.qv} > {output}
+        awk '{{print "Completeness" $5}}' {input.completeness} >> {output}
+        '''

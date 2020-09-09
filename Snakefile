@@ -29,8 +29,7 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
-        expand('{animal}_analysis_report.pdf',animal=config['animal']),
-        f'dummy_file_hifiasm_{config["animal"]}.txt'
+        expand('{animal}_analysis_report.pdf',animal=config['animal'])
 
 rule raw_read_conversion:
     input:
@@ -205,15 +204,15 @@ rule generate_reffai:
 rule analysis_report:
     input:
         expand('results/{{animal}}_{assembler}.{ext}',assembler=config['assemblers'],ext=config['target_metrics']),
-        expand('results/{{animal}}_{assembler}_busco_short_summary.txt',assembler=config['assemblers']),
-        assemblers = config['assemblers']
+        expand('results/{{animal}}_{assembler}_busco_short_summary.txt',assembler=config['assemblers'])
     output:
         '{animal}_analysis_report.pdf'
     params:
-        base_dir = workflow.basedir
+        base_dir = workflow.basedir,
+        assemblers = config['assemblers']
     log:
         'logs/analysis_report/animal-{animal}.out'
-    shell: 'python {params.base_dir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {input.assemblers} --outfile {output} --css {params.base_dir}/scripts/github.css > {log}'
+    shell: 'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {params.assemblers} --outfile {output} --css {workflow.basedir}/scripts/github.css > {log}'
 
 onsuccess:
     print('Cleaning up intermediate files')
