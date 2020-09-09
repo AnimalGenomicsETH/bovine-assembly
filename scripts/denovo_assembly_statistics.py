@@ -110,6 +110,12 @@ def load_resource_benchmark(animal,assembler):
     data['walltime'] = 1
     return data
 
+def img_sizer(width,dpi=96):
+    full_width = (8.25-1) * dpi #A4 size - margin
+    if isinstance(width,float):
+        width = int(width*full_width)
+    return f'style="object-fit:cover;width:{width}px;height:100%;"'
+
 def generate_markdown_string(animal,assembler,build_str,summary_str):
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*\n'
@@ -129,12 +135,12 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
 
     build_str += f'Contig length and quantity\n\n' \
                  f'**N50** {asm_metrics["N50"]/1e6:.2f}mb\n\n' \
-                 f'![auN curve]({animal}_{assembler}_auN_curves.png)' \
+                 f'<img src="{animal}_{assembler}_auN_curves.png" {img_sizer(.5)} />\n\n' \
                  f'auN value: {asm_metrics["AU"]}\n\n'
 
     if assembler == 'canu':
-        build_str += 'Purged coverage:\n' \
-                     f'![raw](canu/{animal}.contigs_raw.spectra.png) ![purged](canu/{animal}.purged.spectra.png)\n\n'
+        build_str += 'Purged coverage:\n\n' \
+                     f'<img src="canu/{animal}.contigs_raw.spectra.png" {img_sizer(.4)} /> <img src="canu/{animal}.purged.spectra.png" {img_sizer(.4)} />\n\n'
 
     build_str += '### reference metrics\n' \
                  '* Coverage\n' \
@@ -165,8 +171,8 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
     for row, values in gene_map.items():
         build_str += f'| {row} | {" | ".join(map(str, values))} |\n'
 
-    summary_str += f'| **{assembler}** | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]} | ' \
-                   f'{asm_metrics["N50"]} | {asm_metrics["L50"]} | {busco_string[10:15]} | {kmer_stats[2]:.1f} |\n'
+    summary_str += f'| *{assembler}* | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]} | ' \
+                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {busco_string[2:7]} | {kmer_stats[2]:.1f} |\n'
 
     return build_str, summary_str
 
@@ -177,8 +183,9 @@ from weasyprint import HTML, CSS
 
 def custom_PDF_writer(output,prepend_str,md_content,css):
     header = markdown(prepend_str)
-    raw_html = markdown(md_content, extras=['tables','header_ids','toc','code-friendly','cuddled-lists'])
+    raw_html = markdown(md_content, extras={'tables':{},'header_ids':{},'toc':{'depth':2},'code-friendly':{},'cuddled-lists':{}})
     full_html = header + raw_html.toc_html + raw_html
+    print(full_html)
     html = HTML(string=full_html,base_url=str(Path().cwd()))
     html.write_pdf(output,stylesheets=[CSS(filename=css)])
 
@@ -199,8 +206,8 @@ def main(direct_input=None):
 
     md_string = ''
     summary_string = '# summary \n' \
-                     '| assembler | size | contigs | N50 | L50 | completeness | QV |\n' \
-                     '| :-------- | ---- | ------- | --- | --- | ------------ | -- |\n'
+                     '| assembler | size | contigs | N50 | L50 | completeness | QV kmer |\n' \
+                     '| :-------- | :--: | :-----: | :-: | :-: | :----------: | :-----: |\n'
 
     for assembler in args.assemblers:
         md_string, summary_string = generate_markdown_string(args.animal,assembler,md_string,summary_string)

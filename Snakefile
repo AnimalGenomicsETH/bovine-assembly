@@ -213,7 +213,7 @@ rule analysis_report:
         base_dir = workflow.basedir
     log:
         'logs/analysis_report/animal-{animal}.out'
-    shell: 'python {params.base_dir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {input.assemblers} --outfile {output} --css {params.base_dir}/github.css > {log}'
+    shell: 'python {params.base_dir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {input.assemblers} --outfile {output} --css {params.base_dir}/scripts/github.css > {log}'
 
 onsuccess:
     print('Cleaning up intermediate files')
