@@ -63,7 +63,7 @@ def load_NGA(animal,assembler):
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
 def kmer_QV(animal,assembler):
-    with open(f'results/{animal}_{assembler}.asm-ccs.qv.txt','r') as file_in:
+    with open(f'results/{animal}_{assembler}.merqury.stats.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'CV':
                 coverage = float(line.rstrip().split()[1])
@@ -72,13 +72,14 @@ def kmer_QV(animal,assembler):
     return (coverage, raw_QV, adjusted_QV)
 
 def load_asmgene(animal,assembler):
-    table = dict()
+    table = [[],[],[]]
     with open(f'results/{animal}_{assembler}.asmgene.txt','r') as file_in:
         for line in file_in:
             if line[0] != 'X':
                 continue
             parts = line.rstrip().split()
-            table[parts[1]] = tuple(int(i) for i in parts[2:])
+            for i, p in enumerate(parts[1:]):
+                table[i].append(int(p))
     return table
 
 def busco_report(animal,assembler):
@@ -116,6 +117,9 @@ def img_sizer(width,dpi=96):
         width = int(width*full_width)
     return f'style="object-fit:cover;width:{width}px;height:100%;"'
 
+def IMAGE(path,scale):
+    return f'<img src="{path}" {img_sizer(scale)} />'
+
 def generate_markdown_string(animal,assembler,build_str,summary_str):
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*\n'
@@ -123,24 +127,25 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
     resource_stats = load_resource_benchmark(animal,assembler)
 
     build_str += '## resource details\n' \
-                 f'Runtime (wall/cpu): {resource_stats["walltime"]}s / {resource_stats["cputime"]}s\n\n' \
+                 f'Runtime (wall/cpu): {resource_stats["walltime"]} s / {resource_stats["cputime"]} s\n\n' \
                  f'>*average threading* = {resource_stats["cputime"]/resource_stats["walltime"]:.1f}\n\n' \
-                 f'Memory (mean/max): {resource_stats["mean_mem"]}mb / {resource_stats["max_mem"]}mb\n\n'
+                 f'Memory (mean/max): {resource_stats["mean_mem"]} mb / {resource_stats["max_mem"]} mb\n\n'
 
     build_str += '## assembly metrics\n'
 
     asm_metrics, aln_metrics = plot_auNCurves(animal,assembler)
-    build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f}gb\n\n' \
+    build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]}\n\n'
 
     build_str += f'Contig length and quantity\n\n' \
-                 f'**N50** {asm_metrics["N50"]/1e6:.2f}mb\n\n' \
-                 f'<img src="{animal}_{assembler}_auN_curves.png" {img_sizer(.5)} />\n\n' \
+                 f'**N50**: {asm_metrics["N50"]/1e6:.2f} mb\n\n' \
+                 IMAGE(f'{animal}_{assembler}_auN_curves.png',.5) + '\n\n' \
                  f'auN value: {asm_metrics["AU"]}\n\n'
 
     if assembler == 'canu':
         build_str += 'Purged coverage:\n\n' \
-                     f'<img src="canu/{animal}.contigs_raw.spectra.png" {img_sizer(.4)} /> <img src="canu/{animal}.purged.spectra.png" {img_sizer(.4)} />\n\n'
+                     ' '.join(IMAGE(f'canu/{animal}.{sample}.spectra.png,',.4) for sample in ('contigs_raw','purged')) + '\n\n'
+        #'canu/{animal}.contigs_raw.spectra.png',.4) + ' ' + IMAGE('canu/{animal}.purged.spectra.png',.4) + '\n\n'
 
     build_str += '### reference metrics\n' \
                  '* Coverage\n' \
@@ -154,9 +159,10 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
     build_str += '## validation results\n\n'
 
     kmer_stats = kmer_QV(animal,assembler)
-    build_str += '### k-mer spectra\n' \
+    build_str += '### merqury k-mers\n' \
                  f'Coverage: {kmer_stats[0]:.1%}\n\n' \
-                 f'QV (raw/adjusted): {kmer_stats[1]} / {kmer_stats[2]}\n\n'
+                 f'QV: {kmer_stats[1]}\n\n' \
+                 IMAGE(f'{assembler}/{animal}.spectra-asm.ln.png',.75) + '\n\n'
 
     lineage, busco_string = busco_report(animal,assembler)
     build_str += '### BUSCO \n' \
@@ -165,14 +171,14 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
     build_str += '### asmgene\n'
 
     gene_map = load_asmgene(animal,assembler)
-    build_str += '| | Ref | asm |\n' \
+    build_str += f'| | {" | ".join(gene_map[0])} |\n' \
                  '| -- | -- | -- |\n'
 
-    for row, values in gene_map.items():
-        build_str += f'| {row} | {" | ".join(map(str, values))} |\n'
+    for row, values in zip(('ref','asm'),gene_map[1:]):
+        build_str += f'| {row} | {" | ".join(values)} |\n'
 
     summary_str += f'| *{assembler}* | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]} | ' \
-                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {busco_string[2:7]} | {kmer_stats[2]:.1f} |\n'
+                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {busco_string[2:7]} | {kmer_stats[1]:.1f} |\n'
 
     return build_str, summary_str
 
