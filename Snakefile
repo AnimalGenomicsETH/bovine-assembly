@@ -13,7 +13,7 @@ def pair_name_to_infiles():
 reads_infile_dict = pair_name_to_infiles()
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: analysis_report, raw_merge_files
+localrules: analysis_report, raw_merge_files, plot_dot
 
 for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
@@ -193,7 +193,29 @@ rule validation_busco:
         cp {params.tmp_dir}/short_summary*.txt {output.summary}
         mv {params.tmp_dir} {output.out_dir}
         '''
-    
+rule generate_dot_paf:
+    input:
+        asm = '{assembler}/{animal}.contigs.fasta',
+        ref = config['ref_genome']
+    output:
+        '{assembler}/{animal}_ref_dot.paf'
+    threads: 24
+    resources:
+        mem_mb = 2000
+    shell:
+        'minimap2 -cx asm5 --cs -t {threads} {input.ref} {input.asm} > {output}'
+
+rule plot_dot:
+    input:
+        '{assembler}/{animal}_ref_dot.paf'
+    output:
+        'results/{animal}_{assembler}.dot.png'
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    script:
+        'scripts/pafDot.R'
+
 rule generate_reffai:
     input:
         config['ref_genome']

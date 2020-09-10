@@ -62,6 +62,27 @@ rule count_asm_kmers:
     shell:
         'meryl count k={params.K} memory={params.mem} threads={threads} output {output} {input}'
 
+rule merqury_spectra:
+    input:
+        read_db = 'data/{animal}.hifi.meryl',
+        asm_db = '{assembler}/{animal}.contigs.meryl',
+        asm = '{assembler}/{animal}.contigs.fasta'
+    output:
+        multiext('{assembler}/{animal}','.qv','.completeness.stats')
+    params:
+        mq_dir=config['merqury_root']
+    threads: 8
+    resources:
+        mem_mb = 6000
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    shell:
+        '''
+        export MERQURY={params.mq_dir}
+        $MERQURY/eval/spectra-cn.sh {input.read_db} {input.asm} {wildcards.assembler}/{wildcards.animal}
+        '''
+
 
 rule merqury_submit:
     input:
@@ -69,7 +90,7 @@ rule merqury_submit:
         asm_db = '{assembler}/{animal}.contigs.meryl',
         asm = '{assembler}/{animal}.contigs.fasta'
     output:
-        multiext('{assembler}/{animal}','.qv','.completeness.stats')
+        multiext('{assembler}/{animal}','.dddqv','.completeness.qqqstats')
     params:
         mq_dir = config['merqury_root']
     shell:
@@ -87,6 +108,6 @@ rule merqury_formatting:
         'results/{animal}_{assembler}.merqury.stats.txt'
     shell:
         '''
-        awk '{{print "QV" $4}}' {input.qv} > {output}
-        awk '{{print "Completeness" $5}}' {input.completeness} >> {output}
+        awk '{{print "QV " $4}}' {input.qv} > {output}
+        awk '{{print "Completeness " $5}}' {input.completeness} >> {output}
         '''
