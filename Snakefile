@@ -210,6 +210,14 @@ rule plot_dot:
         '{assembler}/{animal}_ref_dot.paf'
     output:
         'results/{animal}_{assembler}.dot.png'
+    shell:
+        'minidot -L {input} | convert -density 150 - {output}'
+
+rule plot_do3t:
+    input:
+        '{assembler}/{animal}_ref_dot.paf'
+    output:
+        'r1esults/{animal}_{assembler}.dot.png'
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'

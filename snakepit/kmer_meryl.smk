@@ -62,15 +62,32 @@ rule count_asm_kmers:
     shell:
         'meryl count k={params.K} memory={params.mem} threads={threads} output {output} {input}'
 
+rule merqury_prep:
+    input:
+        'data/{animal}.hifi.meryl'
+    output:
+        hist = 'data/{animal}.hifi.hist',
+        filt = 'data/{animal}.hifi.filt'
+    threads: 12
+    resources:
+        mem_mb = 2000
+    shell:
+        '''
+        meryl histogram {input} > {output.hist}
+        java -jar -Xmx1g {config[merqury_root]}/eval/kmerHistToPloidyDepth.jar {output.hist} > {output.hist}.ploidy
+        filt=`sed -n 2p {output.hist}.ploidy | awk '{{print $NF}}'`
+        echo $filt > {output.filt}
+        meryl greater-than $filt output data/{wildcards.animal}.hifi.gt$filt.meryl {input}
+        '''
+
 rule merqury_spectra:
     input:
         read_db = 'data/{animal}.hifi.meryl',
         asm_db = '{assembler}/{animal}.contigs.meryl',
-        asm = '{assembler}/{animal}.contigs.fasta'
+        asm = '{assembler}/{animal}.contigs.fasta',
+        filt = 'data/{animal}.hifi.filt'
     output:
         multiext('{assembler}/{animal}','.qv','.completeness.stats')
-    params:
-        mq_dir=config['merqury_root']
     threads: 8
     resources:
         mem_mb = 6000
@@ -79,10 +96,12 @@ rule merqury_spectra:
         'r/4.0.2'
     shell:
         '''
-        export MERQURY={params.mq_dir}
-        $MERQURY/eval/spectra-cn.sh {input.read_db} {input.asm} {wildcards.assembler}/{wildcards.animal}
+        cd {wildcards.assembler}
+        export MERQURY={config[merqury_root]}
+        ln -s ../{input.filt}
+        find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
+        $MERQURY/eval/spectra-cn.sh ../{input.read_db} {wildcards.animal}.contigs.fasta {wildcards.animal}
         '''
-
 
 rule merqury_submit:
     input:
@@ -109,5 +128,5 @@ rule merqury_formatting:
     shell:
         '''
         awk '{{print "QV " $4}}' {input.qv} > {output}
-        awk '{{print "Completeness " $5}}' {input.completeness} >> {output}
+        awk '{{print "CV " $5}}' {input.completeness} >> {output}
         '''
