@@ -11,7 +11,7 @@ rule map_reads:
         mem_mb = 2500
     shell:
         'minimap2 -I 6G -xmap-pb -t {threads} {input.asm} {input.reads} > {output}'
- 
+
 rule cut_and_split:
     input:
         paf = '{assembler}/{animal}_read_aln.paf',
@@ -22,9 +22,9 @@ rule cut_and_split:
         config['pd_root']
     shell:
         '''
-        {params}/bin/pbcstat {input.paf} -O {wildcards.assembler}
-        {params}/bin/calcuts {wildcards.assembler}/PB.stat > {wildcard.assembler}/cutoffs
-        {params}/bin/split_fa {input.contigs} > {output.splits}
+        {config[pd_root]}/bin/pbcstat {input.paf} -O {wildcards.assembler}
+        {config[pd_root]}/bin/calcuts {wildcards.assembler}/PB.stat > {wildcard.assembler}/cutoffs
+        {config[pd_root]}/bin/split_fa {input.contigs} > {output.splits}
         '''
 
 rule map_splits:
@@ -45,12 +45,12 @@ rule purge_dups:
     output:
         contigs = '{assembler}/{animal}.purged.fa',
         bed = '{assembler}/{animal}_dups.bed'
-    params:
-        config['pd_root']
+    #params:
+    #    config['pd_root']
     shell:
         '''
-        {params}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > {output.bed}
-        {params}/bin/get_seqs {output.bed} {input.contigs} -p {wildcards.assembler}/{wildcards.animal}
+        {config[pd_root]}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > {output.bed}
+        {config[pd_root]}/bin/get_seqs {output.bed} {input.contigs} -p {wildcards.assembler}/{wildcards.animal}
         '''
 
 rule assess_purging:
@@ -72,12 +72,12 @@ rule KMC_reads:
         mem_mb = 4000,
         disk_scratch = 150
     params:
-        memory = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj'],
-        root = config['kmc_root'],
-        K = config['k-mers']
+        memory = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']#,
+        #root = config['kmc_root'],
+        #K = config['k-mers']
     shell:
         '''
-        {params.root}/bin/kmc -ci0 -cs1023 -t{threads} -fq -m{params.memory} -k{params.K} {input} {output.base} $TMPDIR
+        {config[kmc_root]}/bin/kmc -ci0 -cs1023 -t{threads} -fq -m{params.memory} -k{config[k-mers]} {input} {output.base} $TMPDIR
         touch {output.base}
         '''
 
@@ -93,12 +93,12 @@ rule KMC_ref:
         disk_scratch = 150,
         walltime = '20'
     params:
-        memory = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj'],
-        root = config['kmc_root'],
-        K = config['k-mers']
+        memory = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']#,
+        #root = config['kmc_root'],
+        #K = config['k-mers']
     shell:
         '''
-        {params.root}/bin/kmc -ci0 -t{threads} -fm -m{params.memory} -k{params.K} {input} {output.base} $TMPDIR
+        {config[kmc_root]}/bin/kmc -ci0 -t{threads} -fm -m{params.memory} -k{config[k-mers]} {input} {output.base} $TMPDIR
         touch {output.base}
         '''
 
@@ -112,10 +112,10 @@ rule KMC_analysis:
     threads: 2
     resources:
         mem_mb = 20000
-    params:
-        config['kmc_root']
+    #params:
+    #    config['kmc_root']
     shell:
         '''
-        {params}/bin/kmc_tools analyze {input.reads} {input.asm} {output.matrix}
-        python3 {params}/spectra.py {output.matrix} {output.plot}
+        {config[kmc_root]}/bin/kmc_tools analyze {input.reads} {input.asm} {output.matrix}
+        python3 {config[kmc_root]}/spectra.py {output.matrix} {output.plot}
         '''

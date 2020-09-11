@@ -1,7 +1,7 @@
 configfile: 'snakepit/run_parameters.yaml'
 workdir: config['workdir']
 
-from pathlib import Path   
+from pathlib import Path
 
 def pair_name_to_infiles():
     # recursively find all *.ccs.bam read files under this animal
@@ -9,7 +9,7 @@ def pair_name_to_infiles():
 
     # pair read name to infile path using a dictionary
     return {f.name[:-8]:str(f) for f in read_path}
- 
+
 reads_infile_dict = pair_name_to_infiles()
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
@@ -23,7 +23,7 @@ include: 'snakepit/kmer_meryl.smk'
 wildcard_constraints:
     animal = r'\w+',
     assembler = r'\w+'
- 
+
 #------------#
 #DEFINE RULES#
 #------------#
@@ -33,13 +33,13 @@ rule all:
 
 rule raw_read_conversion:
     input:
-        f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam'
+        '{config[raw_data]}/{config[animal]}/ccs/{read_name}.ccs.bam'
     output:
         'data/{read_name}.fastq.gz'
     threads: 8
     resources:
         mem_mb = 3000
-    shell: 'samtools fastq -@ {threads} -c 6 -0 {output} {input}' 
+    shell: 'samtools fastq -@ {threads} -c 6 -0 {output} {input}'
 
 rule raw_merge_files:
     input:
@@ -112,7 +112,7 @@ if 'flye' in config['assemblers']:
 
 ##Requires yak installed
 rule validation_yak:
-    input: 
+    input:
         reads = 'data/{animal}.hifi.fq.gz',
         contigs = '{assembler}/{animal}.contigs.fasta'
     output:
@@ -151,7 +151,7 @@ rule validation_refalign:
         walltime = '2:00'
     shell:
         '''
-        minigraph -k 21 -xasm  --show-unmap=yes -t {threads} {input.ref} {input.asm} > {output.paf}    
+        minigraph -k 21 -xasm  --show-unmap=yes -t {threads} {input.ref} {input.asm} > {output.paf}
         paftools.js asmstat {input.ref_fai} {output.paf} > {output.NGA}
         '''
 
@@ -176,8 +176,8 @@ rule validation_asmgene:
 
 ##Requires busco (and metaeuk) installed
 rule validation_busco:
-    input:
-        '{assembler}/{animal}.contigs.fasta'    
+    input:ß
+        '{assembler}/{animal}.contigs.fasta'
     output:
         out_dir = directory('{assembler}/{animal}_BUSCO'),
         summary = 'results/{animal}_{assembler}_busco_short_summary.txt'
@@ -187,7 +187,7 @@ rule validation_busco:
     resources:
         mem_mb = 3000,
         walltime = '12:00'
-    shell: 
+    shell:
         '''
         busco --cpu {threads} -i {input} -o {params.tmp_dir}
         cp {params.tmp_dir}/short_summary*.txt {output.summary}
@@ -228,7 +228,7 @@ rule generate_reffai:
     input:
         config['ref_genome']
     output:
-        '{input}.fai'   
+        '{input}.fai'
     shell: 'samtools fqidx {input}'
 
 rule analysis_report:
@@ -239,10 +239,10 @@ rule analysis_report:
         '{animal}_analysis_report.pdf'
     params:
         base_dir = workflow.basedir,
-        assemblers = config['assemblers']
+        #assemblers = config['assemblers']
     log:
         'logs/analysis_report/animal-{animal}.out'
-    shell: 'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {params.assemblers} --outfile {output} --css {workflow.basedir}/scripts/github.css > {log}'
+    shell: 'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {config[assemblers]} --outfile {output} --css {workflow.basedir}/scripts/github.css > {log}'
 
 onsuccess:
     print('Cleaning up intermediate files')

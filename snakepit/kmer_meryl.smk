@@ -5,15 +5,15 @@ checkpoint split_reads:
         'data/{animal}.hifi.fq.gz'
     output:
         directory('split_{animal}/')
-    params:
-        config['split_size']
+    #params:
+    #    config['split_size']
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
     shell:
         '''
         mkdir -p split_{wildcards.animal}
-        zcat {input} | split -a 2 -d -C {params}GiB --filter='pigz -p 6 > $FILE.fq.gz' - split_{wildcards.animal}/chunk_
+        zcat {input} | split -a 2 -d -C {config[split_size]}GiB --filter='pigz -p 6 > $FILE.fq.gz' - split_{wildcards.animal}/chunk_
         '''
 
 rule count_many:
@@ -25,10 +25,10 @@ rule count_many:
     resources:
         mem_mb = 3000
     params:
-        K = config['k-mers'],
+        #K = config['k-mers'],
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
-        'meryl count k={params.K} memory={params.mem} threads={threads} output {output} {input}'
+        'meryl count k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input}'
 
 def aggregate_split_input(wildcards):
     checkpoint_output = checkpoints.split_reads.get(**wildcards).output[0]
@@ -43,10 +43,10 @@ rule merge_many:
     resources:
         mem_mb = 4000
     params:
-        K = config['k-mers'],
+        #K = config['k-mers'],
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
-        'echo {input}; echo "hello"; meryl union-sum k={params.K} memory={params.mem} threads={threads} output {output} {input} '
+        'echo {input}; echo "hello"; meryl union-sum k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input} '
 
 rule count_asm_kmers:
     input:
@@ -57,10 +57,10 @@ rule count_asm_kmers:
     resources:
         mem_mb = 3000
     params:
-        K = config['k-mers'],
+        #K = config['k-mers'],
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
-        'meryl count k={params.K} memory={params.mem} threads={threads} output {output} {input}'
+        'meryl count k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input}'
 
 rule merqury_prep:
     input:
@@ -110,11 +110,11 @@ rule merqury_submit:
         asm = '{assembler}/{animal}.contigs.fasta'
     output:
         multiext('{assembler}/{animal}','.dddqv','.completeness.qqqstats')
-    params:
-        mq_dir = config['merqury_root']
+    #params:
+    #    mq_dir = config['merqury_root']
     shell:
         '''
-        export MERQURY={params.mq_dir}
+        export MERQURY={config[merqury_root]}
         $MERQURY/_submit_merqury.sh {input.read_db} {input.asm} {wildcards.assembler}/{wildcards.animal}
         touch {output}
         '''
