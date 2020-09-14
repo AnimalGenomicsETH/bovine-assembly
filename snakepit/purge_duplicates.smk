@@ -59,7 +59,7 @@ rule assess_purging:
     output:
         '{assembler}/{animal}.contigs.fasta'
     shell:
-        'mv {assembler}/{wildcards.animal}.purged.fa {output}'
+        'mv {wildcards.assembler}/{wildcards.animal}.purged.fa {output}'
 
 rule KMC_reads:
     input:

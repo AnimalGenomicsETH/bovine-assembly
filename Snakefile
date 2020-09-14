@@ -2,6 +2,7 @@ configfile: 'snakepit/run_parameters.yaml'
 workdir: config['workdir']
 
 from pathlib import Path
+from glob import glob
 
 def pair_name_to_infiles():
     # recursively find all *.ccs.bam read files under this animal
@@ -11,6 +12,13 @@ def pair_name_to_infiles():
     return {f.name[:-8]:str(f) for f in read_path}
 
 reads_infile_dict = pair_name_to_infiles()
+
+
+def glob_purges(wildcards):
+    req_files = []
+    for _file in glob('**/*.contigs_raw.fa',recursive=True):
+        req_files.extend([_file.replace('.fa','.spectra.png'),_file.replace('contigs_raw.fa','purged.spectra.png')])
+    return req_files
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
 localrules: analysis_report, raw_merge_files, plot_dot
@@ -176,17 +184,17 @@ rule validation_asmgene:
 
 ##Requires busco (and metaeuk) installed
 rule validation_busco:
-    input:ß
+    input:
         '{assembler}/{animal}.contigs.fasta'
     output:
         out_dir = directory('{assembler}/{animal}_BUSCO'),
-        summary = 'results/{animal}_{assembler}_busco_short_summary.txt'
+        summary = 'results/{animal}_{assembler}.BUSCO.txt'
     params:
         tmp_dir = '{animal}_{assembler}_busco_results'
     threads: 24
     resources:
         mem_mb = 3000,
-        walltime = '12:00'
+        walltime = '16:00'
     shell:
         '''
         busco --cpu {threads} -i {input} -o {params.tmp_dir}
@@ -234,7 +242,7 @@ rule generate_reffai:
 rule analysis_report:
     input:
         expand('results/{{animal}}_{assembler}.{ext}',assembler=config['assemblers'],ext=config['target_metrics']),
-        expand('results/{{animal}}_{assembler}_busco_short_summary.txt',assembler=config['assemblers'])
+        glob_purges
     output:
         '{animal}_analysis_report.pdf'
     params:
@@ -244,6 +252,6 @@ rule analysis_report:
         'logs/analysis_report/animal-{animal}.out'
     shell: 'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {config[assemblers]} --outfile {output} --css {workflow.basedir}/scripts/github.css > {log}'
 
-onsuccess:
-    print('Cleaning up intermediate files')
-    shell('rm -rf intermediates')
+#onsuccess:
+#    print('Cleaning up intermediate files')
+#    shell('rm -rf intermediates')

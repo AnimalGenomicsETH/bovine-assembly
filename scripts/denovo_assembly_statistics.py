@@ -81,7 +81,7 @@ def load_asmgene(animal,assembler):
     return table
 
 def busco_report(animal,assembler):
-    with open(f'results/{animal}_{assembler}_busco_short_summary.txt') as file_in:
+    with open(f'results/{animal}_{assembler}.BUSCO.txt') as file_in:
         for line in file_in:
             if 'lineage dataset' in line:
                 LD_set = line.split()[5]
