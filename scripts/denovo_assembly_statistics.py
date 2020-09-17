@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import datetime
+import pandas
+import seaborn
 
 def load_auNCurves(animal,assembler):
     auN_values, metrics = [[],[]], dict()
@@ -118,6 +120,28 @@ def img_sizer(width,dpi=96):
 def IMAGE(path,scale):
     return f'<img src="{path}" {img_sizer(scale)} />'
 
+def generate_markdown_reads(animal):
+    build_str = f'Animal ID: **{animal}**\n\n' \
+                 f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
+    
+    df = pandas.read_csv(f'data/{animal}.QC.txt')
+    stats = df.describe().transpose()
+
+    build_str += '## read metrics \n' \
+                 f'Total reads: {len(df):,}\n\n'
+  
+    build_str += f'| | {" | ".join(stats.columns[1:])} |\n' + \
+                 ' -- '.join('|'*(len(stats.columns)+1)) +'\n'                 
+
+    for row in ('length','quality'):
+        build_str += f'| {row} | {" | ".join(map("{:.2f}".format,stats.loc[row][1:]))} |\n'
+    build_str += '\n'
+
+    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig('test.png')
+
+    build_str += IMAGE('test.png',.6) + '\n\n'
+    return build_str
+
 def generate_markdown_string(animal,assembler,build_str,summary_str):
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*\n'
@@ -133,7 +157,7 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
 
     asm_metrics, aln_metrics = plot_auNCurves(animal,assembler)
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
-                 f'Total contigs: {asm_metrics["NN"]}\n\n'
+                 f'Total contigs: {asm_metrics["NN"]:,}\n\n'
 
     build_str += f'Contig length and quantity\n\n' \
                  f'**N50**: {asm_metrics["N50"]/1e6:.2f} mb\n\n' \
@@ -142,9 +166,12 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
 
     if assembler == 'canu':
         build_str += 'Purged coverage:\n\n' + \
-                     ' '.join(IMAGE(f'canu/{animal}.{sample}.spectra.png,',.4) for sample in ('contigs_raw','purged')) + '\n\n'
+                     IMAGE(f'{assembler}/{animal}.contigs_raw.spectra.png',.4) + \
+                     IMAGE(f'{assembler}/{animal}.purged.spectra.png',.4) + '\n\n'
+
+        #              ' '.join(IMAGE(f'canu/{animal}.{sample}.spectra.png,',.4) for sample in ('contigs_raw','purged')) + '\n\n'
         
-        #print(' '.join(IMAGE(f'canu/{animal}.{sample}.spectra.png,',.4) for sample in ('contigs_raw','purged')))
+        print(' '.join(IMAGE(f'canu/{animal}.{sample}.spectra.png,',.4) for sample in ('contigs_raw','purged')))
         #'canu/{animal}.contigs_raw.spectra.png',.4) + ' ' + IMAGE('canu/{animal}.purged.spectra.png',.4) + '\n\n'
 
     build_str += '### reference metrics\n' \
@@ -179,7 +206,7 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
     for row, values in zip(('ref','asm'),gene_map[1:]):
         build_str += f'| {row} | {" | ".join(values)} |\n'
 
-    summary_str += f'| *{assembler}* | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]} | ' \
+    summary_str += f'| *{assembler}* | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
 
 
@@ -191,7 +218,7 @@ from markdown2 import markdown
 from weasyprint import HTML, CSS
 
 def custom_PDF_writer(output,prepend_str,md_content,css):
-    header = markdown(prepend_str)
+    header = markdown(prepend_str,extras=['tables'])
     raw_html = markdown(md_content, extras={'tables':{},'header_ids':{},'toc':{'depth':2},'code-friendly':{},'cuddled-lists':{}})
     full_html = header + raw_html.toc_html + raw_html
     print(full_html)
@@ -209,15 +236,14 @@ def main(direct_input=None):
     args = parser.parse_args(direct_input)
     css_path = args.css if Path(args.css).is_file() else ''
 
-    prepend_str = f'Animal ID: **{args.animal}**\n\n' \
-                  f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n' \
+    prepend_str = generate_markdown_reads(args.animal) + \
                   '# table of contents'
 
     md_string = ''
     summary_string = '# summary \n' \
                      '| assembler | size | contigs | N50 | L50 | completeness | QV kmer |\n' \
                      '| :-------- | :--: | :-----: | :-: | :-: | :----------: | :-----: |\n'
-
+    
     for assembler in args.assemblers:
         md_string, summary_string = generate_markdown_string(args.animal,assembler,md_string,summary_string)
 

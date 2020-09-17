@@ -13,7 +13,6 @@ def pair_name_to_infiles():
 
 reads_infile_dict = pair_name_to_infiles()
 
-
 def glob_purges(wildcards):
     req_files = []
     for _file in glob('**/*.contigs_raw.fa',recursive=True):
@@ -27,6 +26,7 @@ for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
 
 include: 'snakepit/kmer_meryl.smk'
+include: 'snakepit/cross_analysis.smk'
 
 wildcard_constraints:
     animal = r'\w+',
@@ -37,7 +37,8 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
-        expand('{animal}_analysis_report.pdf',animal=config['animal'])
+        expand('{animal}_analysis_report.pdf',animal=config['animal']),
+        f'results/{config["animal"]}_hifiasm.telo.txt'
 
 rule raw_read_conversion:
     input:
@@ -242,6 +243,7 @@ rule generate_reffai:
 rule analysis_report:
     input:
         expand('results/{{animal}}_{assembler}.{ext}',assembler=config['assemblers'],ext=config['target_metrics']),
+        'data/{animal}.QC.txt',
         glob_purges
     output:
         '{animal}_analysis_report.pdf'

@@ -1,20 +1,19 @@
 rule telomer_content:
     input:
-        '{assembler}/{assembler}.contigs.fasta'
+        '{assembler}/{animal}.contigs.fasta'
     output:
         'results/{animal}_{assembler}.telo.txt'
     script:
-        'scripts/count_telomers.py'
+        '../scripts/count_telomers.py'
 
 rule raw_QC:
     input:
         'data/{animal}.hifi.fq.gz'
     output:
-        'results/{animal}.QC.txt'
+        'data/{animal}.QC.txt'
     shell:
         '''
         src/fasterqc {input} {output}
-        python plot {output}
         '''
 
 rule sample_data:
