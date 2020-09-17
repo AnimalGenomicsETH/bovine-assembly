@@ -3,6 +3,22 @@ import datetime
 import pandas
 import seaborn
 
+def plot_chromosomes_scaffolds(animal,assembler):
+    counts = []
+    with open (f'results/{animal}_{assembler}.gaps.txt','r') as file_in:
+        for line in file_in:
+            if 'CH' not in line:
+                continue
+            parts = line.rstrip().split()
+            counts.append([int(i) for i in parts[2].split(',')])
+
+    length = max(map(len, counts))
+    grid = numpy.array([xi+[None]*(length-len(xi)) for xi in counts]).T
+    bottoms = grid.cumsum(axis=0)
+    bottoms = np.insert(bottoms,0,np.zeros(len(bottoms[0])),axis=0)
+    
+    fig = plt.figure()
+
 def load_auNCurves(animal,assembler):
     auN_values, metrics = [[],[]], dict()
 

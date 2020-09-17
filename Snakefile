@@ -38,7 +38,7 @@ wildcard_constraints:
 rule all:
     input:
         expand('{animal}_analysis_report.pdf',animal=config['animal']),
-        f'results/{config["animal"]}_hifiasm.telo.txt'
+        multiext(f'results/{config["animal"]}_hifiasm','.telo.txt','.gaps.txt')
 
 rule raw_read_conversion:
     input:
