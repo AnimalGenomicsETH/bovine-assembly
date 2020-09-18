@@ -29,7 +29,7 @@ rule scaffold_alignment:
         '.paf'
     threads: 24
     resources:
-        mem_mb = 2000
+        mem_mb = 2000,
         walltime = '1:00'
     shell:
         'minimap2 -xasm5 {input.ref} {input.asm} > {output}'

@@ -3,25 +3,28 @@ import datetime
 import pandas
 import seaborn
 from itertools import cycle
+from numpy import linspace, cumsum
 
-def plot_chromosomes_scaffolds(animal,assembler):
+def plot_chromosome_scaffolds(animal,assembler):
     chromosome = 0
     fig, ax = plt.subplots()
 
     with open (f'results/{animal}_{assembler}.gaps.txt','r') as file_in:
         for line in file_in:
-            if 'CH' not in line:
+            if 'CM' not in line:
                 continue
             chromosome += 1
             parts = line.rstrip().split()
             scaffolds = [int(i) for i in parts[2].split(',')]
-            cumsum = [0] + list(np.cumsum(scaffolds))
+            h_sums = [0] + list(cumsum(scaffolds))
 
-            colours = cycle('#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#666666')
-            for height, bottom in zip(scaffolds,cumsum):
-                ax.bar(chromosome,height,bottom=bottom,c=next(colours))
+            colours = cycle(('#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#666666'))
+            for height, bottom in zip(scaffolds,h_sums):
+                ax.bar(chromosome,height,bottom=bottom,width=0.5,color=next(colours))
 
-    fig.savefig('chrom.png')
+    f_name = f'figures/{animal}_{assembler}.chromosomes.png'
+    fig.savefig(f_name)
+    return f_name
 
 def load_auNCurves(animal,assembler):
     auN_values, metrics = [[],[]], dict()
@@ -40,7 +43,6 @@ def load_auNCurves(animal,assembler):
 
     return auN_values, metrics
 
-from numpy import linspace
 def plot_auNCurves(animal,assembler):
     data, metrics = load_auNCurves(animal,assembler)
     auN_data, aln_metrics = load_NGA(animal,assembler)
@@ -65,7 +67,7 @@ def plot_auNCurves(animal,assembler):
     ax_L.set_ylabel('number of contigs',fontsize=14)
 
     plt.tight_layout()
-    fig.savefig(f'{animal}_{assembler}_auN_curves.png')
+    fig.savefig(f'figures/{animal}_{assembler}_auN_curves.png')
 
     return metrics, aln_metrics
 
@@ -157,9 +159,9 @@ def generate_markdown_reads(animal):
         build_str += f'| {row} | {" | ".join(map("{:.2f}".format,stats.loc[row][1:]))} |\n'
     build_str += '\n'
 
-    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig('test.png')
+    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig('figures/{animal}.QC.png')
 
-    build_str += IMAGE('test.png',.6) + '\n\n'
+    build_str += IMAGE('figures/{animal}.QC.png',.6) + '\n\n'
     return build_str
 
 def generate_markdown_string(animal,assembler,build_str,summary_str):
@@ -174,15 +176,18 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
                  f'Memory (mean/max): {resource_stats["mean_mem"]} mb / {resource_stats["max_mem"]} mb\n\n'
 
     build_str += '## assembly metrics\n'
-
+    
     asm_metrics, aln_metrics = plot_auNCurves(animal,assembler)
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]:,}\n\n'
 
+    build_str += '### scaffolded chromosomes\n' + \
+                 IMAGE(plot_chromosome_scaffolds(animal,assembler),.5) + '\n\n'
+ 
     build_str += f'Contig length and quantity\n\n' \
                  f'**N50**: {asm_metrics["N50"]/1e6:.2f} mb\n\n' \
                  f'auN value: {asm_metrics["AU"]}\n\n' + \
-                 IMAGE(f'{animal}_{assembler}_auN_curves.png',.8) + '\n\n'
+                 IMAGE(f'figures/{animal}_{assembler}_auN_curves.png',.8) + '\n\n'
 
     if assembler == 'canu':
         build_str += 'Purged coverage:\n\n' + \
@@ -207,7 +212,6 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
     build_str += '## validation results\n\n'
 
     kmer_stats = kmer_QV(animal,assembler)
-    print(kmer_stats)
     build_str += '### merqury k-mers\n' \
                  f'Coverage: {float(kmer_stats["CV"])/100:.1%}\n\n' \
                  f'QV: {kmer_stats["QV"]}\n\n' + \
@@ -236,6 +240,7 @@ import argparse
 from pathlib import Path
 from markdown2 import markdown
 from weasyprint import HTML, CSS
+from shutil import rmtree
 
 def custom_PDF_writer(output,prepend_str,md_content,css):
     header = markdown(prepend_str,extras=['tables'])
@@ -246,6 +251,8 @@ def custom_PDF_writer(output,prepend_str,md_content,css):
     html.write_pdf(output,stylesheets=[CSS(filename=css)])
 
 def main(direct_input=None):
+    Path('figures').mkdir(exist_ok=True)
+
     parser = argparse.ArgumentParser(description='Produce assembly report.')
     parser.add_argument('--animal', type=str, required=True)
     parser.add_argument('--assemblers', nargs='+', required=True)
@@ -270,8 +277,9 @@ def main(direct_input=None):
     md_string = summary_string + md_string
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:
-        for assembler in args.assemblers:
-            Path(f'{args.animal}_{assembler}_auN_curves.png').unlink(missing_ok=True)
+        rmtree('figures')
+        #for assembler in args.assemblers:
+        #    Path(f'{args.animal}_{assembler}_auN_curves.png').unlink(missing_ok=True)
 
 if __name__ == "__main__":
     main()

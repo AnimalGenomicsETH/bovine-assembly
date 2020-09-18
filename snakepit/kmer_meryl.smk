@@ -1,4 +1,4 @@
-localrules: split_reads, merqury_submit, merqury_formatting
+localrules: split_reads, merqury_formatting
 
 checkpoint split_reads:
     input:
