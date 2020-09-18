@@ -2,22 +2,26 @@ import matplotlib.pyplot as plt
 import datetime
 import pandas
 import seaborn
+from itertools import cycle
 
 def plot_chromosomes_scaffolds(animal,assembler):
-    counts = []
+    chromosome = 0
+    fig, ax = plt.subplots()
+
     with open (f'results/{animal}_{assembler}.gaps.txt','r') as file_in:
         for line in file_in:
             if 'CH' not in line:
                 continue
+            chromosome += 1
             parts = line.rstrip().split()
-            counts.append([int(i) for i in parts[2].split(',')])
+            scaffolds = [int(i) for i in parts[2].split(',')]
+            cumsum = [0] + list(np.cumsum(scaffolds))
 
-    length = max(map(len, counts))
-    grid = numpy.array([xi+[None]*(length-len(xi)) for xi in counts]).T
-    bottoms = grid.cumsum(axis=0)
-    bottoms = np.insert(bottoms,0,np.zeros(len(bottoms[0])),axis=0)
-    
-    fig = plt.figure()
+            colours = cycle('#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#666666')
+            for height, bottom in zip(scaffolds,cumsum):
+                ax.bar(chromosome,height,bottom=bottom,c=next(colours))
+
+    fig.savefig('chrom.png')
 
 def load_auNCurves(animal,assembler):
     auN_values, metrics = [[],[]], dict()
@@ -139,15 +143,15 @@ def IMAGE(path,scale):
 def generate_markdown_reads(animal):
     build_str = f'Animal ID: **{animal}**\n\n' \
                  f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
-    
+
     df = pandas.read_csv(f'data/{animal}.QC.txt')
     stats = df.describe().transpose()
 
     build_str += '## read metrics \n' \
                  f'Total reads: {len(df):,}\n\n'
-  
+
     build_str += f'| | {" | ".join(stats.columns[1:])} |\n' + \
-                 ' -- '.join('|'*(len(stats.columns)+1)) +'\n'                 
+                 ' -- '.join('|'*(len(stats.columns)+1)) +'\n'
 
     for row in ('length','quality'):
         build_str += f'| {row} | {" | ".join(map("{:.2f}".format,stats.loc[row][1:]))} |\n'
@@ -186,7 +190,7 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
                      IMAGE(f'{assembler}/{animal}.purged.spectra.png',.4) + '\n\n'
 
         #              ' '.join(IMAGE(f'canu/{animal}.{sample}.spectra.png,',.4) for sample in ('contigs_raw','purged')) + '\n\n'
-        
+
         print(' '.join(IMAGE(f'canu/{animal}.{sample}.spectra.png,',.4) for sample in ('contigs_raw','purged')))
         #'canu/{animal}.contigs_raw.spectra.png',.4) + ' ' + IMAGE('canu/{animal}.purged.spectra.png',.4) + '\n\n'
 
@@ -259,7 +263,7 @@ def main(direct_input=None):
     summary_string = '# summary \n' \
                      '| assembler | size | contigs | N50 | L50 | completeness | QV kmer |\n' \
                      '| :-------- | :--: | :-----: | :-: | :-: | :----------: | :-----: |\n'
-    
+
     for assembler in args.assemblers:
         md_string, summary_string = generate_markdown_string(args.animal,assembler,md_string,summary_string)
 

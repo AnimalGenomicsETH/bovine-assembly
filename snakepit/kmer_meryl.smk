@@ -5,8 +5,6 @@ checkpoint split_reads:
         'data/{animal}.hifi.fq.gz'
     output:
         directory('split_{animal}/')
-    #params:
-    #    config['split_size']
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
@@ -25,7 +23,6 @@ rule count_many:
     resources:
         mem_mb = 3000
     params:
-        #K = config['k-mers'],
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
         'meryl count k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input}'
@@ -43,7 +40,6 @@ rule merge_many:
     resources:
         mem_mb = 4000
     params:
-        #K = config['k-mers'],
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
         'echo {input}; echo "hello"; meryl union-sum k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input} '
@@ -57,7 +53,6 @@ rule count_asm_kmers:
     resources:
         mem_mb = 3000
     params:
-        #K = config['k-mers'],
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
         'meryl count k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input}'
@@ -101,22 +96,6 @@ rule merqury_spectra:
         ln -s ../{input.filt}
         find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
         $MERQURY/eval/spectra-cn.sh ../{input.read_db} {wildcards.animal}.contigs.fasta {wildcards.animal}
-        '''
-
-rule merqury_submit:
-    input:
-        read_db = 'data/{animal}.hifi.meryl',
-        asm_db = '{assembler}/{animal}.contigs.meryl',
-        asm = '{assembler}/{animal}.contigs.fasta'
-    output:
-        multiext('{assembler}/{animal}','.dddqv','.completeness.qqqstats')
-    #params:
-    #    mq_dir = config['merqury_root']
-    shell:
-        '''
-        export MERQURY={config[merqury_root]}
-        $MERQURY/_submit_merqury.sh {input.read_db} {input.asm} {wildcards.assembler}/{wildcards.animal}
-        touch {output}
         '''
 
 rule merqury_formatting:

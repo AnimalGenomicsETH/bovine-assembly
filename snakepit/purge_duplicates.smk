@@ -45,8 +45,6 @@ rule purge_dups:
     output:
         contigs = '{assembler}/{animal}.purged.fa',
         bed = '{assembler}/{animal}_dups.bed'
-    #params:
-    #    config['pd_root']
     shell:
         '''
         {config[pd_root]}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > {output.bed}
@@ -73,8 +71,6 @@ rule KMC_reads:
         disk_scratch = 150
     params:
         memory = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']#,
-        #root = config['kmc_root'],
-        #K = config['k-mers']
     shell:
         '''
         {config[kmc_root]}/bin/kmc -ci0 -cs1023 -t{threads} -fq -m{params.memory} -k{config[k-mers]} {input} {output.base} $TMPDIR
@@ -94,8 +90,6 @@ rule KMC_ref:
         walltime = '20'
     params:
         memory = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']#,
-        #root = config['kmc_root'],
-        #K = config['k-mers']
     shell:
         '''
         {config[kmc_root]}/bin/kmc -ci0 -t{threads} -fm -m{params.memory} -k{config[k-mers]} {input} {output.base} $TMPDIR
@@ -112,8 +106,6 @@ rule KMC_analysis:
     threads: 2
     resources:
         mem_mb = 20000
-    #params:
-    #    config['kmc_root']
     shell:
         '''
         {config[kmc_root]}/bin/kmc_tools analyze {input.reads} {input.asm} {output.matrix}
