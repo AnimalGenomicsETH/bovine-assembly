@@ -44,6 +44,40 @@ rule scaffold_chromosomes:
     shell:
         'ragtag.py scaffold {input.ref} {input.asm} -o {wildcards.assembler} -u'
 
+rule remap_reads:
+    input:
+        reads = 'data/{animal}.hifi.fq.gz',
+        asm = '{assembler}/{animal}.scaffolds.fasta'
+    output:
+        '{assembler}/{animal}_scaffold_read.sam'
+    threads: 24
+    resources:
+        mem_mb = 3000
+    shell:
+        'minimap2 -ax asm20 -t {threads} {input.asm} {input.reads} > {output}'
+
+rule sam_to_bam:
+    input:
+        '{assembler}/{file}.sam'
+    output:
+        '{assembler}/{file}.bam'
+    params:
+        memory = 4000
+    threads: 16
+    resources:
+        mem_mb = '{params}',
+        disk_scratch = 200
+    shell:
+        'samtools sort {input} -m {params}M -@ {threads} -T \$TMPDIR -o {output}'
+
+rule assembly_coverage:
+    input:
+        '{assembler}/{file}.bam'
+    output:
+        'cov'
+    shell:
+        'samtools coverage {input} > {output}'
+
 rule raw_QC:
     input:
         'data/{animal}.hifi.fq.gz'
