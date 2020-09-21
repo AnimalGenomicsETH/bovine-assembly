@@ -23,7 +23,9 @@ rule count_scaffold_gaps:
                 gap_lengths = list(map(len, gap_sequence.findall(str(scaffold.sequence))))
                 #for F in (re.split, re.findall):
                 #     map(lambda s: str(len(s)), F(scaffold.sequence))
-                fout.write('\t'.join((scaffold.name,str(len(contig_lengths)-1),','.join(map(str,contig_lengths))),','.join(map(str,gap_legths)))+'\n')
+                fout.write('\t'.join((scaffold.name,str(len(contig_lengths)-1),','.join(map(str,contig_lengths)),','.join(map(str,gap_lengths))))+'\n')
+
+#ragtag.py correct, full reads mapping, c_mapping
 
 rule scaffold_alignment:
     input:
@@ -32,10 +34,9 @@ rule scaffold_alignment:
         '{assembler}/{animal}_scaffold.paf'
     threads: 24
     resources:
-        mem_mb = 2000,
-        walltime = '1:00'
+        mem_mb = 2000
     shell:
-        'minimap2 -xasm5 {config[ref_genomes]} {input.asm} > {output}'
+        'minimap2 -c -xasm5 {config[ref_genomes]} {input.asm} > {output}'
 
 rule scaffold_chromosomes:
     input:
