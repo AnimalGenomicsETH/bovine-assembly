@@ -15,34 +15,36 @@ rule count_scaffold_gaps:
         'results/{animal}_{assembler}.gaps.txt'
     run:
         import re, screed
+        gap_sequence = re.compile(r'[nN]+')
         with open(output[0],'w') as fout:
-            fout.write('scaffold\tgaps\tlengths\n')
+            fout.write('scaffold\tgaps\tlengths\tglen\n')
             for scaffold in screed.open(input[0]):
-                contig_lengths = list(map(len, re.split('[nN]+', str(scaffold.sequence))))
-                fout.write('\t'.join((scaffold.name,str(len(contig_lengths)-1),','.join(map(str,contig_lengths))))+'\n')
+                contig_lengths = list(map(len, gap_sequence.split(str(scaffold.sequence))))
+                gap_lengths = list(map(len, gap_sequence.findall(str(scaffold.sequence))))
+                #for F in (re.split, re.findall):
+                #     map(lambda s: str(len(s)), F(scaffold.sequence))
+                fout.write('\t'.join((scaffold.name,str(len(contig_lengths)-1),','.join(map(str,contig_lengths))),','.join(map(str,gap_legths)))+'\n')
 
 rule scaffold_alignment:
     input:
-        asm = '{assembler}/{animal}.contigs.fasta',
-        ref = config['ref_genome']
+        asm = '{assembler}/{animal}.contigs.fasta'
     output:
-        '.paf'
+        '{assembler}/{animal}_scaffold.paf'
     threads: 24
     resources:
         mem_mb = 2000,
         walltime = '1:00'
     shell:
-        'minimap2 -xasm5 {input.ref} {input.asm} > {output}'
+        'minimap2 -xasm5 {config[ref_genomes]} {input.asm} > {output}'
 
 rule scaffold_chromosomes:
     input:
         asm = '{assembler}/{animal}.contigs.fasta',
-        ref = config['ref_genome'],
         aln = '.paf'
     output:
         '{assembler}/{animal}.scaffold.fasta'
     shell:
-        'ragtag.py scaffold {input.ref} {input.asm} -o {wildcards.assembler} -u'
+        'ragtag.py scaffold {contig[ref_genomes]} {input.asm} -o {wildcards.assembler} -u'
 
 rule remap_reads:
     input:

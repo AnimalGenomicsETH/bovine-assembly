@@ -149,7 +149,7 @@ rule validation_auN:
 rule validation_refalign:
     input:
         ref = config['ref_genome'],
-        ref_fai  = f'{config["ref_genome"]}.fai',
+        ref_fai  = '{config[ref_genome]}.fai',
         asm = '{assembler}/{animal}.contigs.fasta'
     output:
         paf = temp('intermediates/{animal}_{assembler}_asm.paf'),
@@ -167,8 +167,7 @@ rule validation_refalign:
 rule validation_asmgene:
     input:
         asm = '{assembler}/{animal}.contigs.fasta',
-        reads = 'data/{animal}.hifi.fq.gz',
-        cDNAs = config['cDNAs']
+        reads = 'data/{animal}.hifi.fq.gz'
     output:
         asm_paf = temp('intermediates/{animal}_{assembler}_asm_aln.paf'),
         ref_paf = temp('intermediates/{animal}_{assembler}_ref_aln.paf'),
@@ -178,8 +177,8 @@ rule validation_asmgene:
         mem_mb = 2500
     shell:
         '''
-        minimap2 -cxsplice:hq -t {threads} {input.asm} {input.cDNAs} > {output.asm_paf}
-        minimap2 -cxsplice:hq -t {threads} {input.reads} {input.cDNAs} > {output.ref_paf}
+        minimap2 -cxsplice:hq -t {threads} {input.asm} {config[cDNAs]} > {output.asm_paf}
+        minimap2 -cxsplice:hq -t {threads} {input.reads} {config[cDNAs]} > {output.ref_paf}
         paftools.js asmgene -i.97 {output.ref_paf} {output.asm_paf} > {output.asmgene}
         '''
 
@@ -204,15 +203,14 @@ rule validation_busco:
         '''
 rule generate_dot_paf:
     input:
-        asm = '{assembler}/{animal}.contigs.fasta',
-        ref = config['ref_genome']
+        asm = '{assembler}/{animal}.contigs.fasta'
     output:
         '{assembler}/{animal}_ref_dot.paf'
     threads: 24
     resources:
         mem_mb = 2000
     shell:
-        'minimap2 -cx asm5 --cs -t {threads} {input.ref} {input.asm} > {output}'
+        'minimap2 -cx asm5 --cs -t {threads} {config[ref_genome]} {input.asm} > {output}'
 
 rule plot_dot:
     input:
@@ -234,11 +232,9 @@ rule plot_do3t:
         'scripts/pafDot.R'
 
 rule generate_reffai:
-    input:
-        config['ref_genome']
     output:
-        '{input}.fai'
-    shell: 'samtools fqidx {input}'
+        '{config[ref_genome]}.fai'
+    shell: 'samtools fqidx {config[ref_genome]}'
 
 rule analysis_report:
     input:

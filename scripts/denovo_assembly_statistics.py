@@ -176,14 +176,14 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
                  f'Memory (mean/max): {resource_stats["mean_mem"]} mb / {resource_stats["max_mem"]} mb\n\n'
 
     build_str += '## assembly metrics\n'
-    
+
     asm_metrics, aln_metrics = plot_auNCurves(animal,assembler)
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]:,}\n\n'
 
     build_str += '### scaffolded chromosomes\n' + \
                  IMAGE(plot_chromosome_scaffolds(animal,assembler),.5) + '\n\n'
- 
+
     build_str += f'Contig length and quantity\n\n' \
                  f'**N50**: {asm_metrics["N50"]/1e6:.2f} mb\n\n' \
                  f'auN value: {asm_metrics["AU"]}\n\n' + \
