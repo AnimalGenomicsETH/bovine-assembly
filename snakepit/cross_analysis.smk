@@ -26,26 +26,47 @@ rule count_scaffold_gaps:
                 fout.write('\t'.join((scaffold.name,str(len(contig_lengths)-1),','.join(map(str,contig_lengths)),','.join(map(str,gap_lengths))))+'\n')
 
 #ragtag.py correct, full reads mapping, c_mapping
+rule ragtag_correct_alignment:
+    input:
+        reads = 'data/{animal}.hifi.fq.gz',
+        asm = '{assembler}/{animal}.contigs.fasta'
+    output:
+        '{assembler}/{animal}_reads_aln.sam'
+    threads: 24
+    resources:
+        mem_mb = 3000
+    shell:
+        'minimap2 -ax asm20 -t {threads} {input.asm} {input.reads} > {output}'
+     
+rule ragtag_correct:
+    input:
+        asm = '{assembler}/{animal}.contigs.fasta',
+        aln = '{assembler}/{animal}_reads_aln.sam',
+        reads = '{data/{animal}.hifi.fq.gz'
+    output:
+        '{assembler}/{animal}.corrected.fasta'
+    shell:
+        'ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler} -R {input.reads} -T corr'
 
 rule scaffold_alignment:
     input:
-        asm = '{assembler}/{animal}.contigs.fasta'
+        asm = '{assembler}/{animal}.contigs.corrected.fasta'
     output:
         '{assembler}/{animal}_scaffold.paf'
     threads: 24
     resources:
         mem_mb = 2000
     shell:
-        'minimap2 -c -xasm5 {config[ref_genomes]} {input.asm} > {output}'
+        'minimap2 -c -x asm5 -t {threads} {config[ref_genomes]} {input.asm} > {output}'
 
 rule scaffold_chromosomes:
     input:
         asm = '{assembler}/{animal}.contigs.fasta',
-        aln = '.paf'
+        aln = '{assembler}/{animal}_scaffold.paf'
     output:
         '{assembler}/{animal}.scaffold.fasta'
     shell:
-        'ragtag.py scaffold {contig[ref_genomes]} {input.asm} -o {wildcards.assembler} -u'
+        'ragtag.py scaffold {contig[ref_genomes]} {input.asm} -o {wildcards.assembler}'
 
 rule remap_reads:
     input:
