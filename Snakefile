@@ -44,7 +44,7 @@ rule raw_read_conversion:
     input:
         '{config[raw_data]}/{config[animal]}/ccs/{read_name}.ccs.bam'
     output:
-        'data/{read_name}.fastq.gz'
+        temp('data/{read_name}.fastq.gz')
     threads: 8
     resources:
         mem_mb = 3000
@@ -54,7 +54,7 @@ rule raw_merge_files:
     input:
         expand('data/{ID}.fastq.gz',ID=glob_wildcards(f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam').read_name)
     output:
-        'data/{animal}.hifi.fq.gz'
+        protected('data/{animal}.hifi.fq.gz')
     shell: 'cat {input} > {output}'
 
 if 'hifiasm' in config['assemblers']:
@@ -220,17 +220,6 @@ rule plot_dot:
     shell:
         'minidot -L {input} | convert -density 150 - {output}'
 
-rule plot_do3t:
-    input:
-        '{assembler}/{animal}_ref_dot.paf'
-    output:
-        'r1esults/{animal}_{assembler}.dot.png'
-    envmodules:
-        'gcc/8.2.0',
-        'r/4.0.2'
-    script:
-        'scripts/pafDot.R'
-
 rule generate_reffai:
     output:
         '{config[ref_genome]}.fai'
@@ -245,7 +234,6 @@ rule analysis_report:
         '{animal}_analysis_report.pdf'
     params:
         base_dir = workflow.basedir,
-        #assemblers = config['assemblers']
     log:
         'logs/analysis_report/animal-{animal}.out'
     shell: 'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {config[assemblers]} --outfile {output} --css {workflow.basedir}/scripts/github.css > {log}'
