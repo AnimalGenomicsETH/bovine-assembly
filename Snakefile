@@ -54,28 +54,28 @@ rule raw_merge_files:
     input:
         expand('data/{ID}.fastq.gz',ID=glob_wildcards(f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam').read_name)
     output:
-        protected('data/{animal}.hifi.fq.gz')
+        protected('data/{animal}.raw.hifi.fq.gz')
     shell: 'cat {input} > {output}'
 
 if 'hifiasm' in config['assemblers']:
     Path('hifiasm').mkdir(exist_ok=True)
     rule assembler_hifiasm:
         input:
-            'data/{animal}.hifi.fq.gz'
+            'data/{animal}.{sample}.hifi.fq.gz'
         output:
-            'hifiasm/{animal}.asm.p_ctg.gfa'
+            'hifiasm/{animal}.{sample}.asm.p_ctg.gfa'
         threads: 36
         resources:
             mem_mb = 3100,
             walltime = '16:00'
-        shell: 'hifiasm -o hifiasm/{wildcards.animal}.asm -t {threads} {input}'
+        shell: 'hifiasm -o hifiasm/{wildcards.animal}.{wildcards.sample}.asm -t {threads} {input}'
 
  ##Requires gfatools installed
 rule assembler_hifi_conversion:
     input:
-        'hifiasm/{animal}.asm.p_ctg.gfa'
+        'hifiasm/{animal}.{sample}.asm.p_ctg.gfa'
     output:
-        'hifiasm/{animal}.contigs.fasta'
+        'hifiasm/{animal}.{sample}.contigs.fasta'
     resources:
         mem_mb = 6000
     shell: 'gfatools gfa2fa {input} > {output}'
@@ -85,20 +85,19 @@ if 'canu' in config['assemblers']:
     localrules: assembler_canu
     rule assembler_canu:
         input:
-            'data/{animal}.hifi.fq.gz'
+            'data/{animal}.{sample}.hifi.fq.gz'
         output:
-            'canu/{animal}.contigs_raw.fa'
-        log: 'logs/assembler_canu/animal-{animal}.out'
+            'canu/{animal}.{sample}.contigs_raw.fa'
+        log: 'logs/assembler_canu/animal-{animal}_sample-{sample}.out'
         params:
-            temp = '{animal}.complete',
-            g_est = config['genome_est']
+            temp = '{animal}.{sample}.complete'
         shell:
             '''
-            canu -p {wildcards.animal} -d canu genomeSize={params.g_est}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" > {log}
+            canu -p {wildcards.animal}.{wildcards.sample} -d canu genomeSize={config[g_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" > {log}
             while [ ! -e canu/{params.temp} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
             rm canu/{params.temp}
-            mv canu/{wildcards.animal}.contigs.fasta {output}
+            mv canu/{wildcards.animal}.{wildcards.sample}.contigs.fasta {output}
             '''
     include: 'snakepit/purge_duplicates.smk'
 
@@ -106,9 +105,9 @@ if 'flye' in config['assemblers']:
     Path('flye').mkdir(exist_ok=True)
     rule assembler_flye:
         input:
-            'data/{animal}.hifi.fq.gz'
+            'data/{animal}.{sample}.hifi.fq.gz'
         output:
-            'flye/{animal}.contigs.fasta'
+            'flye/{animal}.{sample}.contigs.fasta'
         threads: 36
         resources:
             mem_mb = 6500,
@@ -140,38 +139,37 @@ rule validation_yak:
 ##Requires k8 and calN50.js installed
 rule validation_auN:
     input:
-        '{assembler}/{animal}.contigs.fasta'
+        '{assembler}/{animal}.{sample}.contigs.fasta'
     output:
-        'results/{animal}_{assembler}.auN.txt'
+        'results/{animal}_{assembler}.{sample}.auN.txt'
     shell: 'k8 ~/bin/calN50.js -s 0.01 {input} > {output}'
 
 ##Requires minigraph and paftools.js installed
 rule validation_refalign:
     input:
-        ref = config['ref_genome'],
         ref_fai  = '{config[ref_genome]}.fai',
-        asm = '{assembler}/{animal}.contigs.fasta'
+        asm = '{assembler}/{animal}.{sample}.contigs.fasta'
     output:
-        paf = temp('intermediates/{animal}_{assembler}_asm.paf'),
-        NGA = 'results/{animal}_{assembler}.NGA50.txt'
+        paf = temp('intermediates/{animal}_{sample}_{assembler}_asm.paf'),
+        NGA = 'results/{animal}_{sample}_{assembler}.NGA50.txt'
     threads: 24
     resources:
         mem_mb = 3000,
         walltime = '2:00'
     shell:
         '''
-        minigraph -k 21 -xasm  --show-unmap=yes -t {threads} {input.ref} {input.asm} > {output.paf}
+        minigraph -k 21 -xasm  --show-unmap=yes -t {threads} {config[ref_genome]} {input.asm} > {output.paf}
         paftools.js asmstat {input.ref_fai} {output.paf} > {output.NGA}
         '''
 
 rule validation_asmgene:
     input:
-        asm = '{assembler}/{animal}.contigs.fasta',
-        reads = 'data/{animal}.hifi.fq.gz'
+        asm = '{assembler}/{animal}.{sample}.contigs.fasta',
+        reads = 'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        asm_paf = temp('intermediates/{animal}_{assembler}_asm_aln.paf'),
-        ref_paf = temp('intermediates/{animal}_{assembler}_ref_aln.paf'),
-        asmgene = 'results/{animal}_{assembler}.asmgene.txt'
+        asm_paf = temp('intermediates/{animal}_{sample}_{assembler}_asm_aln.paf'),
+        ref_paf = temp('intermediates/{animal}_{sample}_{assembler}_ref_aln.paf'),
+        asmgene = 'results/{animal}_{sample}_{assembler}.asmgene.txt'
     threads: 24
     resources:
         mem_mb = 2500
@@ -185,12 +183,12 @@ rule validation_asmgene:
 ##Requires busco (and metaeuk) installed
 rule validation_busco:
     input:
-        '{assembler}/{animal}.contigs.fasta'
+        '{assembler}/{animal}.{sample}.contigs.fasta'
     output:
-        out_dir = directory('{assembler}/{animal}_BUSCO'),
-        summary = 'results/{animal}_{assembler}.BUSCO.txt'
+        out_dir = directory('{assembler}/{animal}_{sample}_BUSCO'),
+        summary = 'results/{animal}_{sample}_{assembler}.BUSCO.txt'
     params:
-        tmp_dir = '{animal}_{assembler}_busco_results'
+        tmp_dir = '{animal}_{sample}_{assembler}_busco_results'
     threads: 24
     resources:
         mem_mb = 3000,

@@ -1,12 +1,4 @@
-localrules: count_telomers, count_scaffold_gaps, scaffold_chromosomes
-
-rule telomer_asdcontent:
-    input:
-        '{assembler}/{animal}.contigs.fasta'
-    output:
-        'results/{animal}_{assembler}.teasdlo.txt'
-    script:
-        '../scripts/count_telomers.py'
+localrules: count_telomers, count_scaffold_gaps, assembly_coverage, sample_data
 
 rule count_telomers:
     input:
@@ -46,65 +38,32 @@ rule count_scaffold_gaps:
 rule ragtag_correct:
     input:
         asm = '{assembler}/{animal}.contigs.fasta'
-        reads = '{data/{animal}.hifi.fq.gz'
+        reads = 'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        '{assembler}/{animal}.contigs.corrected.fasta'
+        '{assembler}/{animal}.{sample}.contigs.corrected.fasta'
     threads: 24
     resources:
         mem_mb = 3000
     shell:
-        'ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler} -R {input.reads} -T corr -t {threads}'
+        'ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler} -R {input.reads} -T corr -t {threads} --mm2-params "-x asm20"'
 
 rule ragtag_scaffold:
     input:
         '{assembler}/{animal}.contigs.fasta'
-        #or corrected
     output:
         '{assembler}/ragtag.scaffolds.fasta'
     threads: 24
     resources:
         mem_mb = 2000
     shell:
-        'ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler} -t {threads}'
-
-rule ragtag_correct_alignment:
-    input:
-        reads = 'data/{animal}.hifi.fq.gz',
-        asm = '{assembler}/{animal}.contigs.fasta'
-    output:
-        '{assembler}/{animal}_reads_aln.sam'
-    threads: 24
-    resources:
-        mem_mb = 3000
-    shell:
-        'minimap2 -ax asm20 -t {threads} {input.asm} {input.reads} > {output}'
-
-rule scaffold_alignment:
-    input:
-        asm = '{assembler}/{animal}.contigs.corrected.fasta'
-    output:
-        '{assembler}/{animal}_scaffold.paf'
-    threads: 24
-    resources:
-        mem_mb = 2000
-    shell:
-        'minimap2 -c -x asm5 -t {threads} {config[ref_genomes]} {input.asm} > {output}'
-
-rule scaffold_chromosomes:
-    input:
-        asm = '{assembler}/{animal}.contigs.fasta',
-        aln = '{assembler}/{animal}_scaffold.paf'
-    output:
-        '{assembler}/{animal}.scaffold.fasta'
-    shell:
-        'ragtag.py scaffold {contig[ref_genomes]} {input.asm} -o {wildcards.assembler}'
+        'ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler} -t {threads} --mm2-params "-c -x asm5"'
 
 rule remap_reads:
     input:
-        reads = 'data/{animal}.hifi.fq.gz',
-        asm = '{assembler}/{animal}.scaffolds.fasta'
+        reads = 'data/{animal}.{read_t}.hifi.fq.gz',
+        asm = '{assembler}/{animal}.{read_t}.scaffolds.fasta'
     output:
-        '{assembler}/{animal}_scaffold_read.sam'
+        '{assembler}/{animal}_{read_t}_scaffold_read.sam'
     threads: 24
     resources:
         mem_mb = 3000
@@ -135,9 +94,9 @@ rule assembly_coverage:
 
 rule raw_QC:
     input:
-        'data/{animal}.hifi.fq.gz'
+        'data/{animal}.{read_t}.hifi.fq.gz'
     output:
-        'data/{animal}.QC.txt'
+        'data/{animal}.{read_t}.QC.txt'
     shell:
         '''
         src/fasterqc {input} {output}
@@ -145,8 +104,23 @@ rule raw_QC:
 
 rule sample_data:
     input:
-        'data/{animal}.hifi.fq.gz'
+        'data/{animal}.cleaned.hifi.fq.gz'
     output:
-        'data/{animal}SAMP{sample}.hifi.fq.gz'
+        'data/{animal}.{sample}.hifi.fq.gz'
+    run:
+        if wildcards.sample == 100:
+            shell('ln -s {input} {output}')
+        else:
+            frac_sample = wildcards.sample / 100
+            shell(f'seqtk sample {{input}} {frac_sample} > {{output}}')
+
+rule filter_data:
+    input:
+        'data/{animal}.raw.hifi.fq.gz'
+    output:
+        'data/{animal}.cleaned.hifi.fq.gz'
+    threads: 12
+    resources:
+        mem_mb = 4000
     shell:
-        'seqtk sample {input} {wildcards.sample} > {output}'
+        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --thread {threads} --html data/{wildcards.animal}.html'

@@ -24,3 +24,15 @@ pd_root: '/cluster/work/pausch/alex/software/purge_dups'
 kmc_root: '/cluster/work/pausch/alex/software/KMC'
 merqury_root: '/cluster/work/pausch/alex/software/merqury'
 r_lib: '/cluster/work/pausch/alex/software/R_packages'
+
+##filtering run_parameters
+filtering:
+    avg_qual: 20
+    min_length: 1000
+
+##sample levels
+sampling:
+    - 100
+    - 75
+    - 50
+    - 25
