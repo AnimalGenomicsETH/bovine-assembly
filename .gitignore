@@ -7,12 +7,19 @@ __pycache__/
 #except for
 
 !Snakefile
+
 !snakepit
 snakepit/*
 !snakepit/*.smk
 !snakepit/*.yml
 !snakepit/*.yaml
+
 !scripts
 scripts/*
 !scripts/*.py
 !scripts/*.css
+
+!src
+src/*
+!src/Makefile
+!src/fasterqc.c
