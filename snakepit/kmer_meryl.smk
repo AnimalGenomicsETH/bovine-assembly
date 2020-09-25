@@ -2,23 +2,24 @@ localrules: split_reads, merqury_formatting
 
 checkpoint split_reads:
     input:
-        'data/{animal}.hifi.fq.gz'
+        'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        directory('split_{animal}/')
+        directory('split_{animal}_{sample}/')
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
     shell:
         '''
-        mkdir -p split_{wildcards.animal}
-        zcat {input} | split -a 2 -d -C {config[split_size]}GiB --filter='pigz -p 6 > $FILE.fq.gz' - split_{wildcards.animal}/chunk_
+        #can replace with {output}
+        mkdir -p split_{wildcards.animal}_{wildcards.sample}
+        zcat {input} | split -a 2 -d -C {config[split_size]}GiB --filter='pigz -p 6 > $FILE.fq.gz' - split_{wildcards.animal}_{wildcards.sample}/chunk_
         '''
 
 rule count_many:
     input:
-        'split_{animal}/chunk_{sample}.fq.gz'
+        'split_{animal}_{sample}/chunk_{chunk}.fq.gz'
     output:
-        directory('split_{animal}/chunk_{sample}.meryl')
+        directory('split_{animal}_{sample}/chunk_{chunk}.meryl')
     threads: 18
     resources:
         mem_mb = 3000
@@ -29,13 +30,13 @@ rule count_many:
 
 def aggregate_split_input(wildcards):
     checkpoint_output = checkpoints.split_reads.get(**wildcards).output[0]
-    return expand('split_{animal}/chunk_{sample}.meryl',animal=wildcards.animal,sample=glob_wildcards(os.path.join(checkpoint_output, 'chunk_{sample}.fq.gz')).sample)
+    return expand('split_{animal}_{sample}/chunk_{chunk}.meryl',animal=wildcards.animal,sample=wildcards.sample,chunk=glob_wildcards(os.path.join(checkpoint_output, 'chunk_{chunk}.fq.gz')).chunk)
 
 rule merge_many:
     input:
         aggregate_split_input
     output:
-        directory('data/{animal}.hifi.meryl')
+        directory('data/{animal}.{sample}.hifi.meryl')
     threads: 12
     resources:
         mem_mb = 4000
@@ -46,9 +47,9 @@ rule merge_many:
 
 rule count_asm_kmers:
     input:
-        '{assembler}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
-        directory('{assembler}/{animal}.contigs.meryl')
+        directory('{assembler}_{sample}/{animal}.contigs.meryl')
     threads: 12
     resources:
         mem_mb = 3000
@@ -59,10 +60,10 @@ rule count_asm_kmers:
 
 rule merqury_prep:
     input:
-        'data/{animal}.hifi.meryl'
+        'data/{animal}.{sample}.hifi.meryl'
     output:
-        hist = 'data/{animal}.hifi.hist',
-        filt = 'data/{animal}.hifi.filt'
+        hist = 'data/{animal}.{sample}.hifi.hist',
+        filt = 'data/{animal}.{sample}.hifi.filt'
     threads: 12
     resources:
         mem_mb = 2000
@@ -77,12 +78,12 @@ rule merqury_prep:
 
 rule merqury_spectra:
     input:
-        read_db = 'data/{animal}.hifi.meryl',
-        asm_db = '{assembler}/{animal}.contigs.meryl',
-        asm = '{assembler}/{animal}.contigs.fasta',
-        filt = 'data/{animal}.hifi.filt'
+        read_db = 'data/{animal}.{sample}.hifi.meryl',
+        asm_db = '{assembler}_{sample}/{animal}.contigs.meryl',
+        asm = '{assembler}_{sample}/{animal}.contigs.fasta',
+        filt = 'data/{animal}.{sample}.hifi.filt'
     output:
-        multiext('{assembler}/{animal}','.qv','.completeness.stats')
+        multiext('{assembler}_{sample}/{animal}','.qv','.completeness.stats')
     threads: 8
     resources:
         mem_mb = 6000
@@ -100,10 +101,10 @@ rule merqury_spectra:
 
 rule merqury_formatting:
     input:
-        qv = '{assembler}/{animal}.qv',
-        completeness = '{assembler}/{animal}.completeness.stats'
+        qv = '{assembler}_{sample}/{animal}.qv',
+        completeness = '{assembler}_{sample}/{animal}.completeness.stats'
     output:
-        'results/{animal}_{assembler}.merqury.stats.txt'
+        'results/{animal}_{sample}_{assembler}.merqury.stats.txt'
     shell:
         '''
         awk '{{print "QV " $4}}' {input.qv} > {output}

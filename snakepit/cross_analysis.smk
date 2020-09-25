@@ -2,9 +2,9 @@ localrules: count_telomers, count_scaffold_gaps, assembly_coverage, sample_data
 
 rule count_telomers:
     input:
-        '{assembler}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
-        'results/{animal}_{assembler}.telo.txt'
+        'results/{animal}_{sample}_{assembler}.telo.txt'
     run:
         import re, screed
         from scipy.stats import binom
@@ -19,9 +19,9 @@ rule count_telomers:
 
 rule count_scaffold_gaps:
     input:
-        '{assembler}/{animal}.scaffolds.fasta'
+        '{assembler}_{sample}/{animal}.scaffolds.fasta'
     output:
-        'results/{animal}_{assembler}.gaps.txt'
+        'results/{animal}_{sample}_{assembler}.gaps.txt'
     run:
         import re, screed
         gap_sequence = re.compile(r'[nN]+')
@@ -37,33 +37,33 @@ rule count_scaffold_gaps:
 #ragtag.py correct, full reads mapping, c_mapping
 rule ragtag_correct:
     input:
-        asm = '{assembler}/{animal}.contigs.fasta'
+        asm = '{assembler}_{sample}/{animal}.contigs.fasta'
         reads = 'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        '{assembler}/{animal}.{sample}.contigs.corrected.fasta'
+        '{assembler}_{sample}/{animal}.contigs.corrected.fasta'
     threads: 24
     resources:
         mem_mb = 3000
     shell:
-        'ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler} -R {input.reads} -T corr -t {threads} --mm2-params "-x asm20"'
+        'ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler}_{wildcards.sample} -R {input.reads} -T corr -t {threads} --mm2-params "-x asm20"'
 
 rule ragtag_scaffold:
     input:
-        '{assembler}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
-        '{assembler}/ragtag.scaffolds.fasta'
+        '{assembler}_{sample}/ragtag.scaffolds.fasta'
     threads: 24
     resources:
         mem_mb = 2000
     shell:
-        'ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler} -t {threads} --mm2-params "-c -x asm5"'
+        'ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler}_{wildcards.sample} -t {threads} --mm2-params "-c -x asm5"'
 
 rule remap_reads:
     input:
-        reads = 'data/{animal}.{read_t}.hifi.fq.gz',
-        asm = '{assembler}/{animal}.{read_t}.scaffolds.fasta'
+        reads = 'data/{animal}.hifi.fq.gz',
+        asm = '{assembler}_{sample}/{animal}.scaffolds.fasta'
     output:
-        '{assembler}/{animal}_{read_t}_scaffold_read.sam'
+        '{assembler}_{sample}/{animal}_scaffold_read.sam'
     threads: 24
     resources:
         mem_mb = 3000
@@ -94,9 +94,9 @@ rule assembly_coverage:
 
 rule raw_QC:
     input:
-        'data/{animal}.{read_t}.hifi.fq.gz'
+        'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        'data/{animal}.{read_t}.QC.txt'
+        'data/{animal}.{sample}.QC.txt'
     shell:
         '''
         src/fasterqc {input} {output}

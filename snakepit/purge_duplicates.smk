@@ -2,10 +2,10 @@ localrules: cut_and_split, purge_dups, assess_purging
 
 rule map_reads:
     input:
-        asm = '{assembler}/{animal}.contigs_raw.fa',
-        reads = 'data/{animal}.hifi.fq.gz'
+        asm = '{assembler}_{sample}/{animal}.contigs_raw.fa',
+        reads = 'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        '{assembler}/{animal}_read_aln.paf'
+        '{assembler}_{sample}/{animal}_read_aln.paf'
     threads: 24
     resources:
         mem_mb = 2500
@@ -14,24 +14,25 @@ rule map_reads:
 
 rule cut_and_split:
     input:
-        paf = '{assembler}/{animal}_read_aln.paf',
-        contigs = '{assembler}/{animal}.contigs_raw.fa'
+        paf = '{assembler}_{sample}/{animal}_read_aln.paf',
+        contigs = '{assembler}_{sample}/{animal}.contigs_raw.fa'
     output:
-        splits = '{assembler}/{animal}.split.fasta'
+        splits = '{assembler}_{sample}/{animal}.split.fasta'
     params:
         config['pd_root']
     shell:
         '''
-        {config[pd_root]}/bin/pbcstat {input.paf} -O {wildcards.assembler}
-        {config[pd_root]}/bin/calcuts {wildcards.assembler}/PB.stat > {wildcard.assembler}/cutoffs
+        cd {wildcards.assembler}
+        {config[pd_root]}/bin/pbcstat {input.paf}
+        {config[pd_root]}/bin/calcuts PB.stat > cutoffs
         {config[pd_root]}/bin/split_fa {input.contigs} > {output.splits}
         '''
 
 rule map_splits:
     input:
-        '{assembler}/{animal}.split.fasta'
+        '{assembler}_{sample}/{animal}.split.fasta'
     output:
-        '{assembler}/{animal}_ctg-aln.paf'
+        '{assembler}_{sample}/{animal}_ctg-aln.paf'
     threads: 24
     resources:
         mem_mb = 2500
@@ -40,11 +41,11 @@ rule map_splits:
 
 rule purge_dups:
     input:
-        paf = '{assembler}/{animal}_ctg-aln.paf',
-        contigs = '{assembler}/{animal}.contigs_raw.fa'
+        paf = '{assembler}_{sample}/{animal}_ctg-aln.paf',
+        contigs = '{assembler}_{sample}/{animal}.contigs_raw.fa'
     output:
-        contigs = '{assembler}/{animal}.purged.fa',
-        bed = '{assembler}/{animal}_dups.bed'
+        contigs = '{assembler}_{sample}/{animal}.purged.fa',
+        bed = '{assembler}_{sample}/{animal}_dups.bed'
     shell:
         '''
         {config[pd_root]}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > {output.bed}
@@ -53,18 +54,18 @@ rule purge_dups:
 
 rule assess_purging:
     input:
-        expand('{{assembler}}/{{animal}}.{sample}.matrix',sample=['purged','contigs_raw'])
+        expand('{{assembler}}/{{animal}}.{progress}.matrix',progress=['purged','contigs_raw'])
     output:
-        '{assembler}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.contigs.fasta'
     shell:
-        'mv {wildcards.assembler}/{wildcards.animal}.purged.fa {output}'
+        'mv {wildcards.assembler}_{wildcards.sample}/{wildcards.animal}.purged.fa {output}'
 
 rule KMC_reads:
     input:
-        'data/{animal}.hifi.fq.gz'
+        'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        base = '{assembler}/{animal}_kmer_reads',
-        raw = multiext('{assembler}/{animal}_kmer_reads','','.kmc_pre','.kmc_suf')
+        base = '{assembler}_{sample}/{animal}_kmer_reads',
+        raw = multiext('{assembler}_{sample}/{animal}_kmer_reads','','.kmc_pre','.kmc_suf')
     threads: 12
     resources:
         mem_mb = 4000,
@@ -79,10 +80,10 @@ rule KMC_reads:
 
 rule KMC_ref:
     input:
-        '{assembler}/{animal}.{sample}.fa'
+        '{assembler}_{sample}/{animal}.{progress}.fa'
     output:
-        base = '{assembler}/{animal}_kmer_{sample}',
-        raw = multiext('{assembler}/{animal}_kmer_{sample}','.kmc_pre','.kmc_suf')
+        base = '{assembler}_{sample}/{animal}_kmer_{progress}',
+        raw = multiext('{assembler}_{sample}/{animal}_kmer_{progress}','.kmc_pre','.kmc_suf')
     threads: 12
     resources:
         mem_mb = 3000,
@@ -98,11 +99,11 @@ rule KMC_ref:
 
 rule KMC_analysis:
     input:
-        reads = '{assembler}/{animal}_kmer_reads',
-        asm = '{assembler}/{animal}_kmer_{sample}'
+        reads = '{assembler}_{sample}/{animal}_kmer_reads',
+        asm = '{assembler}_{sample}/{animal}_kmer_{progress}'
     output:
-        matrix = '{assembler}/{animal}.{sample}.matrix',
-        plot = '{assembler}/{animal}.{sample}.spectra.png'
+        matrix = '{assembler}_{sample}/{animal}.{progress}.matrix',
+        plot = '{assembler}_{sample}/{animal}.{progress}.spectra.png'
     threads: 2
     resources:
         mem_mb = 20000
