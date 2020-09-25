@@ -116,7 +116,7 @@ rule sample_data:
 
 rule filter_data:
     input:
-        'data/{animal}.raw.hifi.fq.gz'
+        'data/{animal}.raw.hifi.fq.gz's
     output:
         'data/{animal}.cleaned.hifi.fq.gz'
     threads: 12
@@ -124,3 +124,33 @@ rule filter_data:
         mem_mb = 4000
     shell:
         'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --thread {threads} --html data/{wildcards.animal}.html'
+
+checkpoint split_chromosomes:
+    input:
+        '{assembler}_{sample}/{animal}.scaffolds.fasta'
+    output:
+        directory('split_{animal}_{sample}_{assembler}')
+    shell:
+        '''
+        awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {input}
+        '''
+
+rule repeat_masker:
+    input:
+        'somedir/{chunk}.chrm.fa'
+    output:
+        'masked'
+    shell:
+        'repeatmasker '
+
+def aggregate_chrm_input(wildcards):
+    checkpoint_output = checkpoints.split_chromosomes.get(**wildcards).output[0]
+    return expand('split_{animal}_{sample}/{chunk}.masked.fa',animal=wildcards.animal,sample=wildcards.sample,chunk=glob_wildcards(os.path.join(checkpoint_output, 'chunk_{chunk}.chrm.fa')).chunk)
+
+rule merge_repeat_masked:
+    input:
+        aggregate_chrm_input
+    output:
+        'masked'
+    shell:
+        'cat?'

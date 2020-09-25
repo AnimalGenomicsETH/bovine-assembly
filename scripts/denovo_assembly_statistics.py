@@ -5,11 +5,11 @@ import seaborn
 from itertools import cycle
 from numpy import linspace, cumsum
 
-def plot_chromosome_scaffolds(animal,assembler):
+def plot_chromosome_scaffolds(animal,assembler,sample):
     chromosome = 0
     fig, ax = plt.subplots()
 
-    with open (f'results/{animal}_{assembler}.gaps.txt','r') as file_in:
+    with open (f'results/{animal}_{sample}_{assembler}.gaps.txt','r') as file_in:
         for line in file_in:
             if 'CM' not in line:
                 continue
@@ -22,14 +22,14 @@ def plot_chromosome_scaffolds(animal,assembler):
             for height, bottom in zip(scaffolds,h_sums):
                 ax.bar(chromosome,height,bottom=bottom,width=0.5,color=next(colours))
 
-    f_name = f'figures/{animal}_{assembler}.chromosomes.png'
+    f_name = f'figures/{animal}_{sample}_{assembler}.chromosomes.png'
     fig.savefig(f_name)
     return f_name
 
-def load_auNCurves(animal,assembler):
+def load_auNCurves(animal,assembler,sample):
     auN_values, metrics = [[],[]], dict()
 
-    with open(f'results/{animal}_{assembler}.auN.txt','r') as file_in:
+    with open(f'results/{animal}_{sample}_{assembler}.auN.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'NL':
                 x, Nx, Lx  = (int(i) for i in line.rstrip().split()[1:])
@@ -43,7 +43,7 @@ def load_auNCurves(animal,assembler):
 
     return auN_values, metrics
 
-def plot_auNCurves(animal,assembler):
+def plot_auNCurves(animal,assembler,sample):
     data, metrics = load_auNCurves(animal,assembler)
     auN_data, aln_metrics = load_NGA(animal,assembler)
 
@@ -67,13 +67,13 @@ def plot_auNCurves(animal,assembler):
     ax_L.set_ylabel('number of contigs',fontsize=14)
 
     plt.tight_layout()
-    fig.savefig(f'figures/{animal}_{assembler}_auN_curves.png')
+    fig.savefig(f'figures/{animal}_{sample}_{assembler}_auN_curves.png')
 
     return metrics, aln_metrics
 
-def load_NGA(animal,assembler):
+def load_NGA(animal,assembler,sample):
     auN_data, data = [], dict()
-    with open(f'results/{animal}_{assembler}.NGA50.txt','r') as file_in:
+    with open(f'results/{animal}_{sample}_{assembler}.NGA50.txt','r') as file_in:
         for line in file_in:
             if line[:2] == 'NG':
                 try:
@@ -86,16 +86,16 @@ def load_NGA(animal,assembler):
                 data[key] = value
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
-def kmer_QV(animal,assembler):
+def kmer_QV(animal,assembler,sample):
     data = dict()
-    with open(f'results/{animal}_{assembler}.merqury.stats.txt','r') as file_in:
+    with open(f'results/{animal}_{sample}_{assembler}.merqury.stats.txt','r') as file_in:
         for line in file_in:
             data[line[:2]] = line.rstrip().split()[1]
     return data
 
-def load_asmgene(animal,assembler):
+def load_asmgene(animal,assembler,sample):
     table = [[],[],[]]
-    with open(f'results/{animal}_{assembler}.asmgene.txt','r') as file_in:
+    with open(f'results/{animal}_{sample}_{assembler}.asmgene.txt','r') as file_in:
         for line in file_in:
             if line[0] != 'X':
                 continue
@@ -104,15 +104,15 @@ def load_asmgene(animal,assembler):
                 table[i].append(p)
     return table
 
-def busco_report(animal,assembler):
-    with open(f'results/{animal}_{assembler}.BUSCO.txt') as file_in:
+def busco_report(animal,assembler,sample):
+    with open(f'results/{animal}_{sample}_{assembler}.BUSCO.txt') as file_in:
         for line in file_in:
             if 'lineage dataset' in line:
                 LD_set = line.split()[5]
             if 'C:' in line:
                 return LD_set, line.strip().rstrip()
 
-def load_resource_benchmark(animal,assembler):
+def load_resource_benchmark(animal,assembler,sample):
     info_calls = {'CPU time':'cputime', 'Run time':'walltime', 'Max Memory':'max_mem', 'Average Memory':'mean_mem', 'Delta Memory':'delta_mem'}
     data = dict()
     reached_resources = False
@@ -142,11 +142,12 @@ def img_sizer(width,dpi=96):
 def IMAGE(path,scale):
     return f'<img src="{path}" {img_sizer(scale)} />'
 
-def generate_markdown_reads(animal):
+def generate_markdown_reads(animal,sample):
     build_str = f'Animal ID: **{animal}**\n\n' \
-                 f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
+                f'Sampled at: {sample}\n\n' \
+                f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
 
-    df = pandas.read_csv(f'data/{animal}.QC.txt')
+    df = pandas.read_csv(f'data/{animal}.{sample}.QC.txt')
     stats = df.describe().transpose()
 
     build_str += '## read metrics \n' \
@@ -159,16 +160,16 @@ def generate_markdown_reads(animal):
         build_str += f'| {row} | {" | ".join(map("{:.2f}".format,stats.loc[row][1:]))} |\n'
     build_str += '\n'
 
-    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig('figures/{animal}.QC.png')
+    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig('figures/{animal}.{sample}.QC.png')
 
-    build_str += IMAGE('figures/{animal}.QC.png',.6) + '\n\n'
+    build_str += IMAGE('figures/{animal}.{sample}.QC.png',.6) + '\n\n'
     return build_str
 
-def generate_markdown_string(animal,assembler,build_str,summary_str):
+def generate_markdown_string(animal,assembler,sample,build_str,summary_str):
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*\n'
 
-    resource_stats = load_resource_benchmark(animal,assembler)
+    resource_stats = load_resource_benchmark(animal,assembler,sample)
 
     build_str += '## resource details\n' \
                  f'Runtime (wall/cpu): {resource_stats["walltime"]} s / {resource_stats["cputime"]} s\n\n' \
@@ -177,27 +178,22 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
 
     build_str += '## assembly metrics\n'
 
-    asm_metrics, aln_metrics = plot_auNCurves(animal,assembler)
+    asm_metrics, aln_metrics = plot_auNCurves(animal,assembler,sample)
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]:,}\n\n'
 
     build_str += '### scaffolded chromosomes\n' + \
-                 IMAGE(plot_chromosome_scaffolds(animal,assembler),.5) + '\n\n'
+                 IMAGE(plot_chromosome_scaffolds(animal,assembler,sample),.5) + '\n\n'
 
     build_str += f'Contig length and quantity\n\n' \
                  f'**N50**: {asm_metrics["N50"]/1e6:.2f} mb\n\n' \
                  f'auN value: {asm_metrics["AU"]}\n\n' + \
-                 IMAGE(f'figures/{animal}_{assembler}_auN_curves.png',.8) + '\n\n'
+                 IMAGE(f'figures/{animal}_{sample}_{assembler}_auN_curves.png',.8) + '\n\n'
 
     if assembler == 'canu':
         build_str += 'Purged coverage:\n\n' + \
-                     IMAGE(f'{assembler}/{animal}.contigs_raw.spectra.png',.4) + \
-                     IMAGE(f'{assembler}/{animal}.purged.spectra.png',.4) + '\n\n'
-
-        #              ' '.join(IMAGE(f'canu/{animal}.{sample}.spectra.png,',.4) for sample in ('contigs_raw','purged')) + '\n\n'
-
-        print(' '.join(IMAGE(f'canu/{animal}.{sample}.spectra.png,',.4) for sample in ('contigs_raw','purged')))
-        #'canu/{animal}.contigs_raw.spectra.png',.4) + ' ' + IMAGE('canu/{animal}.purged.spectra.png',.4) + '\n\n'
+                     IMAGE(f'{assembler}_{sample}/{animal}.contigs_raw.spectra.png',.4) + \
+                     IMAGE(f'{assembler}_{sample}/{animal}.purged.spectra.png',.4) + '\n\n'
 
     build_str += '### reference metrics\n' \
                  '* Coverage\n' \
@@ -207,23 +203,23 @@ def generate_markdown_string(animal,assembler,build_str,summary_str):
                  '* Contigs\n' \
                  f'  * breaks: {aln_metrics["#breaks"]}\n' \
                  f'  * auNGA: {aln_metrics["AUNGA"]}\n\n' + \
-                 IMAGE(f'results/{animal}_{assembler}.dot.png',.7) + '\n\n'
+                 IMAGE(f'results/{animal}_{sample}_{assembler}.dot.png',.7) + '\n\n'
 
     build_str += '## validation results\n\n'
 
-    kmer_stats = kmer_QV(animal,assembler)
+    kmer_stats = kmer_QV(animal,assembler,sample)
     build_str += '### merqury k-mers\n' \
                  f'Coverage: {float(kmer_stats["CV"])/100:.1%}\n\n' \
                  f'QV: {kmer_stats["QV"]}\n\n' + \
-                 IMAGE(f'{assembler}/{animal}.spectra-asm.ln.png',.45) + '\n\n'
+                 IMAGE(f'{assembler}_{sample}/{animal}.spectra-asm.ln.png',.45) + '\n\n'
 
-    lineage, busco_string = busco_report(animal,assembler)
+    lineage, busco_string = busco_report(animal,assembler,sample)
     build_str += '### BUSCO \n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
 
     build_str += '### asmgene\n'
 
-    gene_map = load_asmgene(animal,assembler)
+    gene_map = load_asmgene(animal,assembler,sample)
     build_str += f'| | {" | ".join(gene_map[0])} |\n' \
                  '| -- | -- | -- |\n'
 
@@ -255,6 +251,7 @@ def main(direct_input=None):
 
     parser = argparse.ArgumentParser(description='Produce assembly report.')
     parser.add_argument('--animal', type=str, required=True)
+    parser.add_argument('--sample', type=str, required=True)
     parser.add_argument('--assemblers', nargs='+', required=True)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
     parser.add_argument('--keepfig', action='store_true')
@@ -272,7 +269,7 @@ def main(direct_input=None):
                      '| :-------- | :--: | :-----: | :-: | :-: | :----------: | :-----: |\n'
 
     for assembler in args.assemblers:
-        md_string, summary_string = generate_markdown_string(args.animal,assembler,md_string,summary_string)
+        md_string, summary_string = generate_markdown_string(args.animal,assembler,args.sample,md_string,summary_string)
 
     md_string = summary_string + md_string
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)

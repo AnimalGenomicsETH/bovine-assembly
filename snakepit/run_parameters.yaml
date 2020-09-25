@@ -1,10 +1,10 @@
-workdir: '../second_test'
+workdir: '../third_test'
 raw_data: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS'
 ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
 cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
 animal: 'BSWCHEF120152514636'
 k-mers: 21
-genome_est: 3.1
+genome_est: 2.7
 mem_adj: 1100
 split_size: 10
 assemblers:
@@ -33,6 +33,4 @@ filtering:
 ##sample levels
 sampling:
     - 100
-    - 75
-    - 50
-    - 25
+    - 75s
