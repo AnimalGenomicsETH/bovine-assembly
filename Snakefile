@@ -26,7 +26,7 @@ localrules: analysis_report, raw_merge_files, plot_dot
 for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
 
-for assembler, sample in product(config['assemblers'],config['samples'])
+for assembler, sample in product(config['assemblers'],config['sampling']):
     Path(f'{assembler}_{sample}').mkdir(exist_ok=True)
 
 include: 'snakepit/kmer_meryl.smk'
@@ -35,19 +35,20 @@ include: 'snakepit/cross_analysis.smk'
 wildcard_constraints:
     animal = r'\w+',
     assembler = r'\w+',
-    sampel = r'\w+'
+    sample = r'\d+'
 
 #------------#
 #DEFINE RULES#
 #------------#
 rule all:
     input:
-        expand('{animal}_analysis_report.pdf',animal=config['animal']),
-        multiext(f'results/{config["animal"]}_hifiasm','.telo.txt','.gaps.txt')
+        f'hifiasm_100/{config["animal"]}.scaffolds.fasta.masked'
+        #expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling'])
+        #multiext(f'results/{config["animal"]}_hifiasm','.telo.txt','.gaps.txt')
 
 rule raw_read_conversion:
     input:
-        '{config[raw_data]}/{config[animal]}/ccs/{read_name}.ccs.bam'
+        f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam'
     output:
         temp('data/{read_name}.fastq.gz')
     threads: 8
@@ -57,7 +58,7 @@ rule raw_read_conversion:
 
 rule raw_merge_files:
     input:
-        expand('data/{ID}.fastq.gz',ID=glob_wildcards('{config[raw_data]}/{config[animal]}/ccs/{read_name}.ccs.bam').read_name)
+        expand('data/{read_name}.fastq.gz',read_name=glob_wildcards(f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam').read_name)
     output:
         protected('data/{animal}.raw.hifi.fq.gz')
     shell: 'cat {input} > {output}'
@@ -96,7 +97,7 @@ if 'canu' in config['assemblers']:
             temp = '{animal}.complete'
         shell:
             '''
-            canu -p {wildcards.animal} -d canu_{wildcards.sample} genomeSize={config[g_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" > {log}
+            canu -p {wildcards.animal} -d canu_{wildcards.sample} genomeSize={config[genome_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" > {log}
             while [ ! -e canu_{wildcards.sample}/{params.temp} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
             rm canu_{wildcards.sample}/{params.temp}
@@ -105,7 +106,6 @@ if 'canu' in config['assemblers']:
     include: 'snakepit/purge_duplicates.smk'
 
 if 'flye' in config['assemblers']:
-
     rule assembler_flye:
         input:
             'data/{animal}.{sample}.hifi.fq.gz'
@@ -117,18 +117,18 @@ if 'flye' in config['assemblers']:
             walltime = '24:00'
         shell:
             '''
-            flye --pacbio-hifi {input} -t {threads} --keep-haplotypes -o flye_{wildcards.samples}
+            flye --pacbio-hifi {input} -t {threads} --keep-haplotypes -o flye_{wildcards.sample}
             mv flye_{wildcards.sample}/assembly.fasta {output}
             '''
 
 ##Requires yak installed
 rule validation_yak:
     input:
-        reads = 'data/{animal}.hifi.fq.gz',
-        contigs = '{assembler}/{animal}.contigs.fasta'
+        reads = 'data/{animal}.{sample}.hifi.fq.gz',
+        contigs = '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
-        yak = temp('intermediates/{animal}_{assembler}.yak'),
-        qv = 'results/{animal}_{assembler}.asm-ccs.qv.txt'
+        yak = temp('intermediates/{animal}_{sample}_{assembler}.yak'),
+        qv = 'results/{animal}_{sample}_{assembler}.asm-ccs.qv.txt'
     threads: 16
     resources:
         mem_mb = 5000
@@ -150,7 +150,7 @@ rule validation_auN:
 ##Requires minigraph and paftools.js installed
 rule validation_refalign:
     input:
-        ref_fai  = '{config[ref_genome]}.fai',
+        ref_fai  = f'{config["ref_genome"]}.fai',
         asm = '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
         paf = temp('intermediates/{animal}_{sample}_{assembler}_asm.paf'),
@@ -223,8 +223,8 @@ rule plot_dot:
 
 rule generate_reffai:
     output:
-        '{config[ref_genome]}.fai'
-    shell: 'samtools fqidx {config[ref_genome]}'
+        f'{config["ref_genome"]}.fai'
+    shell: 'samtools faidx {config[ref_genome]}'
 
 rule analysis_report:
     input:
@@ -237,7 +237,7 @@ rule analysis_report:
         base_dir = workflow.basedir,
     log:
         'logs/analysis_report/animal-{animal}_sample-{sample}.out'
-    shell: 'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --assemblers {config[assemblers]} --outfile {output} --css {workflow.basedir}/scripts/github.css > {log}'
+    shell: 'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --sample {wildcards.sample} --assemblers {config[assemblers]} --outfile {output} --css {workflow.basedir}/scripts/github.css > {log}'
 
 #onsuccess:
 #    print('Cleaning up intermediate files')

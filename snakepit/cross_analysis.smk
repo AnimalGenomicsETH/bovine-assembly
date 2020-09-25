@@ -37,7 +37,7 @@ rule count_scaffold_gaps:
 #ragtag.py correct, full reads mapping, c_mapping
 rule ragtag_correct:
     input:
-        asm = '{assembler}_{sample}/{animal}.contigs.fasta'
+        asm = '{assembler}_{sample}/{animal}.contigs.fasta',
         reads = 'data/{animal}.{sample}.hifi.fq.gz'
     output:
         '{assembler}_{sample}/{animal}.contigs.corrected.fasta'
@@ -94,9 +94,9 @@ rule assembly_coverage:
 
 rule raw_QC:
     input:
-        'data/{animal}.{sample}.hifi.fq.gz'
+        'data/{animal}.{read_t}.hifi.fq.gz'
     output:
-        'data/{animal}.{sample}.QC.txt'
+        'data/{animal}.{read_t}.QC.txt'
     shell:
         '''
         src/fasterqc {input} {output}
@@ -107,23 +107,29 @@ rule sample_data:
         'data/{animal}.cleaned.hifi.fq.gz'
     output:
         'data/{animal}.{sample}.hifi.fq.gz'
-    run:
-        if wildcards.sample == 100:
-            shell('ln -s {input} {output}')
-        else:
-            frac_sample = wildcards.sample / 100
-            shell(f'seqtk sample {{input}} {frac_sample} > {{output}}')
+    envmodules:
+        'gcc/8.2.0',
+        'pigz/2.4'
+    shell:
+        '''
+        if [ {wildcards.sample} -eq 100 ]
+        then
+            ln -s $(pwd)/{input} {output}
+        else
+            seqtk sample {input} $(bc <<<"scale=2;{wildcards.sample}/100") | pigz -p 4 > {{output}}
+        fi
+        '''
 
 rule filter_data:
     input:
-        'data/{animal}.raw.hifi.fq.gz's
+        'data/{animal}.raw.hifi.fq.gz'
     output:
         'data/{animal}.cleaned.hifi.fq.gz'
     threads: 12
     resources:
         mem_mb = 4000
     shell:
-        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --thread {threads} --html data/{wildcards.animal}.html'
+        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --thread {threads} --html data/{wildcards.animal}.html --json /dev/null'
 
 checkpoint split_chromosomes:
     input:
@@ -132,25 +138,30 @@ checkpoint split_chromosomes:
         directory('split_{animal}_{sample}_{assembler}')
     shell:
         '''
+        mkdir -p {output}
         awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {input}
         '''
 
 rule repeat_masker:
     input:
-        'somedir/{chunk}.chrm.fa'
+        'split_{animal}_{sample}_{assembler}/{chunk}.chrm.fa'
     output:
-        'masked'
+        'split_{animal}_{sample}_{assembler}/{chunk}.chrm.fa.masked'
+    threads: 8
+    resources:
+        mem_mb = 400,
+        walltime =  '1:00'
     shell:
-        'repeatmasker '
+        'echo $(({threads}/2)); RepeatMasker -qq -xsmall -pa $(({threads}/2)) -species "Bos taurus" {input}'
 
 def aggregate_chrm_input(wildcards):
     checkpoint_output = checkpoints.split_chromosomes.get(**wildcards).output[0]
-    return expand('split_{animal}_{sample}/{chunk}.masked.fa',animal=wildcards.animal,sample=wildcards.sample,chunk=glob_wildcards(os.path.join(checkpoint_output, 'chunk_{chunk}.chrm.fa')).chunk)
+    return expand(f'split_{wildcards.animal}_{wildcards.sample}_{wildcards.assembler}/{{chunk}}.chrm.fa.masked',chunk=glob_wildcards(os.path.join(checkpoint_output, '{chunk}.chrm.fa')).chunk)
 
 rule merge_repeat_masked:
     input:
         aggregate_chrm_input
     output:
-        'masked'
+        '{assembler}_{sample}/{animal}.scaffolds.fasta.masked'
     shell:
-        'cat?'
+        'cat {input} > {output}'

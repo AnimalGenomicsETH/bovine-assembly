@@ -54,7 +54,7 @@ rule purge_dups:
 
 rule assess_purging:
     input:
-        expand('{{assembler}}/{{animal}}.{progress}.matrix',progress=['purged','contigs_raw'])
+        expand('{{assembler}}_{{sample}}/{{animal}}.{progress}.matrix',progress=['purged','contigs_raw'])
     output:
         '{assembler}_{sample}/{animal}.contigs.fasta'
     shell:
