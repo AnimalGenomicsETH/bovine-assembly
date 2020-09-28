@@ -116,7 +116,7 @@ rule sample_data:
         then
             ln -s $(pwd)/{input} {output}
         else
-            seqtk sample {input} $(bc <<<"scale=2;{wildcards.sample}/100") | pigz -p 4 > {{output}}
+            seqtk sample {input} $(bc <<<"scale=2;{wildcards.sample}/100") | pigz -p 4 > {output}
         fi
         '''
 

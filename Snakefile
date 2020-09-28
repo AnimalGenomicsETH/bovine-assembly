@@ -42,8 +42,8 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
-        f'hifiasm_100/{config["animal"]}.scaffolds.fasta.masked'
-        #expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling'])
+        #f'hifiasm_100/{config["animal"]}.scaffolds.fasta.masked'
+        expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling'])
         #multiext(f'results/{config["animal"]}_hifiasm','.telo.txt','.gaps.txt')
 
 rule raw_read_conversion:
@@ -76,7 +76,7 @@ if 'hifiasm' in config['assemblers']:
         shell: 'hifiasm -o hifiasm_{wildcards.sample}/{wildcards.animal}.asm -t {threads} {input}'
 
  ##Requires gfatools installed
-rule assembler_hifi_conversion:
+rule assembler_hifiasm_conversion:
     input:
         'hifiasm_{sample}/{animal}.asm.p_ctg.gfa'
     output:
@@ -202,6 +202,7 @@ rule validation_busco:
         cp {params.tmp_dir}/short_summary*.txt {output.summary}
         mv {params.tmp_dir} {output.out_dir}
         '''
+
 rule generate_dot_paf:
     input:
         asm = '{assembler}_{sample}/{animal}.contigs.fasta'

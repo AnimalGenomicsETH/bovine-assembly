@@ -9,8 +9,8 @@ mem_adj: 1100
 split_size: 10
 assemblers:
   - 'hifiasm'
-  - 'canu'
-  - 'flye'
+  #- 'canu'
+  #- 'flye'
 target_metrics:
   - 'asm-ccs.qv.txt'
   - 'NGA50.txt'
@@ -33,4 +33,4 @@ filtering:
 ##sample levels
 sampling:
     - 100
-    - 75s
+    - 75
