@@ -188,7 +188,7 @@ rule validation_busco:
     input:
         '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
-        out_dir = directory('{assembler}/{animal}_{sample}_BUSCO'),
+        out_dir = directory('{assembler}_{sample}/{animal}_BUSCO'),
         summary = 'results/{animal}_{sample}_{assembler}.BUSCO.txt'
     params:
         tmp_dir = '{animal}_{sample}_{assembler}_busco_results'

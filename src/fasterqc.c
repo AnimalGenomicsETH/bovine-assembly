@@ -41,8 +41,8 @@ int stk_fqchk(char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-    if(argc<2) {
-        printf("Not enough arguments");
+    if(argc<3) {
+        printf("Not enough arguments\nNeeds a file input name and a file output name.\n");
         return 0;
     }
     printf("%d",argc);

@@ -73,7 +73,7 @@ rule merqury_prep:
         java -jar -Xmx1g {config[merqury_root]}/eval/kmerHistToPloidyDepth.jar {output.hist} > {output.hist}.ploidy
         filt=`sed -n 2p {output.hist}.ploidy | awk '{{print $NF}}'`
         echo $filt > {output.filt}
-        meryl greater-than $filt output data/{wildcards.animal}.hifi.gt$filt.meryl {input}
+        meryl greater-than $filt output data/{wildcards.animal}.{wildcards.sample}.hifi.gt$filt.meryl {input}
         '''
 
 rule merqury_spectra:
@@ -92,7 +92,7 @@ rule merqury_spectra:
         'r/4.0.2'
     shell:
         '''
-        cd {wildcards.assembler}
+        cd {wildcards.assembler}_{wildcards.sample}
         export MERQURY={config[merqury_root]}
         ln -s ../{input.filt}
         find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;

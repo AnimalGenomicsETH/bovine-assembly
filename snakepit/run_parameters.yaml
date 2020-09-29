@@ -19,6 +19,10 @@ target_metrics:
   - 'merqury.stats.txt'
   - 'BUSCO.txt'
   - 'dot.png'
+  - 'gaps.txt'
+  - 'windows.coverage.txt'
+  - 'chrm.coverage.txt'
+  - 'telo.txt'
 ##sources of non-bin programs
 pd_root: '/cluster/work/pausch/alex/software/purge_dups'
 kmc_root: '/cluster/work/pausch/alex/software/KMC'

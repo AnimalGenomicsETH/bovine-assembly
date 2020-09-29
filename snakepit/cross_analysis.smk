@@ -1,4 +1,4 @@
-localrules: count_telomers, count_scaffold_gaps, assembly_coverage, sample_data
+localrules: count_telomers, count_scaffold_gaps, assembly_coverage, sample_data, raw_QC
 
 rule count_telomers:
     input:
@@ -45,18 +45,24 @@ rule ragtag_correct:
     resources:
         mem_mb = 3000
     shell:
-        'ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler}_{wildcards.sample} -R {input.reads} -T corr -t {threads} --mm2-params "-x asm20"'
+        '''
+        ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler}_{wildcards.sample} -R {input.reads} -T corr -t {threads} --mm2-params "-x asm20"
+        #mv {wildcards.assembler}_{wildcards.sample}/ragtag.contigs.corrected {output}
+        '''
 
 rule ragtag_scaffold:
     input:
         '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
-        '{assembler}_{sample}/ragtag.scaffolds.fasta'
+        '{assembler}_{sample}/{animal}.scaffolds.fasta'
     threads: 24
     resources:
         mem_mb = 2000
     shell:
-        'ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler}_{wildcards.sample} -t {threads} --mm2-params "-c -x asm5"'
+        '''
+        ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler}_{wildcards.sample} -t {threads} --mm2-params "-c -x asm5"
+        mv {wildcards.assembler}_{wildcards.sample}/ragtag.scaffolds.fasta {output}
+        '''
 
 rule remap_reads:
     input:
@@ -84,13 +90,36 @@ rule sam_to_bam:
     shell:
         'samtools sort {input} -m {params}M -@ {threads} -T \$TMPDIR -o {output}'
 
-rule assembly_coverage:
+rule prep_window:
     input:
-        '{assembler}/{file}.bam'
+        '{assembler}_{sample}/{animal}.scaffolds.fasta'
     output:
-        '{assembler}/{file}.cov'
+        fai = '{assembler}_{sample}/{animal}.scaffolds.fasta.fai',
+        windows = '{assembler}_{sample}/{animal}.genome',
+        bed = '{assembler}_{sample}/{animal}.windows.bed'
     shell:
-        'samtools coverage {input} > {output}'
+        '''
+        samtools faidx {input}
+        awk -v OFS='\t' {'print $1,$2'} {output.fai} > {output.genome}
+        /cluster/work/pausch/alex/software/bedtools2/bin/windowMaker -g {output.genome} -w {params} > {output.bed}
+        '''
+
+rule window_coverage:
+    input:
+        windows = '{assembler}_{sample}/{animal}.windows.bed',
+        bam = '{assembler}_{sample}/{animal}_asm_reads.bam'
+    output:
+        'results/{animal}_{sample}_{assembler}.windows.coverage.txt'
+    shell:
+        'samtools bedcov {input.windows} {input.bam} > {output}'
+        
+rule chromosome_coverage:
+    input:
+        '{assembler}_{sample}/{animal}_asm_reads.bam'
+    output:
+        'results/{animal}_{sample}_{assembler}.chrm.coverage.txt'
+    shell:
+        'samtools coverage {input} -o {output}'
 
 rule raw_QC:
     input:
@@ -99,7 +128,7 @@ rule raw_QC:
         'data/{animal}.{read_t}.QC.txt'
     shell:
         '''
-        src/fasterqc {input} {output}
+        {workflow.basedir}/src/fasterqc {input} {output}
         '''
 
 rule sample_data:
