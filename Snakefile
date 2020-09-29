@@ -21,7 +21,7 @@ def glob_purges(wildcards):
     return req_files
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: analysis_report, raw_merge_files, plot_dot
+localrules: analysis_report, raw_merge_files, plot_dot, paf_variants, generate_reffai
 
 for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
@@ -205,9 +205,9 @@ rule validation_busco:
 
 rule generate_dot_paf:
     input:
-        asm = '{assembler}_{sample}/{animal}.contigs.fasta'
+        asm = '{assembler}_{sample}/{animal}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{animal}_ref_dot.paf'
+        '{assembler}_{sample}/{animal}_ref_scaffolds.paf'
     threads: 24
     resources:
         mem_mb = 2000
@@ -216,11 +216,30 @@ rule generate_dot_paf:
 
 rule plot_dot:
     input:
-        '{assembler}_{sample}/{animal}_ref_dot.paf'
+        '{assembler}_{sample}/{animal}_ref_scaffolds.paf'
     output:
         'results/{animal}_{sample}_{assembler}.dot.png'
     shell:
         'minidot -L {input} | convert -density 150 - {output}'
+
+rule paf_variants:
+    input:
+        '{assembler}_{sample}/{animal}_ref_scaffolds.paf'
+    output:
+        'results/{animal}_{sample}_{assembler}.vcf'
+    shell:
+        'sort {input} -k6,6 -k8,8n | paftools.js call -f {config[ref_genome]} - > {output}'
+
+rule nucmer:
+    input:
+        '{assembler}_{sample}/{animal}.contigs.fasta'
+    output:
+        '{assembler}_{sample}/{animal}.delta'
+    threads: 4
+    resources:
+        mem_mb = 15000
+    shell:
+        'nucmer --maxmatch -l 100 -c 500 -t {threads} -p {wildcards.assembler}_{wildcards.sample}/{wildcards.animal} {config[ref_genome]} {input}'
 
 rule generate_reffai:
     output:
@@ -234,8 +253,6 @@ rule analysis_report:
         glob_purges
     output:
         '{animal}_{sample}_analysis_report.pdf'
-    params:
-        base_dir = workflow.basedir,
     log:
         'logs/analysis_report/animal-{animal}_sample-{sample}.out'
     shell: 'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --sample {wildcards.sample} --assemblers {config[assemblers]} --outfile {output} --css {workflow.basedir}/scripts/github.css > {log}'

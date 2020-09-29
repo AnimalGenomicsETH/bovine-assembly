@@ -1,4 +1,4 @@
-localrules: count_telomers, count_scaffold_gaps, assembly_coverage, sample_data, raw_QC
+localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, sample_data, raw_QC
 
 rule count_telomers:
     input:
@@ -12,8 +12,8 @@ rule count_telomers:
         telomere = re.compile("TTAGGG", re.IGNORECASE)
 
         with open(output[0],'w') as fout:
-            out.write('name\trepeat_count\tprobability\n')
-            for seq in screed.open(snakemake.input[0]):
+            fout.write('name\trepeat_count\tprobability\n')
+            for seq in screed.open(input[0]):
                 c_repeats = len(telomere.findall(seq.sequence[:region]))
                 fout.write(f'{seq.name}\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
 
@@ -38,7 +38,7 @@ rule count_scaffold_gaps:
 rule ragtag_correct:
     input:
         asm = '{assembler}_{sample}/{animal}.contigs.fasta',
-        reads = 'data/{animal}.{sample}.hifi.fq.gz'
+        reads = 'data/{animal}.cleaned.hifi.fq.gz'
     output:
         '{assembler}_{sample}/{animal}.contigs.corrected.fasta'
     threads: 24
@@ -66,10 +66,10 @@ rule ragtag_scaffold:
 
 rule remap_reads:
     input:
-        reads = 'data/{animal}.hifi.fq.gz',
+        reads = 'data/{animal}.cleaned.hifi.fq.gz',
         asm = '{assembler}_{sample}/{animal}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{animal}_scaffold_read.sam'
+        '{assembler}_{sample}/{animal}_scaffolds_reads.sam'
     threads: 24
     resources:
         mem_mb = 3000
@@ -81,33 +81,33 @@ rule sam_to_bam:
         '{assembler}/{file}.sam'
     output:
         '{assembler}/{file}.bam'
-    params:
-        memory = 4000
     threads: 16
     resources:
-        mem_mb = '{params}',
+        mem_mb = 4000,
         disk_scratch = 200
     shell:
-        'samtools sort {input} -m {params}M -@ {threads} -T \$TMPDIR -o {output}'
+        'samtools sort {input} -m 3900M -@ {threads} -T \$TMPDIR -o {output}'
 
 rule prep_window:
     input:
         '{assembler}_{sample}/{animal}.scaffolds.fasta'
     output:
         fai = '{assembler}_{sample}/{animal}.scaffolds.fasta.fai',
-        windows = '{assembler}_{sample}/{animal}.genome',
+        genome = '{assembler}_{sample}/{animal}.genome',
         bed = '{assembler}_{sample}/{animal}.windows.bed'
+    params:
+        10000
     shell:
         '''
         samtools faidx {input}
-        awk -v OFS='\t' {'print $1,$2'} {output.fai} > {output.genome}
+        awk -v OFS='\\t' {{'print $1,$2'}} {output.fai} > {output.genome}
         /cluster/work/pausch/alex/software/bedtools2/bin/windowMaker -g {output.genome} -w {params} > {output.bed}
         '''
 
 rule window_coverage:
     input:
         windows = '{assembler}_{sample}/{animal}.windows.bed',
-        bam = '{assembler}_{sample}/{animal}_asm_reads.bam'
+        bam = '{assembler}_{sample}/{animal}_scaffolds_reads.bam'
     output:
         'results/{animal}_{sample}_{assembler}.windows.coverage.txt'
     shell:
@@ -115,7 +115,7 @@ rule window_coverage:
         
 rule chromosome_coverage:
     input:
-        '{assembler}_{sample}/{animal}_asm_reads.bam'
+        '{assembler}_{sample}/{animal}_scaffolds_reads.bam'
     output:
         'results/{animal}_{sample}_{assembler}.chrm.coverage.txt'
     shell:
