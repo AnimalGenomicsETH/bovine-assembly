@@ -25,14 +25,14 @@ int stk_fqchk(char *argv[]) {
 	}
 	seq = kseq_init(fp);
     FILE *fptr = fopen(argv[2],"w");
-	fprintf(fptr,"length, quality\n");
+	fprintf(fptr,"length,quality\n");
     while (kseq_read(seq) >= 0) {
 		if (seq->qual.l == 0) continue;
         double avg_qual = 0;
         for (size_t i = 0; i < seq->qual.l; ++i)
             avg_qual += pow(10,(seq->qual.s[i])/-10);
         avg_qual = -10* log10(avg_qual/seq->qual.l);
-	    fprintf(fptr,"%zu, %.3f\n", seq->seq.l, avg_qual);
+	    fprintf(fptr,"%zu,%.3f\n", seq->seq.l, avg_qual);
 	}
 	kseq_destroy(seq);
 	gzclose(fp);

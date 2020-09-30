@@ -44,8 +44,8 @@ def load_auNCurves(animal,assembler,sample):
     return auN_values, metrics
 
 def plot_auNCurves(animal,assembler,sample):
-    data, metrics = load_auNCurves(animal,assembler)
-    auN_data, aln_metrics = load_NGA(animal,assembler)
+    data, metrics = load_auNCurves(animal,assembler,sample)
+    auN_data, aln_metrics = load_NGA(animal,assembler,sample)
 
     fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(6, 4))
 
@@ -116,7 +116,7 @@ def load_resource_benchmark(animal,assembler,sample):
     info_calls = {'CPU time':'cputime', 'Run time':'walltime', 'Max Memory':'max_mem', 'Average Memory':'mean_mem', 'Delta Memory':'delta_mem'}
     data = dict()
     reached_resources = False
-    with open(f'logs/assembler_{assembler}/animal-{animal}.out','r') as benchmark:
+    with open(f'logs/assembler_{assembler}/sample-{sample}.animal-{animal}.out','r') as benchmark:
         for line in benchmark:
             if not reached_resources:
                 reached_resources = 'Resource usage summary:' in line
@@ -160,21 +160,21 @@ def generate_markdown_reads(animal,sample):
         build_str += f'| {row} | {" | ".join(map("{:.2f}".format,stats.loc[row][1:]))} |\n'
     build_str += '\n'
 
-    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig('figures/{animal}.{sample}.QC.png')
+    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig(f'figures/{animal}.{sample}.QC.png')
 
-    build_str += IMAGE('figures/{animal}.{sample}.QC.png',.6) + '\n\n'
+    build_str += IMAGE(f'figures/{animal}.{sample}.QC.png',.6) + '\n\n'
     return build_str
 
 def generate_markdown_string(animal,assembler,sample,build_str,summary_str):
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*\n'
 
-    resource_stats = load_resource_benchmark(animal,assembler,sample)
+    #resource_stats = load_resource_benchmark(animal,assembler,sample)
 
-    build_str += '## resource details\n' \
-                 f'Runtime (wall/cpu): {resource_stats["walltime"]} s / {resource_stats["cputime"]} s\n\n' \
-                 f'>*average threading* = {resource_stats["cputime"]/resource_stats["walltime"]:.1f}\n\n' \
-                 f'Memory (mean/max): {resource_stats["mean_mem"]} mb / {resource_stats["max_mem"]} mb\n\n'
+    #build_str += '## resource details\n' \
+    #             f'Runtime (wall/cpu): {resource_stats["walltime"]} s / {resource_stats["cputime"]} s\n\n' \
+    #             f'>*average threading* = {resource_stats["cputime"]/resource_stats["walltime"]:.1f}\n\n' \
+    #             f'Memory (mean/max): {resource_stats["mean_mem"]} mb / {resource_stats["max_mem"]} mb\n\n'
 
     build_str += '## assembly metrics\n'
 
@@ -243,6 +243,7 @@ def custom_PDF_writer(output,prepend_str,md_content,css):
     raw_html = markdown(md_content, extras={'tables':{},'header_ids':{},'toc':{'depth':2},'code-friendly':{},'cuddled-lists':{}})
     full_html = header + raw_html.toc_html + raw_html
     print(full_html)
+    print(css)
     html = HTML(string=full_html,base_url=str(Path().cwd()))
     html.write_pdf(output,stylesheets=[CSS(filename=css)])
 
@@ -255,12 +256,12 @@ def main(direct_input=None):
     parser.add_argument('--assemblers', nargs='+', required=True)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
     parser.add_argument('--keepfig', action='store_true')
-    parser.add_argument('--css', default='', type=str)
+    parser.add_argument('--css', default='report.css', type=str)
 
     args = parser.parse_args(direct_input)
     css_path = args.css if Path(args.css).is_file() else ''
 
-    prepend_str = generate_markdown_reads(args.animal) + \
+    prepend_str = generate_markdown_reads(args.animal,args.sample) + \
                   '# table of contents'
 
     md_string = ''

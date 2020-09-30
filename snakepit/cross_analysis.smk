@@ -1,4 +1,4 @@
-localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, sample_data, raw_QC
+localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, sample_data, raw_QC, split_chromosomes, merge_masked_chromosomes
 
 rule count_telomers:
     input:
@@ -86,7 +86,7 @@ rule sam_to_bam:
         mem_mb = 4000,
         disk_scratch = 200
     shell:
-        'samtools sort {input} -m 3900M -@ {threads} -T \$TMPDIR -o {output}'
+        'samtools sort {input} -m 3900M -@ {threads} -T $TMPDIR -o {output}'
 
 rule prep_window:
     input:
@@ -103,11 +103,22 @@ rule prep_window:
         awk -v OFS='\\t' {{'print $1,$2'}} {output.fai} > {output.genome}
         /cluster/work/pausch/alex/software/bedtools2/bin/windowMaker -g {output.genome} -w {params} > {output.bed}
         '''
+rule index_bam:
+    input:
+        '{assembler}_{sample}/{animal}_scaffolds_reads.bam'
+    output:
+        '{assembler}_{sample}/{animal}_scaffolds_reads.bam.bai'
+    threads: 8
+    resources:
+        mem_mb = 4000
+    shell:
+        'samtools index -@ {threads} {input}'
 
 rule window_coverage:
     input:
         windows = '{assembler}_{sample}/{animal}.windows.bed',
-        bam = '{assembler}_{sample}/{animal}_scaffolds_reads.bam'
+        bam = '{assembler}_{sample}/{animal}_scaffolds_reads.bam',
+        bai = '{assembler}_{sample}/{animal}_scaffolds_reads.bam.bai'
     output:
         'results/{animal}_{sample}_{assembler}.windows.coverage.txt'
     shell:
@@ -115,11 +126,12 @@ rule window_coverage:
         
 rule chromosome_coverage:
     input:
-        '{assembler}_{sample}/{animal}_scaffolds_reads.bam'
+        bam = '{assembler}_{sample}/{animal}_scaffolds_reads.bam',
+        bai = '{assembler}_{sample}/{animal}_scaffolds_reads.bam.bai'
     output:
         'results/{animal}_{sample}_{assembler}.chrm.coverage.txt'
     shell:
-        'samtools coverage {input} -o {output}'
+        'samtools coverage {input.bam} -o {output}'
 
 rule raw_QC:
     input:
@@ -175,19 +187,20 @@ rule repeat_masker:
     input:
         'split_{animal}_{sample}_{assembler}/{chunk}.chrm.fa'
     output:
+        #NOTE fails on files with 0 masking occuring, maybe cat dummy file?
         'split_{animal}_{sample}_{assembler}/{chunk}.chrm.fa.masked'
     threads: 8
     resources:
         mem_mb = 400,
-        walltime =  '1:00'
+        walltime =  '2:00'
     shell:
-        'echo $(({threads}/2)); RepeatMasker -qq -xsmall -pa $(({threads}/2)) -species "Bos taurus" {input}'
+        'RepeatMasker -qq -xsmall -pa $(({threads}/2)) -species "Bos taurus" {input}'
 
 def aggregate_chrm_input(wildcards):
     checkpoint_output = checkpoints.split_chromosomes.get(**wildcards).output[0]
     return expand(f'split_{wildcards.animal}_{wildcards.sample}_{wildcards.assembler}/{{chunk}}.chrm.fa.masked',chunk=glob_wildcards(os.path.join(checkpoint_output, '{chunk}.chrm.fa')).chunk)
 
-rule merge_repeat_masked:
+rule merge_masked_chromosomes:
     input:
         aggregate_chrm_input
     output:

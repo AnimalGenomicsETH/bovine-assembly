@@ -92,7 +92,7 @@ if 'canu' in config['assemblers']:
             'data/{animal}.{sample}.hifi.fq.gz'
         output:
             'canu_{sample}/{animal}.contigs_raw.fa'
-        log: 'logs/assembler_canu/animal-{animal}_sample-{sample}.out'
+        log: 'logs/assembler_canu/sample-{sample}.animal-{animal}.out'
         params:
             temp = '{animal}.complete'
         shell:
@@ -150,7 +150,7 @@ rule validation_auN:
 ##Requires minigraph and paftools.js installed
 rule validation_refalign:
     input:
-        ref_fai  = f'{config["ref_genome"]}.fai',
+        ref_fai  = f'{config["ref_genome"]}.fai',#f'{config['ref_genome']}[{{reference}}].fai'
         asm = '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
         paf = temp('intermediates/{animal}_{sample}_{assembler}_asm.paf'),
@@ -208,6 +208,8 @@ rule generate_dot_paf:
         asm = '{assembler}_{sample}/{animal}.scaffolds.fasta'
     output:
         '{assembler}_{sample}/{animal}_ref_scaffolds.paf'
+    #params:
+    #   ref = lambda wildcards: config['ref_genome'][wildcards.reference]
     threads: 24
     resources:
         mem_mb = 2000
@@ -250,12 +252,14 @@ rule analysis_report:
     input:
         expand('results/{{animal}}_{{sample}}_{assembler}.{ext}',assembler=config['assemblers'],ext=config['target_metrics']),
         'data/{animal}.{sample}.QC.txt',
-        glob_purges
+        glob_purges,
+        expand('{assembler}_{{sample}}/{{animal}}.scaffolds.fasta.masked',assembler=config['assemblers'])
     output:
         '{animal}_{sample}_analysis_report.pdf'
     log:
         'logs/analysis_report/animal-{animal}_sample-{sample}.out'
-    shell: 'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --sample {wildcards.sample} --assemblers {config[assemblers]} --outfile {output} --css {workflow.basedir}/scripts/github.css > {log}'
+    shell: 
+        'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --sample {wildcards.sample} --assemblers {config[assemblers]} --css {workflow.basedir}/scripts/report.css --outfile {output} > {log}'
 
 #onsuccess:
 #    print('Cleaning up intermediate files')
