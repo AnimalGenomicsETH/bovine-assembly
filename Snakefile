@@ -252,8 +252,8 @@ rule analysis_report:
     input:
         expand('results/{{animal}}_{{sample}}_{assembler}.{ext}',assembler=config['assemblers'],ext=config['target_metrics']),
         'data/{animal}.{sample}.QC.txt',
-        glob_purges,
-        expand('{assembler}_{{sample}}/{{animal}}.scaffolds.fasta.masked',assembler=config['assemblers'])
+        glob_purges#,
+        #expand('{assembler}_{{sample}}/{{animal}}.scaffolds.fasta.masked',assembler=config['assemblers'])
     output:
         '{animal}_{sample}_analysis_report.pdf'
     log:

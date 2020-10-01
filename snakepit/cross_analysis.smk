@@ -2,7 +2,7 @@ localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, c
 
 rule count_telomers:
     input:
-        '{assembler}_{sample}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.scaffolds.fasta'
     output:
         'results/{animal}_{sample}_{assembler}.telo.txt'
     run:
@@ -14,7 +14,7 @@ rule count_telomers:
         with open(output[0],'w') as fout:
             fout.write('name\trepeat_count\tprobability\n')
             for seq in screed.open(input[0]):
-                c_repeats = len(telomere.findall(seq.sequence[:region]))
+                c_repeats = len(telomere.findall(seq.sequence[region:]))
                 fout.write(f'{seq.name}\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
 
 rule count_scaffold_gaps:
@@ -187,14 +187,19 @@ rule repeat_masker:
     input:
         'split_{animal}_{sample}_{assembler}/{chunk}.chrm.fa'
     output:
-        #NOTE fails on files with 0 masking occuring, maybe cat dummy file?
+        #NOTE repeatmasker doesn't output .masked if no masking, so just wrap the plain sequence via seqtk
         'split_{animal}_{sample}_{assembler}/{chunk}.chrm.fa.masked'
     threads: 8
     resources:
         mem_mb = 400,
         walltime =  '2:00'
     shell:
-        'RepeatMasker -qq -xsmall -pa $(({threads}/2)) -species "Bos taurus" {input}'
+        '''
+        RepeatMasker -qq -xsmall -pa $(({threads}/2)) -species "Bos taurus" {input}
+        if [ ! -f {output} ]; then
+          seqtk seq -l60 {input} > {output}
+        fi
+        '''
 
 def aggregate_chrm_input(wildcards):
     checkpoint_output = checkpoints.split_chromosomes.get(**wildcards).output[0]
