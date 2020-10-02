@@ -46,22 +46,22 @@ rule ragtag_correct:
         mem_mb = 3000
     shell:
         '''
-        ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler}_{wildcards.sample} -R {input.reads} -T corr -t {threads} --mm2-params "-x asm20"
+        ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler}_{wildcards.sample} -R {input.reads} -T corr -t {threads} --mm2-params "-c -x asm20"
         #mv {wildcards.assembler}_{wildcards.sample}/ragtag.contigs.corrected {output}
         '''
 
 rule ragtag_scaffold:
     input:
-        '{assembler}_{sample}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.contigs.{corr,.*}fasta'
     output:
-        '{assembler}_{sample}/{animal}.scaffolds.fasta'
+        '{assembler}_{sample}/{animal}.{corr,.*}scaffolds.fasta'
     threads: 24
     resources:
         mem_mb = 2000
     shell:
         '''
-        ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler}_{wildcards.sample} -t {threads} --mm2-params "-c -x asm5"
-        mv {wildcards.assembler}_{wildcards.sample}/ragtag.scaffolds.fasta {output}
+        ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler}_{wildcards.sample}/{wildcards.corr} -t {threads} --mm2-params "-c -x asm5"
+        mv {wildcards.assembler}_{wildcards.sample}/{wildcards.corr}ragtag.scaffolds.fasta {output}
         '''
 
 rule remap_reads:
@@ -72,7 +72,7 @@ rule remap_reads:
         '{assembler}_{sample}/{animal}_scaffolds_reads.sam'
     threads: 24
     resources:
-        mem_mb = 3000
+        mem_mb = 4000
     shell:
         'minimap2 -ax asm20 -t {threads} {input.asm} {input.reads} > {output}'
 

@@ -42,9 +42,8 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
-        #f'hifiasm_100/{config["animal"]}.scaffolds.fasta.masked'
-        expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling'])
-        #multiext(f'results/{config["animal"]}_hifiasm','.telo.txt','.gaps.txt')
+        expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
+        f'hifiasm_100/{config["animal"]}.corrected.scaffolds.fasta'
 
 rule raw_read_conversion:
     input:
