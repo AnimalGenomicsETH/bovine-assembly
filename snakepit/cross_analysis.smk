@@ -26,13 +26,13 @@ rule count_scaffold_gaps:
         import re, screed
         gap_sequence = re.compile(r'[nN]+')
         with open(output[0],'w') as fout:
-            fout.write('scaffold\tgaps\tlengths\n')
+            fout.write('scaffold\tgaps\tlengths\twidths\n')
             for scaffold in screed.open(input[0]):
                 contig_lengths = list(map(len, gap_sequence.split(str(scaffold.sequence))))
-                #gap_lengths = list(map(len, gap_sequence.findall(str(scaffold.sequence))))
+                gap_lengths = list(map(len, gap_sequence.findall(str(scaffold.sequence))))
                 #for F in (re.split, re.findall):
                 #     map(lambda s: str(len(s)), F(scaffold.sequence))
-                fout.write('\t'.join((scaffold.name,str(len(contig_lengths)-1),','.join(map(str,contig_lengths))))+'\n')
+                fout.write('\t'.join((scaffold.name,str(len(contig_lengths)-1),','.join(map(str,contig_lengths)),','.join(map(str,gap_lengths))))+'\n')
 
 #ragtag.py correct, full reads mapping, c_mapping
 rule ragtag_correct:
@@ -60,7 +60,7 @@ rule ragtag_scaffold:
         mem_mb = 2000
     shell:
         '''
-        ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler}_{wildcards.sample}/{wildcards.corr} -t {threads} --mm2-params "-c -x asm5"
+        ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler}_{wildcards.sample}/{wildcards.corr} -t {threads} --mm2-params "-c -x asm5" -r -m 1000000
         mv {wildcards.assembler}_{wildcards.sample}/{wildcards.corr}ragtag.scaffolds.fasta {output}
         '''
 
