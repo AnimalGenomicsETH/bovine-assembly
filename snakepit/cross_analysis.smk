@@ -212,3 +212,17 @@ rule merge_masked_chromosomes:
         '{assembler}_{sample}/{animal}.scaffolds.fasta.masked'
     shell:
         'cat {input} > {output}'
+
+rule polish_scaffolds:
+    input:
+        scaffolds = '{assembler}_{sample}/{animal}.scaffolds.fasta',
+        aln = '{assembler}_{sample}/{animal}_scaffolds_reads.sam',
+        reads = 'data/{animal}.{sample}.hifi.fq.gz'
+    output:
+        '{assembler}_{sample}/{animal}.polished.fasta'
+    threads: 16
+    resources:
+        mem_mb = 28000,
+        walltime = '2:30'
+    shell:
+        'racon -t {threads} {input.reads} {input.aln} {input.scaffolds} > {output}'
