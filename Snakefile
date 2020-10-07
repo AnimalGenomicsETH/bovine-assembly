@@ -54,7 +54,8 @@ rule raw_read_conversion:
     threads: 8
     resources:
         mem_mb = 3000
-    shell: 'samtools fastq -@ {threads} -c 6 -0 {output} {input}'
+    shell: 
+        'samtools fastq -@ {threads} -c 6 -0 {output} {input}'
 
 rule raw_merge_files:
     input:
@@ -71,9 +72,10 @@ if 'hifiasm' in config['assemblers']:
             'hifiasm_{sample}/{animal}.asm.p_ctg.gfa'
         threads: 36
         resources:
-            mem_mb = 3100,
-            walltime = '16:00'
-        shell: 'hifiasm -o hifiasm_{wildcards.sample}/{wildcards.animal}.asm -t {threads} {input}'
+            mem_mb = 4000,
+            walltime = '24:00'
+        shell: 
+            'hifiasm -o hifiasm_{wildcards.sample}/{wildcards.animal}.asm -t {threads} {input} -r 4 -a 5 -n 10'
 
  ##Requires gfatools installed
 rule assembler_hifiasm_conversion:
@@ -103,6 +105,7 @@ if 'canu' in config['assemblers']:
             rm canu_{wildcards.sample}/{params.temp}
             mv canu_{wildcards.sample}/{wildcards.animal}.contigs.fasta {output}
             '''
+
     include: 'snakepit/purge_duplicates.smk'
 
 if 'flye' in config['assemblers']:
@@ -145,7 +148,8 @@ rule validation_auN:
         '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
         'results/{animal}_{sample}_{assembler}.auN.txt'
-    shell: 'k8 ~/bin/calN50.js -s 0.01 {input} > {output}'
+    shell: 
+        'k8 ~/bin/calN50.js -s 0.01 {input} > {output}'
 
 ##Requires minigraph and paftools.js installed
 rule validation_refalign:
@@ -246,7 +250,8 @@ rule nucmer:
 rule generate_reffai:
     output:
         f'{config["ref_genome"]}.fai'
-    shell: 'samtools faidx {config[ref_genome]}'
+    shell: 
+        'samtools faidx {config[ref_genome]}'
 
 rule analysis_report:
     input:

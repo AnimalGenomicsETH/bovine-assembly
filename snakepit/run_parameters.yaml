@@ -1,10 +1,15 @@
 workdir: '../third_test'
 raw_data: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS'
+short_read: 'OB_trio_SR/NovaSeq_20200929_NOV475_o7428_DataDelivery'
 ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
 #'/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
 #'/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
 cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
 animal: 'BSWCHEF120152514636'
+trio:
+  sire: 320
+  dam: 409
+  offspring: 410 
 k-mers: 21
 genome_est: 2.7
 mem_adj: 1100
