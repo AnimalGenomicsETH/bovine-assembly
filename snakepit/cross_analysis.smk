@@ -1,4 +1,4 @@
-localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, sample_data, raw_QC, split_chromosomes, merge_masked_chromosomes
+localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes
 
 rule count_telomers:
     input:
@@ -103,6 +103,7 @@ rule prep_window:
         awk -v OFS='\\t' {{'print $1,$2'}} {output.fai} > {output.genome}
         /cluster/work/pausch/alex/software/bedtools2/bin/windowMaker -g {output.genome} -w {params} > {output.bed}
         '''
+
 rule index_bam:
     input:
         '{assembler}_{sample}/{animal}_scaffolds_reads.bam'
@@ -123,7 +124,7 @@ rule window_coverage:
         'results/{animal}_{sample}_{assembler}.windows.coverage.txt'
     shell:
         'samtools bedcov {input.windows} {input.bam} > {output}'
-        
+
 rule chromosome_coverage:
     input:
         bam = '{assembler}_{sample}/{animal}_scaffolds_reads.bam',
@@ -133,44 +134,8 @@ rule chromosome_coverage:
     shell:
         'samtools coverage {input.bam} -o {output}'
 
-rule raw_QC:
-    input:
-        'data/{animal}.{read_t}.hifi.fq.gz'
-    output:
-        'data/{animal}.{read_t}.QC.txt'
-    shell:
-        '''
-        {workflow.basedir}/src/fasterqc {input} {output}
-        '''
 
-rule sample_data:
-    input:
-        'data/{animal}.cleaned.hifi.fq.gz'
-    output:
-        'data/{animal}.{sample}.hifi.fq.gz'
-    envmodules:
-        'gcc/8.2.0',
-        'pigz/2.4'
-    shell:
-        '''
-        if [ {wildcards.sample} -eq 100 ]
-        then
-            ln -s $(pwd)/{input} {output}
-        else
-            seqtk sample {input} $(bc <<<"scale=2;{wildcards.sample}/100") | pigz -p 4 > {output}
-        fi
-        '''
 
-rule filter_data:
-    input:
-        'data/{animal}.raw.hifi.fq.gz'
-    output:
-        'data/{animal}.cleaned.hifi.fq.gz'
-    threads: 12
-    resources:
-        mem_mb = 4000
-    shell:
-        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --thread {threads} --html data/{wildcards.animal}.html --json /dev/null'
 
 checkpoint split_chromosomes:
     input:

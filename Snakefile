@@ -35,6 +35,7 @@ include: 'snakepit/cross_analysis.smk'
 wildcard_constraints:
     animal = r'\w+',
     assembler = r'\w+',
+    haplotype = r'\w+',
     sample = r'\d+'
 
 #------------#
@@ -54,7 +55,7 @@ rule raw_read_conversion:
     threads: 8
     resources:
         mem_mb = 3000
-    shell: 
+    shell:
         'samtools fastq -@ {threads} -c 6 -0 {output} {input}'
 
 rule raw_merge_files:
@@ -74,18 +75,19 @@ if 'hifiasm' in config['assemblers']:
         resources:
             mem_mb = 4000,
             walltime = '24:00'
-        shell: 
+        shell:
             'hifiasm -o hifiasm_{wildcards.sample}/{wildcards.animal}.asm -t {threads} {input} -r 4 -a 5 -n 10'
 
  ##Requires gfatools installed
-rule assembler_hifiasm_conversion:
-    input:
-        'hifiasm_{sample}/{animal}.asm.p_ctg.gfa'
-    output:
-        'hifiasm_{sample}/{animal}.contigs.fasta'
-    resources:
-        mem_mb = 6000
-    shell: 'gfatools gfa2fa {input} > {output}'
+    rule assembler_hifiasm_conversion:
+        input:
+            'hifiasm_{sample}/{animal}.{haplotype}.p_ctg.gfa'
+        output:
+            'hifiasm_{sample}/{animal}.{haplotype}.contigs.fasta'
+        resources:
+            mem_mb = 6000,
+            walltime = '0:45'
+        shell: 'gfatools gfa2fa {input} > {output}'
 
 if 'canu' in config['assemblers']:
     localrules: assembler_canu
@@ -148,7 +150,7 @@ rule validation_auN:
         '{assembler}_{sample}/{animal}.contigs.fasta'
     output:
         'results/{animal}_{sample}_{assembler}.auN.txt'
-    shell: 
+    shell:
         'k8 ~/bin/calN50.js -s 0.01 {input} > {output}'
 
 ##Requires minigraph and paftools.js installed
@@ -250,7 +252,7 @@ rule nucmer:
 rule generate_reffai:
     output:
         f'{config["ref_genome"]}.fai'
-    shell: 
+    shell:
         'samtools faidx {config[ref_genome]}'
 
 rule analysis_report:
@@ -263,7 +265,7 @@ rule analysis_report:
         '{animal}_{sample}_analysis_report.pdf'
     log:
         'logs/analysis_report/animal-{animal}_sample-{sample}.out'
-    shell: 
+    shell:
         'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --sample {wildcards.sample} --assemblers {config[assemblers]} --css {workflow.basedir}/scripts/report.css --outfile {output} > {log}'
 
 #onsuccess:
