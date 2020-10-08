@@ -59,7 +59,7 @@ rule ragtag_scaffold:
     resources:
         mem_mb = 2000
     params:
-        '{assembler}_{sample}/{haplotype}'
+        '{assembler}_{sample}/{animal}_{haplotype}'
     shell:
         '''
         ragtag.py scaffold {config[ref_genome]} {input} -o {params} -t {threads} --mm2-params "-c -x asm5" -r -m 1000000
