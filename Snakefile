@@ -31,6 +31,8 @@ for assembler, sample in product(config['assemblers'],config['sampling']):
 
 include: 'snakepit/kmer_meryl.smk'
 include: 'snakepit/cross_analysis.smk'
+include: 'snakepit/data_preparation.smk'
+include: 'snakepit/trio_assemblies.smk'
 
 wildcard_constraints:
     animal = r'\w+',
@@ -43,9 +45,10 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
-        'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
-        expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
-        f'hifiasm_100/{config["animal"]}.corrected.scaffolds.fasta'
+        f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
+        #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
+        #expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
+        #f'hifiasm_100/{config["animal"]}.corrected.scaffolds.fasta'
 
 rule raw_read_conversion:
     input:

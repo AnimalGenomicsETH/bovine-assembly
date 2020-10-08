@@ -134,9 +134,6 @@ rule chromosome_coverage:
     shell:
         'samtools coverage {input.bam} -o {output}'
 
-
-
-
 checkpoint split_chromosomes:
     input:
         '{assembler}_{sample}/{animal}.scaffolds.fasta'
