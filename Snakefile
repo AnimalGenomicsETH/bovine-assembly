@@ -78,8 +78,10 @@ if 'hifiasm' in config['assemblers']:
         resources:
             mem_mb = 4000,
             walltime = '24:00'
+        params:
+            '-r 4 -a 5 -n 10'
         shell:
-            'hifiasm -o hifiasm_{wildcards.sample}/{wildcards.animal}.asm -t {threads} {input} -r 4 -a 5 -n 10'
+            'hifiasm -o hifiasm_{wildcards.sample}/{wildcards.animal}.asm -t {threads} {params} {input}'
 
  ##Requires gfatools installed
     rule assembler_hifiasm_conversion:
@@ -133,10 +135,10 @@ if 'flye' in config['assemblers']:
 rule validation_yak:
     input:
         reads = 'data/{animal}.{sample}.hifi.fq.gz',
-        contigs = '{assembler}_{sample}/{animal}.contigs.fasta'
+        contigs = '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta'
     output:
-        yak = temp('intermediates/{animal}_{sample}_{assembler}.yak'),
-        qv = 'results/{animal}_{sample}_{assembler}.asm-ccs.qv.txt'
+        yak = temp('intermediates/{animal}_{haplotype}_{sample}_{assembler}.yak'),
+        qv = 'results/{animal}_{haplotype}_{sample}_{assembler}.asm-ccs.qv.txt'
     threads: 16
     resources:
         mem_mb = 5000
@@ -150,9 +152,9 @@ rule validation_yak:
 ##Requires k8 and calN50.js installed
 rule validation_auN:
     input:
-        '{assembler}_{sample}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta'
     output:
-        'results/{animal}_{sample}_{assembler}.auN.txt'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.auN.txt'
     shell:
         'k8 ~/bin/calN50.js -s 0.01 {input} > {output}'
 
@@ -160,10 +162,10 @@ rule validation_auN:
 rule validation_refalign:
     input:
         ref_fai  = f'{config["ref_genome"]}.fai',#f'{config['ref_genome']}[{{reference}}].fai'
-        asm = '{assembler}_{sample}/{animal}.contigs.fasta'
+        asm = '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta'
     output:
-        paf = temp('intermediates/{animal}_{sample}_{assembler}_asm.paf'),
-        NGA = 'results/{animal}_{sample}_{assembler}.NGA50.txt'
+        paf = temp('intermediates/{animal}_{haplotype}_{sample}_{assembler}_asm.paf'),
+        NGA = 'results/{animal}_{haplotype}_{sample}_{assembler}.NGA50.txt'
     threads: 24
     resources:
         mem_mb = 3000,
@@ -176,12 +178,12 @@ rule validation_refalign:
 
 rule validation_asmgene:
     input:
-        asm = '{assembler}_{sample}/{animal}.contigs.fasta',
+        asm = '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta',
         reads = 'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        asm_paf = temp('intermediates/{animal}_{sample}_{assembler}_asm_aln.paf'),
-        ref_paf = temp('intermediates/{animal}_{sample}_{assembler}_ref_aln.paf'),
-        asmgene = 'results/{animal}_{sample}_{assembler}.asmgene.txt'
+        asm_paf = temp('intermediates/{animal}_{haplotype}_{sample}_{assembler}_asm_aln.paf'),
+        ref_paf = temp('intermediates/{animal}_{haplotype}_{sample}_{assembler}_ref_aln.paf'),
+        asmgene = 'results/{animal}_{haplotype}_{sample}_{assembler}.asmgene.txt'
     threads: 24
     resources:
         mem_mb = 2500
@@ -195,12 +197,12 @@ rule validation_asmgene:
 ##Requires busco (and metaeuk) installed
 rule validation_busco:
     input:
-        '{assembler}_{sample}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta'
     output:
-        out_dir = directory('{assembler}_{sample}/{animal}_BUSCO'),
-        summary = 'results/{animal}_{sample}_{assembler}.BUSCO.txt'
+        out_dir = directory('{assembler}_{sample}/{animal}_{haplotype}_BUSCO'),
+        summary = 'results/{animal}_{haplotype}_{sample}_{assembler}.BUSCO.txt'
     params:
-        tmp_dir = '{animal}_{sample}_{assembler}_busco_results'
+        tmp_dir = '{animal}_{haplotype}_{sample}_{assembler}_busco_results'
     threads: 24
     resources:
         mem_mb = 3000,
@@ -214,9 +216,9 @@ rule validation_busco:
 
 rule generate_dot_paf:
     input:
-        asm = '{assembler}_{sample}/{animal}.scaffolds.fasta'
+        asm = '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{animal}_ref_scaffolds.paf'
+        '{assembler}_{sample}/{animal}_{haplotype}_ref_scaffolds.paf'
     #params:
     #   ref = lambda wildcards: config['ref_genome'][wildcards.reference]
     threads: 24
@@ -227,30 +229,30 @@ rule generate_dot_paf:
 
 rule plot_dot:
     input:
-        '{assembler}_{sample}/{animal}_ref_scaffolds.paf'
+        '{assembler}_{sample}/{animal}_{haplotype}_ref_scaffolds.paf'
     output:
-        'results/{animal}_{sample}_{assembler}.dot.png'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.dot.png'
     shell:
         'minidot -L {input} | convert -density 150 - {output}'
 
 rule paf_variants:
     input:
-        '{assembler}_{sample}/{animal}_ref_scaffolds.paf'
+        '{assembler}_{sample}/{animal}_{haplotype}_ref_scaffolds.paf'
     output:
-        'results/{animal}_{sample}_{assembler}.vcf'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.vcf'
     shell:
         'sort {input} -k6,6 -k8,8n | paftools.js call -f {config[ref_genome]} - > {output}'
 
 rule nucmer:
     input:
-        '{assembler}_{sample}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta'
     output:
-        '{assembler}_{sample}/{animal}.delta'
+        '{assembler}_{sample}/{animal}.{haplotype}.delta'
     threads: 4
     resources:
         mem_mb = 15000
     shell:
-        'nucmer --maxmatch -l 100 -c 500 -t {threads} -p {wildcards.assembler}_{wildcards.sample}/{wildcards.animal} {config[ref_genome]} {input}'
+        'nucmer --maxmatch -l 100 -c 500 -t {threads} -p {wildcards.assembler}_{wildcards.sample}/{wildcards.animal}.{wildcards.haplotype} {config[ref_genome]} {input}'
 
 rule generate_reffai:
     output:

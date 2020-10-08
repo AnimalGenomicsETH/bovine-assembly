@@ -2,9 +2,9 @@ localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, c
 
 rule count_telomers:
     input:
-        '{assembler}_{sample}/{animal}.scaffolds.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta'
     output:
-        'results/{animal}_{sample}_{assembler}.telo.txt'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.telo.txt'
     run:
         import re, screed
         from scipy.stats import binom
@@ -19,9 +19,9 @@ rule count_telomers:
 
 rule count_scaffold_gaps:
     input:
-        '{assembler}_{sample}/{animal}.scaffolds.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta'
     output:
-        'results/{animal}_{sample}_{assembler}.gaps.txt'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.gaps.txt'
     run:
         import re, screed
         gap_sequence = re.compile(r'[nN]+')
@@ -52,24 +52,26 @@ rule ragtag_correct:
 
 rule ragtag_scaffold:
     input:
-        '{assembler}_{sample}/{animal}.contigs.{corr,.*}fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta'
     output:
-        '{assembler}_{sample}/{animal}.{corr,.*}scaffolds.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta'
     threads: 24
     resources:
         mem_mb = 2000
+    params:
+        '{assembler}_{sample}/{haplotype}'
     shell:
         '''
-        ragtag.py scaffold {config[ref_genome]} {input} -o {wildcards.assembler}_{wildcards.sample}/{wildcards.corr} -t {threads} --mm2-params "-c -x asm5" -r -m 1000000
-        mv {wildcards.assembler}_{wildcards.sample}/{wildcards.corr}ragtag.scaffolds.fasta {output}
+        ragtag.py scaffold {config[ref_genome]} {input} -o {params} -t {threads} --mm2-params "-c -x asm5" -r -m 1000000
+        mv {params}/ragtag.scaffolds.fasta {output}
         '''
 
 rule remap_reads:
     input:
         reads = 'data/{animal}.cleaned.hifi.fq.gz',
-        asm = '{assembler}_{sample}/{animal}.scaffolds.fasta'
+        asm = '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{animal}_scaffolds_reads.sam'
+        '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.sam'
     threads: 24
     resources:
         mem_mb = 4000
@@ -78,9 +80,9 @@ rule remap_reads:
 
 rule sam_to_bam:
     input:
-        '{assembler}/{file}.sam'
+        '{assembler}_{sample}/{file}.sam'
     output:
-        '{assembler}/{file}.bam'
+        '{assembler}_{sample}/{file}.bam'
     threads: 16
     resources:
         mem_mb = 4000,
@@ -90,11 +92,11 @@ rule sam_to_bam:
 
 rule prep_window:
     input:
-        '{assembler}_{sample}/{animal}.scaffolds.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta'
     output:
-        fai = '{assembler}_{sample}/{animal}.scaffolds.fasta.fai',
-        genome = '{assembler}_{sample}/{animal}.genome',
-        bed = '{assembler}_{sample}/{animal}.windows.bed'
+        fai = '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta.fai',
+        genome = '{assembler}_{sample}/{animal}.{haplotype}.genome',
+        bed = '{assembler}_{sample}/{animal}.{haplotype}.windows.bed'
     params:
         10000
     shell:
@@ -117,28 +119,28 @@ rule index_bam:
 
 rule window_coverage:
     input:
-        windows = '{assembler}_{sample}/{animal}.windows.bed',
-        bam = '{assembler}_{sample}/{animal}_scaffolds_reads.bam',
-        bai = '{assembler}_{sample}/{animal}_scaffolds_reads.bam.bai'
+        windows = '{assembler}_{sample}/{animal}.{haplotype}.windows.bed',
+        bam = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.bam',
+        bai = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.bam.bai'
     output:
-        'results/{animal}_{sample}_{assembler}.windows.coverage.txt'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.windows.coverage.txt'
     shell:
         'samtools bedcov {input.windows} {input.bam} > {output}'
 
 rule chromosome_coverage:
     input:
-        bam = '{assembler}_{sample}/{animal}_scaffolds_reads.bam',
-        bai = '{assembler}_{sample}/{animal}_scaffolds_reads.bam.bai'
+        bam = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.bam',
+        bai = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.bam.bai'
     output:
-        'results/{animal}_{sample}_{assembler}.chrm.coverage.txt'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.chrm.coverage.txt'
     shell:
         'samtools coverage {input.bam} -o {output}'
 
 checkpoint split_chromosomes:
     input:
-        '{assembler}_{sample}/{animal}.scaffolds.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta'
     output:
-        directory('split_{animal}_{sample}_{assembler}')
+        directory('split_{animal}_{haplotype}_{sample}_{assembler}')
     shell:
         '''
         mkdir -p {output}
@@ -147,10 +149,10 @@ checkpoint split_chromosomes:
 
 rule repeat_masker:
     input:
-        'split_{animal}_{sample}_{assembler}/{chunk}.chrm.fa'
+        'split_{animal}_{haplotype}_{sample}_{assembler}/{chunk}.chrm.fa'
     output:
         #NOTE repeatmasker doesn't output .masked if no masking, so just wrap the plain sequence via seqtk
-        'split_{animal}_{sample}_{assembler}/{chunk}.chrm.fa.masked'
+        'split_{animal}_{haplotype}_{sample}_{assembler}/{chunk}.chrm.fa.masked'
     threads: 8
     resources:
         mem_mb = 400,
@@ -165,23 +167,23 @@ rule repeat_masker:
 
 def aggregate_chrm_input(wildcards):
     checkpoint_output = checkpoints.split_chromosomes.get(**wildcards).output[0]
-    return expand(f'split_{wildcards.animal}_{wildcards.sample}_{wildcards.assembler}/{{chunk}}.chrm.fa.masked',chunk=glob_wildcards(os.path.join(checkpoint_output, '{chunk}.chrm.fa')).chunk)
+    return expand(f'split_{wildcards.animal}_{wildcards.haplotype}_{wildcards.sample}_{wildcards.assembler}/{{chunk}}.chrm.fa.masked',chunk=glob_wildcards(os.path.join(checkpoint_output, '{chunk}.chrm.fa')).chunk)
 
 rule merge_masked_chromosomes:
     input:
         aggregate_chrm_input
     output:
-        '{assembler}_{sample}/{animal}.scaffolds.fasta.masked'
+        '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta.masked'
     shell:
         'cat {input} > {output}'
 
 rule polish_scaffolds:
     input:
-        scaffolds = '{assembler}_{sample}/{animal}.scaffolds.fasta',
-        aln = '{assembler}_{sample}/{animal}_scaffolds_reads.sam',
+        scaffolds = '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta',
+        aln = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.sam',
         reads = 'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        '{assembler}_{sample}/{animal}.polished.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.polished.fasta'
     threads: 16
     resources:
         mem_mb = 28000,

@@ -5,11 +5,15 @@ import seaborn
 from itertools import cycle
 from numpy import linspace, cumsum
 
+animal, haplotype, sample, assembler = '', '', '', ''
+def open_results(,extension):
+    return open(f'results/{animal}_{haplotype}_{sample}_{assembler}.{extension}','r')
+
 def plot_chromosome_scaffolds(animal,assembler,sample):
     chromosome = 0
     fig, ax = plt.subplots()
 
-    with open (f'results/{animal}_{sample}_{assembler}.gaps.txt','r') as file_in:
+    with open_results('gaps.txt') as file_in:
         for line in file_in:
             if 'CM' not in line:
                 continue
@@ -26,10 +30,10 @@ def plot_chromosome_scaffolds(animal,assembler,sample):
     fig.savefig(f_name)
     return f_name
 
-def load_auNCurves(animal,assembler,sample):
+def load_auNCurves():
     auN_values, metrics = [[],[]], dict()
 
-    with open(f'results/{animal}_{sample}_{assembler}.auN.txt','r') as file_in:
+    with open_results('auN.txt') as file_in:
         for line in file_in:
             if line[:2] == 'NL':
                 x, Nx, Lx  = (int(i) for i in line.rstrip().split()[1:])
@@ -43,9 +47,9 @@ def load_auNCurves(animal,assembler,sample):
 
     return auN_values, metrics
 
-def plot_auNCurves(animal,assembler,sample):
-    data, metrics = load_auNCurves(animal,assembler,sample)
-    auN_data, aln_metrics = load_NGA(animal,assembler,sample)
+def plot_auNCurves(details):
+    data, metrics = load_auNCurves()
+    auN_data, aln_metrics = load_NGA()
 
     fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(6, 4))
 
@@ -67,13 +71,14 @@ def plot_auNCurves(animal,assembler,sample):
     ax_L.set_ylabel('number of contigs',fontsize=14)
 
     plt.tight_layout()
-    fig.savefig(f'figures/{animal}_{sample}_{assembler}_auN_curves.png')
+    save_path = f'figures/{details}_auN_curves.png'
+    fig.savefig(save_path)
 
-    return metrics, aln_metrics
+    return metrics, aln_metrics, save_path
 
-def load_NGA(animal,assembler,sample):
+def load_NGA():
     auN_data, data = [], dict()
-    with open(f'results/{animal}_{sample}_{assembler}.NGA50.txt','r') as file_in:
+    with open_results('NGA50.txt') as file_in:
         for line in file_in:
             if line[:2] == 'NG':
                 try:
@@ -86,16 +91,16 @@ def load_NGA(animal,assembler,sample):
                 data[key] = value
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
-def kmer_QV(animal,assembler,sample):
+def kmer_QV():
     data = dict()
-    with open(f'results/{animal}_{sample}_{assembler}.merqury.stats.txt','r') as file_in:
+    with open_results('merqury.stats.txt') as file_in:
         for line in file_in:
             data[line[:2]] = line.rstrip().split()[1]
     return data
 
-def load_asmgene(animal,assembler,sample):
+def load_asmgene():
     table = [[],[],[]]
-    with open(f'results/{animal}_{sample}_{assembler}.asmgene.txt','r') as file_in:
+    with open_results('asmgene.txt') as file_in:
         for line in file_in:
             if line[0] != 'X':
                 continue
@@ -104,8 +109,8 @@ def load_asmgene(animal,assembler,sample):
                 table[i].append(p)
     return table
 
-def busco_report(animal,assembler,sample):
-    with open(f'results/{animal}_{sample}_{assembler}.BUSCO.txt') as file_in:
+def busco_report():
+    with open_results('BUSCO.txt') as file_in:
         for line in file_in:
             if 'lineage dataset' in line:
                 LD_set = line.split()[5]
@@ -165,7 +170,7 @@ def generate_markdown_reads(animal,sample):
     build_str += IMAGE(f'figures/{animal}.{sample}.QC.png',.6) + '\n\n'
     return build_str
 
-def generate_markdown_string(animal,assembler,sample,build_str,summary_str):
+def generate_markdown_string(animal,assembler,haplotype,sample,build_str,summary_str):
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*\n'
 
@@ -178,7 +183,7 @@ def generate_markdown_string(animal,assembler,sample,build_str,summary_str):
 
     build_str += '## assembly metrics\n'
 
-    asm_metrics, aln_metrics = plot_auNCurves(animal,assembler,sample)
+    asm_metrics, aln_metrics, auN_plot = plot_auNCurves(f'{animal}_{haplotype}_{sample}_{assembler})
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]:,}\n\n'
 
@@ -188,7 +193,7 @@ def generate_markdown_string(animal,assembler,sample,build_str,summary_str):
     build_str += f'Contig length and quantity\n\n' \
                  f'**N50**: {asm_metrics["N50"]/1e6:.2f} mb\n\n' \
                  f'auN value: {asm_metrics["AU"]}\n\n' + \
-                 IMAGE(f'figures/{animal}_{sample}_{assembler}_auN_curves.png',.8) + '\n\n'
+                 IMAGE(auN_plot,.8) + '\n\n'
 
     if assembler == 'canu':
         build_str += 'Purged coverage:\n\n' + \
@@ -203,7 +208,7 @@ def generate_markdown_string(animal,assembler,sample,build_str,summary_str):
                  '* Contigs\n' \
                  f'  * breaks: {aln_metrics["#breaks"]}\n' \
                  f'  * auNGA: {aln_metrics["AUNGA"]}\n\n' + \
-                 IMAGE(f'results/{animal}_{sample}_{assembler}.dot.png',.7) + '\n\n'
+                 IMAGE(f'results/{animal}_{haplotype}_{sample}_{assembler}.dot.png',.7) + '\n\n'
 
     build_str += '## validation results\n\n'
 
@@ -211,15 +216,15 @@ def generate_markdown_string(animal,assembler,sample,build_str,summary_str):
     build_str += '### merqury k-mers\n' \
                  f'Coverage: {float(kmer_stats["CV"])/100:.1%}\n\n' \
                  f'QV: {kmer_stats["QV"]}\n\n' + \
-                 IMAGE(f'{assembler}_{sample}/{animal}.spectra-asm.ln.png',.45) + '\n\n'
+                 IMAGE(f'{assembler}_{sample}/{animal}.{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
 
-    lineage, busco_string = busco_report(animal,assembler,sample)
+    lineage, busco_string = busco_report()
     build_str += '### BUSCO \n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
 
     build_str += '### asmgene\n'
 
-    gene_map = load_asmgene(animal,assembler,sample)
+    gene_map = load_asmgene()
     build_str += f'| | {" | ".join(gene_map[0])} |\n' \
                  '| -- | -- | -- |\n'
 
@@ -237,6 +242,7 @@ from pathlib import Path
 from markdown2 import markdown
 from weasyprint import HTML, CSS
 from shutil import rmtree
+from itertools import product
 
 def custom_PDF_writer(output,prepend_str,md_content,css):
     header = markdown(prepend_str,extras=['tables'])
@@ -254,11 +260,16 @@ def main(direct_input=None):
     parser.add_argument('--animal', type=str, required=True)
     parser.add_argument('--sample', type=str, required=True)
     parser.add_argument('--assemblers', nargs='+', required=True)
+    parser.add_argument('--haplotypes', nargs='+', required=True)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
     parser.add_argument('--keepfig', action='store_true')
     parser.add_argument('--css', default='report.css', type=str)
 
     args = parser.parse_args(direct_input)
+    global animal
+    animal = args.animal
+    global sample
+    sample = args.sample
     css_path = args.css if Path(args.css).is_file() else ''
 
     prepend_str = generate_markdown_reads(args.animal,args.sample) + \
@@ -269,8 +280,13 @@ def main(direct_input=None):
                      '| assembler | size | contigs | N50 | L50 | completeness | QV kmer |\n' \
                      '| :-------- | :--: | :-----: | :-: | :-: | :----------: | :-----: |\n'
 
-    for assembler in args.assemblers:
-        md_string, summary_string = generate_markdown_string(args.animal,assembler,args.sample,md_string,summary_string)
+    for haplotype_t,assembler_t in product(args.haplotypes,args.assemblers):
+        global haplotype
+        haplotype = haplotype_t
+        global assembler
+        assembler = assembler_
+
+        md_string, summary_string = generate_markdown_string(args.animal,assembler,haplotype,args.sample,md_string,summary_string)
 
     md_string = summary_string + md_string
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)

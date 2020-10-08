@@ -47,9 +47,9 @@ rule merge_many:
 
 rule count_asm_kmers:
     input:
-        '{assembler}_{sample}/{animal}.contigs.fasta'
+        '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta'
     output:
-        directory('{assembler}_{sample}/{animal}.contigs.meryl')
+        directory('{assembler}_{sample}/{animal}.{haplotype}.contigs.meryl')
     threads: 12
     resources:
         mem_mb = 3000
@@ -79,8 +79,8 @@ rule merqury_prep:
 rule merqury_spectra:
     input:
         read_db = 'data/{animal}.{sample}.hifi.meryl',
-        asm_db = '{assembler}_{sample}/{animal}.contigs.meryl',
-        asm = '{assembler}_{sample}/{animal}.contigs.fasta',
+        asm_db = '{assembler}_{sample}/{animal}.{haplotype}.contigs.meryl',
+        asm = '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta',
         filt = 'data/{animal}.{sample}.hifi.filt'
     output:
         multiext('{assembler}_{sample}/{animal}','.qv','.completeness.stats')
@@ -96,7 +96,7 @@ rule merqury_spectra:
         export MERQURY={config[merqury_root]}
         ln -s ../{input.filt}
         find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
-        $MERQURY/eval/spectra-cn.sh ../{input.read_db} {wildcards.animal}.contigs.fasta {wildcards.animal}
+        $MERQURY/eval/spectra-cn.sh ../{input.read_db} {wildcards.animal}.{wildcards.haplotype}.contigs.fasta {wildcards.animal}
         '''
 
 rule merqury_formatting:

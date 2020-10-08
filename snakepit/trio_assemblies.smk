@@ -1,10 +1,6 @@
 rule trio_yak:
     input:
-        #expand(f'{config["raw_data"]}/OB_trio_SR/NovaSeq_20200929_NOV475_o7428_DataDelivery/20200929.B-BOV_{{trio}}_R{{read}}.fastq.gz',read=(1,2),trio=
         lambda wildcards: (f'{config["raw_data"]}/OB_trio_SR/NovaSeq_20200929_NOV475_o7428_DataDelivery/20200929.B-BOV_{config["trio"][wildcards.parent]}_R{R}.fastq.gz' for R in (1,2))
-        #r1 = 'parental.fq.gz',
-        #{config["trio"]["sire"]}.
-        #r2 = f'{config["raw_data"]}/OB_trio_SR/NovaSeq_20200929_NOV475_o7428_DataDelivery/20200929.B-BOV_'
     output:
         'data/{parent}.yak'
     threads: 24
@@ -19,7 +15,6 @@ rule trio_hifiasm:
     input:
         reads = 'data/{animal}.{sample}.hifi.fq.gz',
         mat = 'data/dam.yak',
-        #mat = 'data/dam{config["trio"]["dam"]}.yak',
         pat = 'data/sire.yak',
         force = 'hifiasm_{sample}/{animal}.asm.contigs.fasta'
     output:
