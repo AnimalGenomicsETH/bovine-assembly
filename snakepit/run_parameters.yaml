@@ -1,6 +1,6 @@
 workdir: '../third_test'
 raw_data: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS'
-short_read: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR'
+short_reads: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR'
 ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
 #'/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
 #'/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
@@ -43,10 +43,10 @@ r_lib: '/cluster/work/pausch/alex/software/R_packages'
 
 ##filtering run_parameters
 filtering:
-    avg_qual: 20
-    min_length: 1000
-
+  avg_qual: 20
+  min_length: 1000
+  max_length: 1000000
 ##sample levels
 sampling:
-    - 100
-    #- 75
+  - 100
+  #- 75

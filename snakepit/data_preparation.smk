@@ -9,7 +9,20 @@ rule filter_hifi_data:
     resources:
         mem_mb = 4000
     shell:
-        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --thread {threads} --html data/{wildcards.animal}.html --json /dev/null'
+        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --length_limit {config[filtering][max_length]} --thread {threads} --html data/{wildcards.animal}.html --json /dev/null'
+
+rule filter_SR_data:
+    input:
+        R1 = lambda wildcards: f'{config["short_reads"]}/20200929.B-BOV_{config["trio"][wildcards.parent]}_R1.fastq.gz',
+        R2 = lambda wildcards: f'{config["short_reads"]}/20200929.B-BOV_{config["trio"][wildcards.parent]}_R2.fastq.gz'
+    output:
+        R1 = 'data/{parent}_R1.fastq.gz',
+        R2 = 'data/{parent}_R2.fastq.gz'
+    threads: 12
+    resources:
+        mem_mb = 4000
+    shell:
+        'fastp -i {input.R1} -I {input.R2} -o {output.R1} -O {output.R2} -g --thread {threads} --html data/{wildcards.parent}.html --json /dev/null'
 
 rule sample_data:
     input:

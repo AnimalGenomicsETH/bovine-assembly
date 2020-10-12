@@ -248,9 +248,9 @@ rule nucmer:
         '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta'
     output:
         '{assembler}_{sample}/{animal}.{haplotype}.delta'
-    threads: 4
+    threads: 24
     resources:
-        mem_mb = 15000
+        mem_mb = 5500
     shell:
         'nucmer --maxmatch -l 100 -c 500 -t {threads} -p {wildcards.assembler}_{wildcards.sample}/{wildcards.animal}.{wildcards.haplotype} {config[ref_genome]} {input}'
 
