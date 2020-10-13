@@ -94,7 +94,7 @@ rule merqury_spectra:
         '''
         cd {wildcards.assembler}_{wildcards.sample}
         export MERQURY={config[merqury_root]}
-        if [ ! -L ../{input.filt} ];
+        if [ ! -L {wildcards.animal}.{wildcards.sample}.hifi.filt ];
         then
             ln -s ../{input.filt}
             find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;

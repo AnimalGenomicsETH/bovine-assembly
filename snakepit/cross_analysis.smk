@@ -71,12 +71,26 @@ rule remap_reads:
         reads = 'data/{animal}.cleaned.hifi.fq.gz',
         asm = '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.sam'
+        '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_hifi_reads.sam'
     threads: 24
     resources:
-        mem_mb = 4000
+        mem_mb = 6000,
+        walltime = '8:00'
     shell:
         'minimap2 -ax asm20 -t {threads} {input.asm} {input.reads} > {output}'
+
+rule map_SR_reads:
+    input:
+        reads = expand('data/offspring_R{N}.fastq.gz',N=(1,2)),
+        asm = '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta'
+    output:
+        '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_SR_reads.sam'
+    threads: 24
+    resources:
+        mem_mb = 6000,
+        walltime = '4:00'
+    shell:
+        'minimap2 -ax sr -t {threads} {input.asm} {input.reads} > {output}'
 
 rule sam_to_bam:
     input:
@@ -85,10 +99,10 @@ rule sam_to_bam:
         '{assembler}_{sample}/{file}.bam'
     threads: 16
     resources:
-        mem_mb = 4000,
+        mem_mb = 6000,
         disk_scratch = 200
     shell:
-        'samtools sort {input} -m 3900M -@ {threads} -T $TMPDIR -o {output}'
+        'samtools sort {input} -m 5500M -@ {threads} -T $TMPDIR -o {output}'
 
 rule prep_window:
     input:
@@ -108,9 +122,9 @@ rule prep_window:
 
 rule index_bam:
     input:
-        '{assembler}_{sample}/{animal}_scaffolds_reads.bam'
+        '{assembler}_{sample}/{animal}_scaffolds_{type}_reads.bam'
     output:
-        '{assembler}_{sample}/{animal}_scaffolds_reads.bam.bai'
+        '{assembler}_{sample}/{animal}_scaffolds_{type}_reads.bam.bai'
     threads: 8
     resources:
         mem_mb = 4000
@@ -120,19 +134,19 @@ rule index_bam:
 rule window_coverage:
     input:
         windows = '{assembler}_{sample}/{animal}.{haplotype}.windows.bed',
-        bam = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.bam',
-        bai = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.bam.bai'
+        bam = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_{type}_reads.bam',
+        bai = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_{type}_reads.bam.bai'
     output:
-        'results/{animal}_{haplotype}_{sample}_{assembler}.windows.coverage.txt'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.windows.{type}.coverage.txt'
     shell:
         'samtools bedcov {input.windows} {input.bam} > {output}'
 
 rule chromosome_coverage:
     input:
-        bam = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.bam',
-        bai = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_reads.bam.bai'
+        bam = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_{type}_reads.bam',
+        bai = '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_{type}_reads.bam.bai'
     output:
-        'results/{animal}_{haplotype}_{sample}_{assembler}.chrm.coverage.txt'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.chrm.{type}.coverage.txt'
     shell:
         'samtools coverage {input.bam} -o {output}'
 

@@ -31,8 +31,10 @@ target_metrics:
   - 'BUSCO.txt'
   - 'dot.png'
   - 'gaps.txt'
-  - 'windows.coverage.txt'
-  - 'chrm.coverage.txt'
+  - 'windows.hifi.coverage.txt'
+  - 'chrm.hifi.coverage.txt'
+  - 'windows.SR.coverage.txt'
+  - 'chrm.SR.coverage.txt'
   - 'telo.txt'
   - 'vcf'
 ##sources of non-bin programs
