@@ -47,7 +47,7 @@ rule all:
     input:
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
         #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
-        #expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
+        expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
         #f'hifiasm_100/{config["animal"]}.corrected.scaffolds.fasta'
 
 rule raw_read_conversion:
@@ -248,9 +248,9 @@ rule nucmer:
         '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta'
     output:
         '{assembler}_{sample}/{animal}.{haplotype}.delta'
-    threads: 4
+    threads: 24
     resources:
-        mem_mb = 15000
+        mem_mb = 5500
     shell:
         'nucmer --maxmatch -l 100 -c 500 -t {threads} -p {wildcards.assembler}_{wildcards.sample}/{wildcards.animal}.{wildcards.haplotype} {config[ref_genome]} {input}'
 
@@ -262,7 +262,7 @@ rule generate_reffai:
 
 rule analysis_report:
     input:
-        expand('results/{{animal}}_{{sample}}_{assembler}.{ext}',assembler=config['assemblers'],ext=config['target_metrics']),
+        expand('results/{{animal}}_{haplotype}_{{sample}}_{assembler}.{ext}',haplotype=config['haplotypes'],assembler=config['assemblers'],ext=config['target_metrics']),
         'data/{animal}.{sample}.QC.txt',
         glob_purges#,
         #expand('{assembler}_{{sample}}/{{animal}}.scaffolds.fasta.masked',assembler=config['assemblers'])
@@ -271,7 +271,7 @@ rule analysis_report:
     log:
         'logs/analysis_report/animal-{animal}_sample-{sample}.out'
     shell:
-        'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --sample {wildcards.sample} --assemblers {config[assemblers]} --css {workflow.basedir}/scripts/report.css --outfile {output} > {log}'
+        'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {wildcards.animal} --sample {wildcards.sample} --haplotypes {config[haplotypes]} --assemblers {config[assemblers]} --css {workflow.basedir}/scripts/report.css --outfile {output} > {log}'
 
 #onsuccess:
 #    print('Cleaning up intermediate files')

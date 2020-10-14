@@ -1,6 +1,6 @@
 workdir: '../third_test'
 raw_data: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS'
-short_read: 'OB_trio_SR/NovaSeq_20200929_NOV475_o7428_DataDelivery'
+short_reads: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR'
 ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
 #'/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
 #'/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
@@ -14,6 +14,10 @@ k-mers: 21
 genome_est: 2.7
 mem_adj: 1100
 split_size: 10
+haplotypes:
+  - 'asm'
+  - 'hap1'
+  - 'hap2'
 assemblers:
   - 'hifiasm'
   #- 'canu'
@@ -27,8 +31,10 @@ target_metrics:
   - 'BUSCO.txt'
   - 'dot.png'
   - 'gaps.txt'
-  - 'windows.coverage.txt'
-  - 'chrm.coverage.txt'
+  - 'windows.hifi.coverage.txt'
+  - 'chrm.hifi.coverage.txt'
+  - 'windows.SR.coverage.txt'
+  - 'chrm.SR.coverage.txt'
   - 'telo.txt'
   - 'vcf'
 ##sources of non-bin programs
@@ -39,10 +45,10 @@ r_lib: '/cluster/work/pausch/alex/software/R_packages'
 
 ##filtering run_parameters
 filtering:
-    avg_qual: 20
-    min_length: 1000
-
+  avg_qual: 20
+  min_length: 1000
+  max_length: 1000000
 ##sample levels
 sampling:
-    - 100
-    - 75
+  - 100
+  #- 75

@@ -83,7 +83,7 @@ rule merqury_spectra:
         asm = '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta',
         filt = 'data/{animal}.{sample}.hifi.filt'
     output:
-        multiext('{assembler}_{sample}/{animal}','.qv','.completeness.stats')
+        multiext('{assembler}_{sample}/{animal}.{haplotype}','.qv','.completeness.stats')
     threads: 8
     resources:
         mem_mb = 6000
@@ -94,17 +94,20 @@ rule merqury_spectra:
         '''
         cd {wildcards.assembler}_{wildcards.sample}
         export MERQURY={config[merqury_root]}
-        ln -s ../{input.filt}
-        find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
+        if [ ! -L {wildcards.animal}.{wildcards.sample}.hifi.filt ];
+        then
+            ln -s ../{input.filt}
+            find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
+        fi
         $MERQURY/eval/spectra-cn.sh ../{input.read_db} {wildcards.animal}.{wildcards.haplotype}.contigs.fasta {wildcards.animal}
         '''
 
 rule merqury_formatting:
     input:
-        qv = '{assembler}_{sample}/{animal}.qv',
-        completeness = '{assembler}_{sample}/{animal}.completeness.stats'
+        qv = '{assembler}_{sample}/{animal}.{haplotype}.qv',
+        completeness = '{assembler}_{sample}/{animal}.{haplotype}.completeness.stats'
     output:
-        'results/{animal}_{sample}_{assembler}.merqury.stats.txt'
+        'results/{animal}_{haplotype}_{sample}_{assembler}.merqury.stats.txt'
     shell:
         '''
         awk '{{print "QV " $4}}' {input.qv} > {output}
