@@ -102,7 +102,7 @@ rule sam_to_bam:
         mem_mb = 6000,
         disk_scratch = 200
     shell:
-        'samtools sort {input} -m 5500M -@ {threads} -T $TMPDIR -o {output}'
+        'samtools sort {input} -m 4000M -@ {threads} -T $TMPDIR -o {output}'
 
 rule prep_window:
     input:

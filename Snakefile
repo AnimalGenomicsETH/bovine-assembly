@@ -21,7 +21,7 @@ def glob_purges(wildcards):
     return req_files
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: analysis_report, raw_merge_files, plot_dot, paf_variants, generate_reffai
+localrules: analysis_report, raw_merge_files, plot_dot, paf_variants, generate_reffai, dnadiff
 
 for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
@@ -46,6 +46,7 @@ wildcard_constraints:
 rule all:
     input:
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
+        f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
         #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
         expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
         #f'hifiasm_100/{config["animal"]}.corrected.scaffolds.fasta'
@@ -253,6 +254,14 @@ rule nucmer:
         mem_mb = 5500
     shell:
         'nucmer --maxmatch -l 100 -c 500 -t {threads} -p {wildcards.assembler}_{wildcards.sample}/{wildcards.animal}.{wildcards.haplotype} {config[ref_genome]} {input}'
+
+rule dnadiff:
+    input:
+        '{assembler}_{sample}/{animal}.{haplotype}.delta'
+    output:
+        '{assembler}_{sample}/{animal}.{haplotype}.dnadiff.report'
+    shell:
+        'dnadiff -d {input} -p {wildcards.assembler}_{wildcards.sample}/{wildcards.animal}.{wildcards.haplotype}.dnadiff'
 
 rule generate_reffai:
     output:
