@@ -39,7 +39,7 @@ rule trio_canu:
         dam = expand('data/dam_R{N}.fastq.gz',N=(1,2)),
         sire =  expand('data/sire_R{N}.fastq.gz',N=(1,2))
     output:
-        expand('canu_{sample}/trio/{animal}-haplotype{N}.sh',N=(1,2))
+        expand('canu_{{sample}}/trio/{{animal}}-haplotype{N}.sh',N=(1,2))
     params:
 
     shell:
@@ -54,15 +54,15 @@ rule haplotype_canu:
         'canu_{sample}/animal.hap{N}.contigs_raw.fa'
     params:
         temp = 'hap{N}.complete',
-        dir = 'canu_{sample}/trio/{animal}-haplotype{N}'
+        dir_ = 'canu_{sample}/trio/{animal}-haplotype{N}'
     shell:
         '''
         sed -i -e {input}
         sed -i '4a\ onSuccess="touch {params.temp}"'
         ./{input}
 
-        while [ ! -e {params.dir}/{params.temp} ]; do sleep 60; done
+        while [ ! -e {params.dir_}/{params.temp} ]; do sleep 60; done
         echo "complete file found, ending sleep loop"
-        rm {params.dir}/{params.temp}
-        mv {params.dir}/{wildcards.animal}-haplotype{wildcards.N}.contigs.fasta {output}
+        rm {params.dir_}/{params.temp}
+        mv {params.dir_}/{wildcards.animal}-haplotype{wildcards.N}.contigs.fasta {output}
         '''
