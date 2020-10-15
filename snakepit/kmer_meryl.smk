@@ -1,5 +1,117 @@
 localrules: split_reads, merqury_formatting
 
+rule count_SR_reads:
+    input:
+        'data/{parent_R{N}.fastq.gz'
+    output:
+        directory('data/{parent}.read_R{N}.meryl')
+    threads: 18
+    resources:
+        mem_mb = 3000
+    params:
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
+    shell:
+        'meryl count k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input}'
+
+rule merge_SR_reads:
+    input:
+        expand('data/{{parent}}.read_R{N}.meryl',N=(1,2))
+    output:
+        directory('data/{parent}.meryl')
+    threads: 12ß
+    resources:
+        mem_mb = 4000
+    params:
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
+    shell:
+        'meryl union-sum k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input}'
+
+rule generate_hapmers:
+    input:
+        dam = 'data/dam.meryl',
+        sire = 'data/sire.meryl',
+        child = 'data/{animal}.{sample}.hifi.meryl'
+    output:
+        directory('data/dam.hapmers.meryl'),
+        directory('data/sire.hapmers.meryl')
+    threads: 12
+    resources:
+        mem_mb = 4000
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    shell:
+        '''
+        export MERQURY={config[merqury_root]}
+        $MERQURY/trio/hapmers.sh {input.sire} {input.dam} {input.child}
+        '''
+
+rule hap_blob:
+    input:
+        expand('data/{parent}.hapmers.meryl',parent=('sire','dam')),
+        expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.contigs.fasta',N=(1,2))
+    output:
+        '{assembler}_{sample}/{animal}.blob.hapmers.count'
+    params:
+        out = '{assembler}_{sample}/{animal}.blob'
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    shell:
+        '''
+        export MERQURY={config[merqury_root]}
+        $MERQURY/trio/hap_blob.sh {input} {params.out}
+        '''
+
+rule spectra_hap:
+    input:
+        'data/{animal}.{sample}.hifi.meryl',
+        expand('data/{parent}.hapmers.meryl',parent=('sire','dam')),
+        expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.contigs.fasta',N=(1,2))
+    output:
+        '$name.$asm.$read_hap.spectra-cn'
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    shell:
+        '''
+        export MERQURY={config[merqury_root]}
+        $MERQURY/trio/spectra-hap.sh {input} {params.out}
+        '''
+
+rule merqury_phase_block:
+    input:
+        asm = '{assembler}_{sample}/{animal}.hap{N}.contigs.fasta',
+        hapmers = expand('data/{parent}.hapmers.meryl',parent=('sire','dam'))
+    output:
+        '{assembler}_{sample}/{animal}.hap{N}.phased_block.bed'
+    params:
+        '{assembler}_{sample}'
+    shell:
+        '''
+        export MERQURY={config[merqury_root]}
+        $MERQURY/trio/phase_block.sh {input.asm} {input.hapmers} {params.out}
+        '''
+
+rule merqury_block_n_stats:
+    input:
+        hap1 = '{assembler}_{sample}/{animal}.hap1.contigs.fasta',
+        hap2 = '{assembler}_{sample}/{animal}.hap2.contigs.fasta',
+        block1 = '{assembler}_{sample}/{animal}.hap1.phased_block.bed',
+        block2 = '{assembler}_{sample}/{animal}.hap2.phased_block.bed'
+    output:
+        expand('{assembler}_{sample}/{animal}.hap{N}.scaff.sizes',N=(1,2))
+    params:
+        out = '{assembler}_{sample}/{animal}'
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    shell:
+        '''
+        export MERQURY={config[merqury_root]}
+        $MERQURY/trio/block_n_stats.sh {input.hap1} {input.block1} {input.hap2} {input.block2} {params.out} {config[genome_est]}
+        '''
+
 checkpoint split_reads:
     input:
         'data/{animal}.{sample}.hifi.fq.gz'
@@ -43,7 +155,7 @@ rule merge_many:
     params:
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
-        'echo {input}; echo "hello"; meryl union-sum k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input} '
+        'meryl union-sum k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input}'
 
 rule count_asm_kmers:
     input:
@@ -79,8 +191,35 @@ rule merqury_prep:
 rule merqury_spectra:
     input:
         read_db = 'data/{animal}.{sample}.hifi.meryl',
-        asm_db = '{assembler}_{sample}/{animal}.{haplotype}.contigs.meryl',
-        asm = '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta',
+        asm_db = '{assembler}_{sample}/{animal}.asm.contigs.meryl',
+        asm = '{assembler}_{sample}/{animal}.asm.contigs.fasta',
+        filt = 'data/{animal}.{sample}.hifi.filt'
+    output:
+        multiext('{assembler}_{sample}/{animal}.asm','.qv','.completeness.stats')
+    threads: 8
+    resources:
+        mem_mb = 6000
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    shell:
+        '''
+        cd {wildcards.assembler}_{wildcards.sample}
+        export MERQURY={config[merqury_root]}
+        if [ ! -L {wildcards.animal}.{wildcards.sample}.hifi.filt ];
+        then
+            ln -s ../{input.filt}
+            find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
+        fi
+        $MERQURY/eval/spectra-cn.sh ../{input.read_db} ../{input.asm} {wildcards.animal}_asm
+        '''
+
+rule merqury_spectra_trio:
+    input:
+        read_db = 'data/{animal}.{sample}.hifi.meryl',
+        hap_dbs = '{assembler}_{sample}/{animal}.{haplotype}.contigs.meryl',
+        hap1 = '{assembler}_{sample}/{animal}.hap1.contigs.fasta',
+        hap2 = '{assembler}_{sample}/{animal}.hap2.contigs.fasta',
         filt = 'data/{animal}.{sample}.hifi.filt'
     output:
         multiext('{assembler}_{sample}/{animal}.{haplotype}','.qv','.completeness.stats')
@@ -99,7 +238,7 @@ rule merqury_spectra:
             ln -s ../{input.filt}
             find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
         fi
-        $MERQURY/eval/spectra-cn.sh ../{input.read_db} {wildcards.animal}.{wildcards.haplotype}.contigs.fasta {wildcards.animal}
+        $MERQURY/eval/spectra-cn.sh ../{input.read_db} ../{input.hap1} ../{input.hap2} {wildcards.animal}_trio
         '''
 
 rule merqury_formatting:
