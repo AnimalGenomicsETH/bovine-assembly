@@ -88,7 +88,7 @@ rule map_SR_reads:
     threads: 24
     resources:
         mem_mb = 6000,
-        walltime = '4:00'
+        walltime = '8:00'
     shell:
         'minimap2 -ax sr -t {threads} {input.asm} {input.reads} > {output}'
 
@@ -100,7 +100,8 @@ rule sam_to_bam:
     threads: 16
     resources:
         mem_mb = 6000,
-        disk_scratch = 200
+        #disk_scratch = 350
+        disk_scratch = lambda wildcards, input: int(input.size_mb/750)    
     shell:
         'samtools sort {input} -m 4000M -@ {threads} -T $TMPDIR -o {output}'
 
@@ -117,7 +118,7 @@ rule prep_window:
         '''
         samtools faidx {input}
         awk -v OFS='\\t' {{'print $1,$2'}} {output.fai} > {output.genome}
-        /cluster/work/pausch/alex/software/bedtools2/bin/windowMaker -g {output.genome} -w {params} > {output.bed}
+        bedtools makewindows -g {output.genome} -w {params} > {output.bed}
         '''
 
 rule index_bam:

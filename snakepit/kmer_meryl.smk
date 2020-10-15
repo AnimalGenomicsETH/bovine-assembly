@@ -89,7 +89,8 @@ rule merqury_spectra:
         mem_mb = 6000
     envmodules:
         'gcc/8.2.0',
-        'r/4.0.2'
+        'r/4.0.2',
+        'igv/2.8.2'
     shell:
         '''
         cd {wildcards.assembler}_{wildcards.sample}
@@ -99,7 +100,7 @@ rule merqury_spectra:
             ln -s ../{input.filt}
             find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
         fi
-        $MERQURY/eval/spectra-cn.sh ../{input.read_db} {wildcards.animal}.{wildcards.haplotype}.contigs.fasta {wildcards.animal}
+        $MERQURY/eval/spectra-cn.sh ../{input.read_db} {wildcards.animal}.{wildcards.haplotype}.contigs.fasta {wildcards.animal}.{wildcards.haplotype}
         '''
 
 rule merqury_formatting:

@@ -46,7 +46,7 @@ wildcard_constraints:
 rule all:
     input:
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
-        f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
+        #f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
         #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
         expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
         #f'hifiasm_100/{config["animal"]}.corrected.scaffolds.fasta'
