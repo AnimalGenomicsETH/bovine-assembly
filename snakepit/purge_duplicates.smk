@@ -22,12 +22,14 @@ rule cut_and_split:
         paf = '{assembler}_{sample}/{haplotype}/{animal}_read_aln.paf',
         contigs = '{assembler}_{sample}/{animal}.{haplotype}.contigs_raw.fa'
     output:
-        splits = '{assembler}_{sample}/{haplotype}/{animal}.split.fasta'
+        splits = '{assembler}_{sample}/{haplotype}/{animal}.split.fasta',
+        asm = '{assembler}_{sample}/{haplotype}/{animal}.contigs_raw.fa'
     params:
         '{assembler}_{sample}/{haplotype}'
     shell:
         '''
         mkdir -p {params} && cd {params}
+        ln -s ../{output.asm}
         {config[pd_root]}/bin/pbcstat ../../{input.paf}
         {config[pd_root]}/bin/calcuts PB.stat > cutoffs
         {config[pd_root]}/bin/split_fa ../../{input.contigs} > ../../{output.splits}
@@ -50,7 +52,7 @@ rule purge_dups:
         contigs = '{assembler}_{sample}/{animal}.{haplotype}.contigs_raw.fa'
     output:
         contigs = '{assembler}_{sample}/{haplotype}/{animal}.purged.fa',
-        bed = temp('{assembler}_{sample}/{animal}_dups.bed')
+        bed = temp('{assembler}_{sample}/{haplotype}/{animal}_dups.bed')
     shell:
         '''
         {config[pd_root]}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > {output.bed}
@@ -69,8 +71,8 @@ rule KMC_reads:
     input:
         'data/{animal}.{sample}.hifi.fq.gz'
     output:
-        base = '{assembler}_{sample}/{haplotype}/{animal}_kmer_reads',
-        raw = multiext('{assembler}_{sample}/{haplotype}/{animal}_kmer_reads','','.kmc_pre','.kmc_suf')
+        base = 'data/{animal}.{sample}.kmer_reads',
+        raw = multiext('data/{animal}.{sample}.kmer_reads','','.kmc_pre','.kmc_suf')
     threads: 12
     resources:
         mem_mb = 4000,
@@ -104,16 +106,19 @@ rule KMC_ref:
 
 rule KMC_analysis:
     input:
-        reads = '{assembler}_{sample}/{haplotype}/{animal}_kmer_reads',
+        reads = 'data/{animal}.{sample}.kmer_reads',
         asm = '{assembler}_{sample}/{haplotype}/{animal}_kmer_{progress}'
     output:
         matrix = '{assembler}_{sample}/{haplotype}/{animal}.{progress}.matrix',
         plot = '{assembler}_{sample}/{haplotype}/{animal}.{progress}.spectra.png'
+    params:
+        reads = '{assembler}_{sample}/{haplotype}/{animal}_kmer_reads'
     threads: 2
     resources:
         mem_mb = 20000
     shell:
         '''
-        {config[kmc_root]}/bin/kmc_tools analyze {input.reads} {input.asm} {output.matrix}
+        ln -s {input.reads} {params.reads} 
+        {config[kmc_root]}/bin/kmc_tools analyze {params.reads} {input.asm} {output.matrix}
         python3 {config[kmc_root]}/spectra.py {output.matrix} {output.plot}
         '''

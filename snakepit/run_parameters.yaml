@@ -27,7 +27,7 @@ target_metrics:
   - 'NGA50.txt'
   - 'auN.txt'
   - 'asmgene.txt'
-  - 'merqury.stats.txt'
+  #- 'merqury.stats.txt'
   - 'BUSCO.txt'
   - 'dot.png'
   - 'gaps.txt'

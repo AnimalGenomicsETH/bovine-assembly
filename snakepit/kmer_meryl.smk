@@ -5,9 +5,9 @@ rule count_SR_reads:
         'data/{parent_R{N}.fastq.gz'
     output:
         directory('data/{parent}.read_R{N}.meryl')
-    threads: 18
+    threads: 24
     resources:
-        mem_mb = 3000
+        mem_mb = 4000
     params:
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
@@ -18,7 +18,7 @@ rule merge_SR_reads:
         expand('data/{{parent}}.read_R{N}.meryl',N=(1,2))
     output:
         directory('data/{parent}.meryl')
-    threads: 12ß
+    threads: 12
     resources:
         mem_mb = 4000
     params:
@@ -100,7 +100,7 @@ rule merqury_block_n_stats:
         block1 = '{assembler}_{sample}/{animal}.hap1.phased_block.bed',
         block2 = '{assembler}_{sample}/{animal}.hap2.phased_block.bed'
     output:
-        expand('{assembler}_{sample}/{animal}.hap{N}.scaff.sizes',N=(1,2))
+        expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.scaff.sizes',N=(1,2))
     params:
         out = '{assembler}_{sample}/{animal}'
     envmodules:
@@ -201,7 +201,8 @@ rule merqury_spectra:
         mem_mb = 6000
     envmodules:
         'gcc/8.2.0',
-        'r/4.0.2'
+        'r/4.0.2',
+        'igv/2.8.2'
     shell:
         '''
         cd {wildcards.assembler}_{wildcards.sample}
@@ -211,18 +212,18 @@ rule merqury_spectra:
             ln -s ../{input.filt}
             find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
         fi
-        $MERQURY/eval/spectra-cn.sh ../{input.read_db} ../{input.asm} {wildcards.animal}_asm
+        $MERQURY/eval/spectra-cn.sh ../{input.read_db} ../{input.asm} {wildcards.animal}.asm
         '''
 
 rule merqury_spectra_trio:
     input:
         read_db = 'data/{animal}.{sample}.hifi.meryl',
-        hap_dbs = '{assembler}_{sample}/{animal}.{haplotype}.contigs.meryl',
+        hap_dbs = expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.contigs.meryl',N=(1,2)),
         hap1 = '{assembler}_{sample}/{animal}.hap1.contigs.fasta',
         hap2 = '{assembler}_{sample}/{animal}.hap2.contigs.fasta',
         filt = 'data/{animal}.{sample}.hifi.filt'
     output:
-        multiext('{assembler}_{sample}/{animal}.{haplotype}','.qv','.completeness.stats')
+        multiext('{assembler}_{sample}/{animal}.trio','.qv','.completeness.stats')
     threads: 8
     resources:
         mem_mb = 6000
@@ -239,7 +240,7 @@ rule merqury_spectra_trio:
             ln -s ../{input.filt}
             find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
         fi
-        $MERQURY/eval/spectra-cn.sh ../{input.read_db} ../{input.hap1} ../{input.hap2} {wildcards.animal}_trio
+        $MERQURY/eval/spectra-cn.sh ../{input.read_db} ../{input.hap1} ../{input.hap2} {wildcards.animal}.trio
         '''
 
 rule merqury_formatting:

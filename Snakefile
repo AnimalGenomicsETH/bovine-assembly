@@ -33,6 +33,7 @@ include: 'snakepit/kmer_meryl.smk'
 include: 'snakepit/cross_analysis.smk'
 include: 'snakepit/data_preparation.smk'
 include: 'snakepit/trio_assemblies.smk'
+include: 'snakepit/purge_duplicates.smk'
 
 wildcard_constraints:
     animal = r'\w+',
@@ -45,6 +46,8 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
+        f'canu_100/{config["animal"]}.hap1.contigs.fasta',
+        f'hifiasm_100/{config["animal"]}.trio.qv',
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
         #f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
         #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
@@ -113,8 +116,6 @@ if 'canu' in config['assemblers']:
             rm canu_{wildcards.sample}/{params.temp}
             mv canu_{wildcards.sample}/{wildcards.animal}.contigs.fasta {output}
             '''
-
-    include: 'snakepit/purge_duplicates.smk'
 
 if 'flye' in config['assemblers']:
     rule assembler_flye:
