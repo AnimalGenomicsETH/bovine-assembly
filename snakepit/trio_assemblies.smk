@@ -1,4 +1,4 @@
-localrules: trio_canu, haplotype_canu
+localrules: trio_canu, prep_haplotype_canu, haplotype_canu
 
 rule trio_yak:
     input:
@@ -53,24 +53,37 @@ rule trio_canu:
         rm {params.full}
         '''
 
-rule haplotype_canu:
+rule prep_haplotype_canu:
     input:
         'canu_{sample}/trio/{animal}-haplotype{N}.sh'
+    output:
+        'canu_{sample}/trio/{animal}-haplotype{N}_edited.sh'
+    params:
+        temp = 'hap{N}.complete'
+    shell:
+        '''
+        #ONSEC=" 'onSuccess=\\\"touch {params.temp}\\\"'"
+        ONSEC='  onSuccess="touch {params.temp}" \\\\'
+        sed -e '/raw/d' -e 's/-pacbio/-pacbio-hifi/' -e "10 a $ONSEC" {input} > {output}
+        '''
+
+rule haplotype_canu:
+    input:
+        'canu_{sample}/trio/{animal}-haplotype{N}_edited.sh'
     output:
         'canu_{sample}/{animal}.hap{N}.contigs_raw.fa'
     params:
         temp = 'hap{N}.complete',
-        dir_ = 'canu_{sample}/trio/{animal}-haplotype{N}'
+        dir_ = '{animal}-haplotype{N}'
     log:
-        'logs/assembler_canu_trio/sample-{sample}.animal-{animal}.haplotype-{haplotype}.out'
+        'logs/assembler_canu_trio/sample-{sample}.animal-{animal}.haplotype-{N}.out'
     shell:
         '''
-        sed -i -e '/raw/d' -e 's/-pacbio/-pacbio-hifi/' {input}
-        sed -i '4a\ onSuccess="touch {params.temp}"'
-        ./{input}
+        cd canu_{wildcards.sample}/trio   
+        bash ../../{input} #> ../../{log}
 
         while [ ! -e {params.dir_}/{params.temp} ]; do sleep 60; done
         echo "complete file found, ending sleep loop"
         rm {params.dir_}/{params.temp}
-        mv {params.dir_}/{wildcards.animal}-haplotype{wildcards.N}.contigs.fasta {output}
+        mv {params.dir_}/{wildcards.animal}-haplotype{wildcards.N}.contigs.fasta ../../{output}
         '''
