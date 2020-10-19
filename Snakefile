@@ -46,7 +46,9 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
-        f'canu_100/{config["animal"]}.hap1.contigs.fasta',
+        f'canu_100/{config["animal"]}.hap1.scaffolds.fasta',
+        f'canu_100/{config["animal"]}.hap2.scaffolds.fasta',
+        f'hifiasm_100/{config["animal"]}.hap1.scaffolds.fasta',
         f'hifiasm_100/{config["animal"]}.trio.qv',
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
         #f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
@@ -273,8 +275,8 @@ rule generate_reffai:
 rule analysis_report:
     input:
         expand('results/{{animal}}_{haplotype}_{{sample}}_{assembler}.{ext}',haplotype=config['haplotypes'],assembler=config['assemblers'],ext=config['target_metrics']),
-        'data/{animal}.{sample}.QC.txt',
-        glob_purges#,
+        'data/{animal}.{sample}.QC.txt'#,
+        #glob_purges#,
         #expand('{assembler}_{{sample}}/{{animal}}.scaffolds.fasta.masked',assembler=config['assemblers'])
     output:
         '{animal}_{sample}_analysis_report.pdf'

@@ -20,7 +20,7 @@ rule map_reads:
 rule cut_and_split:
     input:
         paf = '{assembler}_{sample}/{haplotype}/{animal}_read_aln.paf',
-        contigs = '{assembler}_{sample}/{animal}.{haplotype}.contigs_raw.fa'
+        asm = '{assembler}_{sample}/{animal}.{haplotype}.contigs_raw.fa'
     output:
         splits = '{assembler}_{sample}/{haplotype}/{animal}.split.fasta',
         asm = '{assembler}_{sample}/{haplotype}/{animal}.contigs_raw.fa'
@@ -29,10 +29,10 @@ rule cut_and_split:
     shell:
         '''
         mkdir -p {params} && cd {params}
-        ln -s ../{output.asm}
+        ln -sfn ../../{input.asm} ../../{output.asm}
         {config[pd_root]}/bin/pbcstat ../../{input.paf}
         {config[pd_root]}/bin/calcuts PB.stat > cutoffs
-        {config[pd_root]}/bin/split_fa ../../{input.contigs} > ../../{output.splits}
+        {config[pd_root]}/bin/split_fa ../../{input.asm} > ../../{output.splits}
         '''
 
 rule map_splits:
@@ -118,7 +118,9 @@ rule KMC_analysis:
         mem_mb = 20000
     shell:
         '''
-        ln -s {input.reads} {params.reads} 
+        for ex in pre suf; do
+          ln -sfn ../../{input.reads}.kmc_$ex {params.reads}.kmc_$ex
+        done
         {config[kmc_root]}/bin/kmc_tools analyze {params.reads} {input.asm} {output.matrix}
         python3 {config[kmc_root]}/spectra.py {output.matrix} {output.plot}
         '''
