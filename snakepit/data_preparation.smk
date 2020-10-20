@@ -1,5 +1,23 @@
 localrules: sample_data, raw_QC
 
+rule raw_read_conversion:
+    input:
+        f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam'
+    output:
+        temp('data/{read_name}.temp.fastq.gz')
+    threads: 8
+    resources:
+        mem_mb = 3000
+    shell:
+        'samtools fastq -@ {threads} -c 6 -0 {output} {input}'
+
+rule raw_merge_files:
+    input:
+        expand('data/{read_name}.temp.fastq.gz',read_name=glob_wildcards(f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam').read_name)
+    output:
+        protected('data/{animal}.raw.hifi.fq.gz')
+    shell: 'cat {input} > {output}'
+
 rule filter_hifi_data:
     input:
         'data/{animal}.raw.hifi.fq.gz'

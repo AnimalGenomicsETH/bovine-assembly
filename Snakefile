@@ -36,8 +36,9 @@ include: 'snakepit/trio_assemblies.smk'
 include: 'snakepit/purge_duplicates.smk'
 
 wildcard_constraints:
-    animal = r'\w+',
-    assembler = r'\w+',
+    animal = r'[^\W_]+',
+    assembler = r'[^\W_]+',
+    parent = r'[^\W_]+',
     haplotype = r'\w+',
     sample = r'\d+'
 
@@ -51,28 +52,11 @@ rule all:
         f'hifiasm_100/{config["animal"]}.hap1.scaffolds.fasta',
         f'hifiasm_100/{config["animal"]}.trio.qv',
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
+        f'hifiasm_100/{config["animal"]}.asm.blob.hapmers.count',
         #f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
         #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
         expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
         #f'hifiasm_100/{config["animal"]}.corrected.scaffolds.fasta'
-
-rule raw_read_conversion:
-    input:
-        f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam'
-    output:
-        temp('data/{read_name}.fastq.gz')
-    threads: 8
-    resources:
-        mem_mb = 3000
-    shell:
-        'samtools fastq -@ {threads} -c 6 -0 {output} {input}'
-
-rule raw_merge_files:
-    input:
-        expand('data/{read_name}.fastq.gz',read_name=glob_wildcards(f'{config["raw_data"]}/{config["animal"]}/ccs/{{read_name}}.ccs.bam').read_name)
-    output:
-        protected('data/{animal}.raw.hifi.fq.gz')
-    shell: 'cat {input} > {output}'
 
 if 'hifiasm' in config['assemblers']:
     rule assembler_hifiasm:
@@ -106,7 +90,7 @@ if 'canu' in config['assemblers']:
         input:
             'data/{animal}.{sample}.hifi.fq.gz'
         output:
-            'canu_{sample}/{animal}.contigs_raw.fa'
+            'canu_{sample}/{animal}.asm.contigs_raw.fa'
         log: 'logs/assembler_canu/sample-{sample}.animal-{animal}.out'
         params:
             temp = '{animal}.complete'

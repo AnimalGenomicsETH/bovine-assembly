@@ -123,9 +123,9 @@ rule prep_window:
 
 rule index_bam:
     input:
-        '{assembler}_{sample}/{animal}_scaffolds_{type}_reads.bam'
+        '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_{type}_reads.bam'
     output:
-        '{assembler}_{sample}/{animal}_scaffolds_{type}_reads.bam.bai'
+        '{assembler}_{sample}/{animal}_{haplotype}_scaffolds_{type}_reads.bam.bai'
     threads: 8
     resources:
         mem_mb = 4000

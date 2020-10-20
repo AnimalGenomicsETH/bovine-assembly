@@ -2,12 +2,13 @@ localrules: split_reads, merqury_formatting
 
 rule count_SR_reads:
     input:
-        'data/{parent_R{N}.fastq.gz'
+        'data/{parent}_R{N}.fastq.gz'
     output:
         directory('data/{parent}.read_R{N}.meryl')
-    threads: 24
+    threads: 6
     resources:
-        mem_mb = 4000
+        mem_mb = 10000,
+        walltime = '12:00'
     params:
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
@@ -32,8 +33,7 @@ rule generate_hapmers:
         sire = 'data/sire.meryl',
         child = 'data/{animal}.{sample}.hifi.meryl'
     output:
-        directory('data/dam.hapmers.meryl'),
-        directory('data/sire.hapmers.meryl')
+        expand('data/{parent}.{{animal}}.{{sample}}.hapmers.meryl',parent=('dam','sire'))
     threads: 12
     resources:
         mem_mb = 4000
@@ -48,43 +48,43 @@ rule generate_hapmers:
 
 rule hap_blob:
     input:
-        expand('data/{parent}.hapmers.meryl',parent=('sire','dam')),
-        expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.contigs.fasta',N=(1,2))
+        hapmers = expand('data/{parent}.{{animal}}.{{sample}}.hapmers.meryl',parent=('sire','dam')),
+        asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X='asm' if wildcards.hap == 'asm' else (1,2))
     output:
-        '{assembler}_{sample}/{animal}.blob.hapmers.count'
+        '{assembler}_{sample}/{animal}.{hap}.blob.hapmers.count'
     params:
-        out = '{assembler}_{sample}/{animal}.blob'
+        out = '{assembler}_{sample}/{animal}.{hap}.blob'
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
     shell:
         '''
         export MERQURY={config[merqury_root]}
-        $MERQURY/trio/hap_blob.sh {input} {params.out}
+        $MERQURY/trio/hap_blob.sh {input.hapmers} {input.asm} {params.out}
         '''
 
 rule spectra_hap:
     input:
-        'data/{animal}.{sample}.hifi.meryl',
-        expand('data/{parent}.hapmers.meryl',parent=('sire','dam')),
-        expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.contigs.fasta',N=(1,2))
+        reads = 'data/{animal}.{sample}.hifi.meryl',
+        hapmers = expand('data/{parent}.{{animal}}.{{sample}}.hapmers.meryl',parent=('sire','dam')),
+        asm = expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.contigs.fasta',N=(1,2))
     output:
-        '$name.$asm.$read_hap.spectra-cn'
+        '{assembler}_{sample}/{animal}.$asm.$read_hap.spectra-cn'
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
     shell:
         '''
         export MERQURY={config[merqury_root]}
-        $MERQURY/trio/spectra-hap.sh {input} {params.out}
+        $MERQURY/trio/spectra-hap.sh {input.reads} {input.hapmers} {input.asm} {params.out}
         '''
 
 rule merqury_phase_block:
     input:
-        asm = '{assembler}_{sample}/{animal}.hap{N}.contigs.fasta',
+        asm = '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta',
         hapmers = expand('data/{parent}.hapmers.meryl',parent=('sire','dam'))
     output:
-        '{assembler}_{sample}/{animal}.hap{N}.phased_block.bed'
+        '{assembler}_{sample}/{animal}.{haplotype}.phased_block.bed'
     params:
         '{assembler}_{sample}'
     shell:
@@ -235,11 +235,8 @@ rule merqury_spectra_trio:
         '''
         cd {wildcards.assembler}_{wildcards.sample}
         export MERQURY={config[merqury_root]}
-        if [ ! -L {wildcards.animal}.{wildcards.sample}.hifi.filt ];
-        then
-            ln -s ../{input.filt}
-            find ../data/ -name "*gt*" -exec ln -s ../data/{{}} . \;
-        fi
+        ln -sfn ../{input.filt}
+        find ../data/ -name "*gt*" -exec ln -sfn ../data/{{}} . \;     
         $MERQURY/eval/spectra-cn.sh ../{input.read_db} ../{input.hap1} ../{input.hap2} {wildcards.animal}.trio
         '''
 
