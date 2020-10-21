@@ -78,16 +78,13 @@ rule merqury_spectra_cn:
         read_db = 'data/{animal}.{sample}.hifi.meryl',
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
         asm_dbs = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.meryl',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
-        hap_dbs = expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.contigs.meryl',N=(1,2)),
-        hap1 = '{assembler}_{sample}/{animal}.hap1.contigs.fasta',
-        hap2 = '{assembler}_{sample}/{animal}.hap2.contigs.fasta',
         filt = 'data/{animal}.{sample}.hifi.filt'
     output:
-        multiext('{assembler}_{sample}/{animal}.trio','.qv','.completeness.stats')
+        multiext('{assembler}_{sample}/{animal}.{hap}','.qv','.completeness.stats')
     params:
         dir_ = '{assembler}_{sample}',
         out = '{animal}.{hap}',
-        asm = lambda wildcards: expand('{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
+        asm = lambda wildcards: expand('{{animal}}.{X}.contigs.fasta',X = ('asm' if wildcards.hap == 'asm' else ('hap1','hap2'))),
     threads: 8
     resources:
         mem_mb = 6000
@@ -141,6 +138,9 @@ rule merqury_phase_block:
         out = '{animal}.{haplotype}',
         asm = '{animal}.{haplotype}.contigs.fasta',
         hapmers = expand('../data/{parent}.{{animal}}.{{sample}}.hapmer.meryl',parent=('sire','dam'))
+    threads: 12
+    resources:
+        mem_mb = 7000
     shell:
         '''
         cd {params.dir_}
@@ -150,13 +150,13 @@ rule merqury_phase_block:
 
 rule merqury_block_n_stats:
     input:
-        asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
-        block = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
+        asms_blocks = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
+        block = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
     output:
         expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.scaff.sizes',N=(1,2))
     params:
-        out = '{assembler}_{sample}/{animal}'
-        lambda wildcards: expand('{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
+        out = '{assembler}_{sample}/{animal}',
+        asm = lambda wildcards: expand('{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
@@ -249,7 +249,7 @@ rule merqury_spectra:
         asm = '{assembler}_{sample}/{animal}.asm.contigs.fasta',
         filt = 'data/{animal}.{sample}.hifi.filt'
     output:
-        multiext('{assembler}_{sample}/{animal}.asm','.qv','.completeness.stats')
+        multiext('{assembler}_{sample}/{animal}.asm.f','.qv','.completeness.stats')
     threads: 8
     resources:
         mem_mb = 6000
@@ -277,7 +277,7 @@ rule merqury_spectra_trio:
         hap2 = '{assembler}_{sample}/{animal}.hap2.contigs.fasta',
         filt = 'data/{animal}.{sample}.hifi.filt'
     output:
-        multiext('{assembler}_{sample}/{animal}.trio','.qv','.completeness.stats')
+        multiext('{assembler}_{sample}/{animal}.trio.f','.qv','.completeness.stats')
     threads: 8
     resources:
         mem_mb = 6000
