@@ -52,7 +52,7 @@ rule all:
         f'hifiasm_100/{config["animal"]}.hap1.scaffolds.fasta',
         f'hifiasm_100/{config["animal"]}.trio.qv',
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
-        f'hifiasm_100/{config["animal"]}.asm.blob.hapmers.count',
+        f'hifiasm_100/{config["animal"]}.trio.png',
         #f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
         #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
         expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
