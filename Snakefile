@@ -53,7 +53,8 @@ rule all:
         f'hifiasm_100/{config["animal"]}.asm.qv',
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
         f'hifiasm_100/{config["animal"]}.trio.png',
-        f'hifiasm_100/{config["animal"]}.hap1.phased_block.bed',
+        f'hifiasm_100/{config["animal"]}.hap2.{config["animal"]}.hap2.contigs.continuity.NG.png',
+        f'hifiasm_100/{config["animal"]}.asm.{config["animal"]}.asm.contigs.continuity.NG.png',
         #f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
         #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
         expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
@@ -70,7 +71,7 @@ if 'hifiasm' in config['assemblers']:
             mem_mb = 4000,
             walltime = '24:00'
         params:
-            '-r 4 -a 5 -n 10'
+            '-r 4 -a 5 -n 5'
         shell:
             'hifiasm -o hifiasm_{wildcards.sample}/{wildcards.animal}.asm -t {threads} {params} {input}'
 

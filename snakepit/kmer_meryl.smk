@@ -108,7 +108,7 @@ rule spectra_hap:
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
         stats = multiext('{assembler}_{sample}/{animal}.{hap}','.qv','.completeness.stats')    
     output:
-        '{assembler}_{sample}/{animal}.{hap}.png'
+        '{assembler}_{sample}/{animal}.{hap,\w+}.png'
     params:
         dir_ = '{assembler}_{sample}',
         out = '{animal}.{hap}',
@@ -132,7 +132,7 @@ rule merqury_phase_block:
         asm = '{assembler}_{sample}/{animal}.{haplotype}.contigs.fasta',
         hapmers = expand('data/{parent}.{{animal}}.{{sample}}.hapmer.meryl',parent=('sire','dam'))
     output:
-        '{assembler}_{sample}/{animal}.{haplotype}.phased_block.bed'
+        '{assembler}_{sample}/{animal}.{haplotype}.100_20000.phased_block.bed'
     params:
         dir_ = '{assembler}_{sample}',
         out = '{animal}.{haplotype}',
@@ -140,7 +140,11 @@ rule merqury_phase_block:
         hapmers = expand('../data/{parent}.{{animal}}.{{sample}}.hapmer.meryl',parent=('sire','dam'))
     threads: 12
     resources:
-        mem_mb = 7000
+        mem_mb = 6000
+    envmodules:
+       'gcc/8.2.0',
+       'r/4.0.2',
+       'igv/2.8.2'
     shell:
         '''
         cd {params.dir_}
@@ -148,22 +152,49 @@ rule merqury_phase_block:
         $MERQURY/trio/phase_block.sh {params.asm} {params.hapmers} {params.out}
         '''
 
-rule merqury_block_n_stats:
+rule merqury_block_n_stats_new:
     input:
-        asms_blocks = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
-        block = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
+        asm_block = multiext('{assembler}_{sample}/{animal}.{haplotype}','.contigs.fasta','.100_20000.phased_block.bed')
     output:
-        expand('{{assembler}}_{{sample}}/{{animal}}.hap{N}.scaff.sizes',N=(1,2))
+        multiext('{assembler}_{sample}/{animal}.{haplotype}.{animal}.{haplotype}.contigs','.continuity.NG.png','.block.NG.png')
     params:
-        out = '{assembler}_{sample}/{animal}',
-        asm = lambda wildcards: expand('{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
+        dir_ = '{assembler}_{sample}',
+        out = '{animal}.{haplotype}',
+        asm_block = multiext('{animal}.{haplotype}','.contigs.fasta','.100_20000.phased_block.bed')
+    threads: 6
+    resources:
+        mem_mb = 2500
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
     shell:
         '''
+        cd {params.dir_}
         export MERQURY={config[merqury_root]}
-        $MERQURY/trio/block_n_stats.sh {input.hap1} {input.block1} {input.hap2} {input.block2} {params.out} {config[genome_est]}
+        $MERQURY/trio/block_n_stats.sh {params.asm_block} {params.out} $( echo "({config[genome_est]}*1000000000)/1" | bc)
+        '''
+
+rule merqury_block_n_stats:
+    input:
+        asms_blocks = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.{ext}',ext = ('.contigs.fasta','.100_20000.phased_block.bed'), X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))#,
+        #block = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
+    output:
+        #fake file from merqury
+        '{assembler}_{sample}/{animal}.{hap}.scaff.complete'
+        #lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.scaff.sizes', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
+    params:
+        dir_ = '{assembler}_{sample}',
+        out = '{animal}.{hap}',
+        asms_blocks = lambda wildcards: expand('{{animal}}.{X}.{ext}',ext = ('.contigs.fasta','.100_20000.phased_block.bed'), X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
+        #asm = lambda wildcards: expand('{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    shell:
+        '''
+        cd {param.dir_}
+        export MERQURY={config[merqury_root]}
+        $MERQURY/trio/block_n_stats.sh {params.asms_blocks} {params.out} {config[genome_est]}
         '''
 
 checkpoint split_reads:

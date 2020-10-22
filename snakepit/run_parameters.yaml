@@ -1,11 +1,18 @@
 workdir: '../third_test'
 raw_data: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS'
 short_reads: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR'
+animal: 'BSWCHEF120152514636'
+data:
+  long reads:
+    offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEM120151536851/ccs'
+  short reads:
+    sire: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_320'
+    dam: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_409'
+    offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_410'
 ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
 #'/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
 #'/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
 cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
-animal: 'BSWCHEF120152514636'
 trio:
   sire: 320
   dam: 409
