@@ -1,7 +1,7 @@
 configfile: 'snakepit/run_parameters.yaml'
 workdir: config['workdir']
 
-from pathlib import Path
+from pathlib import Path, PurePath
 from glob import glob
 from itertools import product
 
@@ -52,7 +52,7 @@ rule all:
         f'hifiasm_100/{config["animal"]}.hap1.scaffolds.fasta',
         f'hifiasm_100/{config["animal"]}.asm.qv',
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
-        f'hifiasm_100/{config["animal"]}.trio.png',
+        f'hifiasm_100/{config["animal"]}.trio.completeness.stats',
         f'hifiasm_100/{config["animal"]}.hap2.{config["animal"]}.hap2.contigs.continuity.NG.png',
         f'hifiasm_100/{config["animal"]}.asm.{config["animal"]}.asm.contigs.continuity.NG.png',
         #f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',

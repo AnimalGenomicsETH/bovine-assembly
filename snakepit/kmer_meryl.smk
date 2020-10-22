@@ -108,12 +108,13 @@ rule spectra_hap:
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
         stats = multiext('{assembler}_{sample}/{animal}.{hap}','.qv','.completeness.stats')    
     output:
-        '{assembler}_{sample}/{animal}.{hap,\w+}.png'
+        '{assembler}_{sample}/{animal}.{hap}.completeness.stats'
+        #lambda wildcards: expand('{{assembler}}_{{sample}}/{{animal}}.{{hap}}.{{animal}}.{X}.contigs.dam.{{animal}}.{{sample}}.hapmer.spectra-cn.ln.png',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
     params:
         dir_ = '{assembler}_{sample}',
         out = '{animal}.{hap}',
         hapmers = expand('../data/{parent}.{{animal}}.{{sample}}.hapmer.meryl',parent=('sire','dam')),
-        asm = lambda wildcards: expand('{{animal}}.{X}.contigs.fasta',X='asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
+        asm = lambda wildcards,input: list(PurePath(i).name for i in input['asm'])#('/'expand('{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
     threads: 12
     resources:
         mem_mb = 4000
