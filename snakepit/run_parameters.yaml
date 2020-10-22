@@ -4,7 +4,7 @@ short_reads: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB
 animal: 'BSWCHEF120152514636'
 data:
   long reads:
-    offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEM120151536851/ccs'
+    offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEM120151536851/ccs/'
   short reads:
     sire: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_320'
     dam: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_409'
@@ -16,7 +16,7 @@ cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
 trio:
   sire: 320
   dam: 409
-  offspring: 410 
+  offspring: 410
 k-mers: 21
 genome_est: 2.7
 mem_adj: 1100
