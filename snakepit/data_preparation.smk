@@ -2,7 +2,7 @@ localrules: sample_data, raw_QC
 
 rule raw_read_conversion:
     input:
-        f'{config["data"]["long reads"]["offspring"]}{{read_name}}.ccs.bam'
+        f'{config["data"]["animal"]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
     output:
         temp('data/{read_name}.temp.fastq.gz')
     threads: 8
@@ -13,7 +13,7 @@ rule raw_read_conversion:
 
 rule raw_merge_files:
     input:
-        expand('data/{read_name}.temp.fastq.gz',read_name=glob_wildcards(f'{config["data"]["long reads"]["offspring"]}{{read_name}}.ccs.bam').read_name)
+        expand('data/{read_name}.temp.fastq.gz',read_name=glob_wildcards(f'{config["data"]["Animal"]["long_reads"]["offspring"]}{{read_name}}.ccs.bam').read_name)
     output:
         protected('data/reads.raw.hifi.fq.gz')
     shell: 'cat {input} > {output}'
@@ -31,9 +31,9 @@ rule filter_hifi_data:
 
 rule filter_SR_data:
     input:
-        reads = expand(f'{config["data"]["short reads"][wildcards.parent]}_R{N}.fastq.gz', N = (1,2))
+        reads = expand(f'{config["data"]["short_reads"][wildcards.parent]}_R{N}.fastq.gz', N = (1,2))
     output:
-        reads = expand('data/{{parent}}_R{N}.fastq.gz',N = (1,2))
+        reads = expand('data/{{parent}}_R{N}.fastq.gz', N = (1,2))
     threads: 12
     resources:
         mem_mb = 4000

@@ -1,26 +1,32 @@
-workdir: '../third_test'
-raw_data: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS'
-short_reads: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR'
+workdir: '../'
 animal: 'BSWCHEF120152514636'
+
 data:
-  long reads:
-    offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEM120151536851/ccs/'
-  short reads:
-    sire: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_320'
-    dam: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_409'
-    offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_410'
-ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
+  BSWCHEF120152514636:
+    long_reads:
+      offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEF120152514636/ccs/'
+    short_reads:
+      sire: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_320'
+      dam: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_409'
+      offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_410'
+  BSWCHEM120151536851:
+    long_reads:
+      offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEM120151536851/ccs/'
+    short_reads:
+      dam: '/cluster/work/pausch/inputs/fastq/BTA/NELBRAM000008945535'
+      sire: '/cluster/work/pausch/inputs/fastq/BTA/NELBRAM000008945535'
+      offspring: '/cluster/work/pausch/inputs/fastq/BTA/BSWCHEM120151536851'
+
+ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS_UCD1-2.fasta'
 #'/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
 #'/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
 cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
-trio:
-  sire: 320
-  dam: 409
-  offspring: 410
+
 k-mers: 21
 genome_est: 2.7
 mem_adj: 1100
 split_size: 10
+
 haplotypes:
   - 'asm'
   - 'hap1'
@@ -29,6 +35,7 @@ assemblers:
   - 'hifiasm'
   #- 'canu'
   #- 'flye'
+
 target_metrics:
   - 'asm-ccs.qv.txt'
   - 'NGA50.txt'
@@ -44,6 +51,7 @@ target_metrics:
   - 'chrm.SR.coverage.txt'
   - 'telo.txt'
   - 'vcf'
+
 ##sources of non-bin programs
 pd_root: '/cluster/work/pausch/alex/software/purge_dups'
 kmc_root: '/cluster/work/pausch/alex/software/KMC'
@@ -55,6 +63,7 @@ filtering:
   avg_qual: 20
   min_length: 1000
   max_length: 1000000
+
 ##sample levels
 sampling:
   - 100

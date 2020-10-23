@@ -1,9 +1,9 @@
-configfile: 'snakepit/run_parameters.yaml'
-workdir: config['workdir']
-
 from pathlib import Path, PurePath
 from glob import glob
 from itertools import product
+
+configfile: 'snakepit/run_parameters.yaml'
+workdir: PurePath.joinpath(config['workdir'],config['animal'])
 
 def glob_purges(wildcards):
     req_files = []
