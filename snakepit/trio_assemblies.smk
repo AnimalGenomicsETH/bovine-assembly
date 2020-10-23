@@ -71,7 +71,7 @@ rule haplotype_canu:
     input:
         'canu_{sample}/trio/{animal}-haplotype{N}_edited.sh'
     output:
-        'canu_{sample}/{animal}.hap{N}.contigs_raw.fa'
+        'canu_{sample}/{animal}.hap{N}.contigs_all.fa'
     params:
         temp = 'hap{N}.complete',
         dir_ = '{animal}-haplotype{N}'
