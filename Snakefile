@@ -202,7 +202,7 @@ rule validation_busco:
         tmp_dir = '{animal}_{haplotype}_{sample}_{assembler}_busco_results'
     threads: 24
     resources:
-        mem_mb = 3000,
+        mem_mb = 4000,
         walltime = '16:00'
     shell:
         '''
