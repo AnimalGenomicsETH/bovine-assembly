@@ -1,5 +1,6 @@
 import pandas
 import glob
+import argparse
 
 def build_repeat_dataframe(dir_path):
     rows = []
@@ -22,6 +23,16 @@ def extract_repeats(fname):
                     repeats[element] = float(line.split('bp')[1].split()[0])
     return repeats
 
+def main(direct_input=None):
+    parser = argparse.ArgumentParser(description='masker.')
+    parser.add_argument('--sample', type=str, required=True)
+    parser.add_argument('--assembler', type=str, required=True)
+    parser.add_argument('--haplotypes', nargs='+', required=True)
+
+    args = parser.parse_args(direct_input)
+
+    df = build_repeat_dataframe(f'split_{args.haplotype}_{args.sample}_{args.assembler}')
+    df.to_csv(f'results/{args.haplotype}_{args.sample}_{args.assembler}.repeats.csv',index=False)
+
 if __name__ == '__main__':
-    df = build_repeat_dataframe('../third_test/split_BSWCHEF120152514636_100_hifiasm')
-    df.to_csv('table.csv',index=False)
+    main()

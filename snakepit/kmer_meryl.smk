@@ -136,7 +136,7 @@ rule merqury_phase_block:
     params:
         dir_ = '{assembler}_{sample}',
         out = '{haplotype}',
-        asm = lambda wildcards,input: PurePath(input.asm).name,
+        asm = lambda wildcards,input: PurePath(input.asm).name
         #'{haplotype}.contigs.fasta',
         hapmers = expand('../data/{parent}.hapmer.meryl',parent=('sire','dam'))
     threads: 12
@@ -153,7 +153,7 @@ rule merqury_phase_block:
         $MERQURY/trio/phase_block.sh {params.asm} {params.hapmers} {params.out}
         '''
 
-rule merqury_block_n_stats_new:
+rule merqury_block_n_stats:
     input:
         asm_block = multiext('{assembler}_{sample}/{haplotype}','.contigs.fasta','.100_20000.phased_block.bed')
     output:
@@ -253,12 +253,11 @@ rule merqury_prep:
 
 rule merqury_formatting:
     input:
-        qv = '{assembler}_{sample}/{haplotype}.qv',
-        completeness = '{assembler}_{sample}/{haplotype}.completeness.stats'
+        '{assembler}_{sample}/{haplotype}.{haplotype}.contigs.continuity.NG.png',
+        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
+        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hap.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
+        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hapmers.blob.png', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
     output:
         'results/{haplotype}_{sample}_{assembler}.merqury.stats.txt'
     shell:
-        '''
-        awk '{{print "QV " $4}}' {input.qv} > {output}
-        awk '{{print "CV " $5}}' {input.completeness} >> {output}
-        '''
+        'touch {output}'

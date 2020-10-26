@@ -41,7 +41,7 @@ target_metrics:
   - 'NGA50.txt'
   - 'auN.txt'
   - 'asmgene.txt'
-  #- 'merqury.stats.txt'
+  - 'merqury.stats.txt'
   - 'BUSCO.txt'
   - 'dot.png'
   - 'gaps.txt'
@@ -51,6 +51,7 @@ target_metrics:
   - 'chrm.SR.coverage.txt'
   - 'telo.txt'
   - 'vcf'
+  - 'repeats.csv'
 
 ##sources of non-bin programs
 pd_root: '/cluster/work/pausch/alex/software/purge_dups'

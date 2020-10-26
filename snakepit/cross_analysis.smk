@@ -1,4 +1,4 @@
-localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes
+localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes, masked_stats
 
 rule count_telomers:
     input:
@@ -191,6 +191,14 @@ rule merge_masked_chromosomes:
         '{assembler}_{sample}/{haplotype}.scaffolds.fasta.masked'
     shell:
         'cat {input} > {output}'
+
+rule masked_stats:
+    input:
+        '{assembler}_{sample}/{haplotype}.scaffolds.fasta.masked'
+    output:
+        'results/{haplotype}_{sample}_{assembler}.repeats.csv'
+    shell:
+        'python {workflow.basedir}/scripts/masker_table.py --haplotype {wildcards.haplotype} --sample {wildcards.sample} --assembler {wildcards.assembler}'
 
 rule TGS_gapcloser:
     input:
