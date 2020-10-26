@@ -50,7 +50,7 @@ rule all:
         f'canu_100/{config["animal"]}.hap1.scaffolds.fasta',
         f'canu_100/{config["animal"]}.hap2.scaffolds.fasta',
         f'hifiasm_100/{config["animal"]}.hap1.scaffolds.fasta',
-        f'hifiasm_100/{config["animal"]}.asm.qv',
+        f'hifiasm_100/{config["animal"]}.hap1.scaff_seq',
         f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
         f'hifiasm_100/{config["animal"]}.trio.completeness.stats',
         f'hifiasm_100/{config["animal"]}.hap2.{config["animal"]}.hap2.contigs.continuity.NG.png',
