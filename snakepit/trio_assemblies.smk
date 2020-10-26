@@ -22,8 +22,8 @@ rule trio_hifiasm:
     output:
         expand('hifiasm_{{sample}}/hap{N}.p_ctg.gfa', N = (1,2))
     params:
-        out = 'hifiasm_{sample}/asm'
-        old = expand('hifiasm_{{sample}}/asm.hap{N}.p_ctg.gfa', N = (1,2))
+        out = 'hifiasm_{sample}/asm',
+        old = expand('hifiasm_{{sample}}/asm.hap{N}.p_ctg.gfa', N = (1,2)),
         new = expand('hifiasm_{{sample}}/hap{N}.p_ctg.gfa', N = (1,2))
     threads: 32
     resources:
@@ -39,7 +39,7 @@ rule trio_hifiasm:
 
 rule trio_canu:
     input:
-        reads = 'data/asm.{sample}.hifi.fq.gz',
+        reads = 'data/reads.{sample}.hifi.fq.gz',
         dam = expand('data/dam_R{N}.fastq.gz', N = (1,2)),
         sire =  expand('data/sire_R{N}.fastq.gz', N = (1,2))
     output:
@@ -75,7 +75,7 @@ rule haplotype_canu:
     input:
         'canu_{sample}/trio/asm-haplotype{N}_edited.sh'
     output:
-        'canu_{sample}/hap{N}.contigs_alls.fa'
+        'canu_{sample}/hap{N}.contigs_all.fa'
     params:
         temp = 'hap{N}.complete',
         dir_ = 'asm-haplotype{N}'

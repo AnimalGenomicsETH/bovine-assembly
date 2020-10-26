@@ -19,7 +19,7 @@ rule map_reads:
 
 rule cut_and_split:
     input:
-        paf = '{assembler}_{sample}/{haplotype}/_read_aln.paf',
+        paf = '{assembler}_{sample}/{haplotype}/read_aln.paf',
         asm = '{assembler}_{sample}/{haplotype}.contigs_raw.fa'
     output:
         splits = '{assembler}_{sample}/{haplotype}/split.fasta',
@@ -108,7 +108,7 @@ rule KMC_ref:
 
 rule KMC_analysis:
     input:
-        reads = 'data/reads/{sample}.kmer_reads',
+        reads = 'data/reads.{sample}.kmer_reads',
         asm = '{assembler}_{sample}/{haplotype}/haplotype_kmer_{progress}'
     output:
         matrix = '{assembler}_{sample}/{haplotype}/{progress}.matrix',

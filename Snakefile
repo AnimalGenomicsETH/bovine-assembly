@@ -3,7 +3,7 @@ from glob import glob
 from itertools import product
 
 configfile: 'snakepit/run_parameters.yaml'
-workdir: PurePath.joinpath(config['workdir'],config['animal'])
+workdir: PurePath(config['workdir']).joinpath(config['animal'])
 
 def glob_purges(wildcards):
     req_files = []
@@ -37,14 +37,14 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
-        f'canu_100/{config["animal"]}.hap1.scaffolds.fasta',
-        f'canu_100/{config["animal"]}.hap2.scaffolds.fasta',
-        f'hifiasm_100/{config["animal"]}.hap1.scaffolds.fasta',
-        f'hifiasm_100/{config["animal"]}.asm.qv',
-        f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
-        f'hifiasm_100/{config["animal"]}.trio.completeness.stats',
-        f'hifiasm_100/{config["animal"]}.hap2.{config["animal"]}.hap2.contigs.continuity.NG.png',
-        f'hifiasm_100/{config["animal"]}.asm.{config["animal"]}.asm.contigs.continuity.NG.png',
+        #f'canu_100/{config["animal"]}.hap1.scaffolds.fasta',
+        #f'canu_100/{config["animal"]}.hap2.scaffolds.fasta',
+        #f'hifiasm_100/{config["animal"]}.hap1.scaffolds.fasta',
+        #f'hifiasm_100/{config["animal"]}.asm.qv',
+        #f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
+        #f'hifiasm_100/{config["animal"]}.trio.completeness.stats',
+        #f'hifiasm_100/{config["animal"]}.hap2.{config["animal"]}.hap2.contigs.continuity.NG.png',
+        #f'hifiasm_100/{config["animal"]}.asm.{config["animal"]}.asm.contigs.continuity.NG.png',
         #f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
         #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
         expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
@@ -97,9 +97,9 @@ if 'canu' in config['assemblers']:
             '''
     rule strip_canu_bubbles:
         input:
-            'canu_{sample}/{animal}.{haplotype}.contigs_all.fa'
+            'canu_{sample}/{haplotype}.contigs_all.fa'
         output:
-            'canu_{sample}/{animal}.{haplotype}.contigs_raw.fa'
+            'canu_{sample}/{haplotype}.contigs_raw.fa'
         shell:
             'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 > {output}'
 

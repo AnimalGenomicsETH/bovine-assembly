@@ -6,7 +6,8 @@ from itertools import cycle
 from numpy import linspace, cumsum
 
 animal, haplotype, sample, assembler = '', '', '', ''
-def open_results(,extension):
+
+def open_results(extension):
     return open(f'results/{animal}_{haplotype}_{sample}_{assembler}.{extension}','r')
 
 def plot_chromosome_scaffolds(animal,assembler,sample):

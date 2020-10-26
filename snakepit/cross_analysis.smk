@@ -194,12 +194,12 @@ rule merge_masked_chromosomes:
 
 rule TGS_gapcloser:
     input:
-        scaffolds = '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta',
+        scaffolds = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
         reads = 'data/{parent}.hifi.fq.gz'
     output:
-        '{assembler}_{sample}/{animal}.{haplotype}.scaff_seq'
+        '{assembler}_{sample}/{haplotype}.scaff_seq'
     params:
-        '{assembler}_{sample}/{animal}.{haplotype}'
+        '{assembler}_{sample}/{haplotype}'
     threads: 16
     resources:
         mem_mb = 3000
