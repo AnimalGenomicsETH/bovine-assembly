@@ -21,4 +21,15 @@ def plot_chromosomes(primary_chrm='CM',unplaced_chrm='VLPJ'):
     #sns.lmplot(data=dx,x='start',y='avg_depth',col='chrm',col_wrap=6,scatter_kws={'alpha':.001},line_kws={'color':''})
     plt.show(block=False)
 
+def load_chrom_coverage():
+    pass
+
+def load_window_coverage(run,read,primary_chrm=None):
+    df = pandas.read_csv(f'{run}.windows.{read}.coverage.txt',delimiter='\t',header=0,names=['chrm','start','stop','depth'])
+    df['avg_depth'] = df.apply(lambda x: x['depth']/(x['stop']-x['start']), axis=1)
+
+    if primary_chrm:
+        return df[[primary_chrm in f for f in df['chrm']]]
+    return df
+
 plot_chromosomes()
