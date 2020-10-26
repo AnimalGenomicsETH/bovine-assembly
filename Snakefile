@@ -30,6 +30,7 @@ wildcard_constraints:
     assembler = r'[^\W_]+',
     parent = r'[^\W_]+',
     haplotype = r'\w+',
+    hap = r'\w+',
     sample = r'\d+'
 
 #------------#

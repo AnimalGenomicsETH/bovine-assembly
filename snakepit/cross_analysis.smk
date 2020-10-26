@@ -203,7 +203,7 @@ rule masked_stats:
 rule TGS_gapcloser:
     input:
         scaffolds = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
-        reads = 'data/{parent}.hifi.fq.gz'
+        reads = lambda wildcards: expand('data/{parent}.fasta', parent = 'sire' if wildcards.haplotype == 'hap1' else 'dam')
     output:
         '{assembler}_{sample}/{haplotype}.scaff_seq'
     params:

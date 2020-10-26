@@ -32,7 +32,7 @@ rule generate_hapmers:
     input:
         dam = 'data/dam.meryl',
         sire = 'data/sire.meryl',
-        child = 'data/reads.cleaned.hifi.meryl'
+        child = 'data/reads.100.hifi.meryl'
     output:
         expand('data/{parent}.hapmer.meryl', parent = ('dam', 'sire'))
     threads: 12
@@ -100,7 +100,7 @@ rule merqury_spectra_cn:
         $MERQURY/eval/spectra-cn.sh ../{input.read_db} {params.asm} {params.out}
         '''
 
-rule spectra_hap:
+rule merqury_spectra_hap:
     input:
         reads = 'data/reads.{sample}.hifi.meryl',
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
@@ -136,7 +136,7 @@ rule merqury_phase_block:
     params:
         dir_ = '{assembler}_{sample}',
         out = '{haplotype}',
-        asm = lambda wildcards,input: PurePath(input.asm).name
+        asm = lambda wildcards,input: PurePath(input.asm).name,
         #'{haplotype}.contigs.fasta',
         hapmers = expand('../data/{parent}.hapmer.meryl',parent=('sire','dam'))
     threads: 12
