@@ -55,6 +55,8 @@ def plot_auNCurves(details):
     fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(6, 4))
 
     x_vals = linspace(0,100,len(data[0]))
+    print(x_vals)
+    print(auN_data)
     ax_N.plot(x_vals,data[0],'forestgreen',label='Nx')
     ax_N.plot(x_vals,auN_data[0],'darkorange',label='NGx')
     ax_N.plot(x_vals,auN_data[1],'darkmagenta',label='NGAx')
@@ -90,6 +92,7 @@ def load_NGA():
             else:
                 (key, value) = line.rstrip().split()
                 data[key] = value
+    print(auN_data)
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
 def kmer_QV():
@@ -148,7 +151,7 @@ def img_sizer(width,dpi=96):
 def IMAGE(path,scale):
     return f'<img src="{path}" {img_sizer(scale)} />'
 
-def generate_markdown_reads(animal,sample):
+def generate_markdown_reads():
     build_str = f'Animal ID: **{animal}**\n\n' \
                 f'Sampled at: {sample}\n\n' \
                 f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
@@ -171,9 +174,9 @@ def generate_markdown_reads(animal,sample):
     build_str += IMAGE(f'figures/{animal}.{sample}.QC.png',.6) + '\n\n'
     return build_str
 
-def generate_markdown_string(animal,assembler,haplotype,sample,build_str,summary_str):
+def generate_markdown_string(build_str,summary_str):
     build_str += '\n\n---\n\n' \
-                f'# assembler: *{assembler}*\n'
+                f'# assembler: *{assembler}*, haplotype: {haplotype} \n'
 
     #resource_stats = load_resource_benchmark(animal,assembler,sample)
 
@@ -184,7 +187,7 @@ def generate_markdown_string(animal,assembler,haplotype,sample,build_str,summary
 
     build_str += '## assembly metrics\n'
 
-    asm_metrics, aln_metrics, auN_plot = plot_auNCurves(f'{animal}_{haplotype}_{sample}_{assembler})
+    asm_metrics, aln_metrics, auN_plot = plot_auNCurves(f'{animal}_{haplotype}_{sample}_{assembler}')
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]:,}\n\n'
 
@@ -213,7 +216,7 @@ def generate_markdown_string(animal,assembler,haplotype,sample,build_str,summary
 
     build_str += '## validation results\n\n'
 
-    kmer_stats = kmer_QV(animal,assembler,sample)
+    kmer_stats = kmer_QV()
     build_str += '### merqury k-mers\n' \
                  f'Coverage: {float(kmer_stats["CV"])/100:.1%}\n\n' \
                  f'QV: {kmer_stats["QV"]}\n\n' + \
@@ -232,7 +235,7 @@ def generate_markdown_string(animal,assembler,haplotype,sample,build_str,summary
     for row, values in zip(('ref','asm'),gene_map[1:]):
         build_str += f'| {row} | {" | ".join(values)} |\n'
 
-    summary_str += f'| *{assembler}* | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
+    summary_str += f'| *{assembler}* | {haplotype} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
 
 
@@ -252,7 +255,10 @@ def custom_PDF_writer(output,prepend_str,md_content,css):
     print(full_html)
     print(css)
     html = HTML(string=full_html,base_url=str(Path().cwd()))
-    html.write_pdf(output,stylesheets=[CSS(filename=css)])
+    if css:
+        html.write_pdf(output,stylesheets=[CSS(filename=css)])
+    else:
+        html.write_pdf(output)
 
 def main(direct_input=None):
     Path('figures').mkdir(exist_ok=True)
@@ -271,30 +277,28 @@ def main(direct_input=None):
     animal = args.animal
     global sample
     sample = args.sample
-    css_path = args.css if Path(args.css).is_file() else ''
+    css_path = args.css if Path(args.css).is_file() else None
 
-    prepend_str = generate_markdown_reads(args.animal,args.sample) + \
+    prepend_str = generate_markdown_reads() + \
                   '# table of contents'
 
     md_string = ''
     summary_string = '# summary \n' \
-                     '| assembler | size | contigs | N50 | L50 | completeness | QV kmer |\n' \
-                     '| :-------- | :--: | :-----: | :-: | :-: | :----------: | :-----: |\n'
+                     '| assembler | haplotype | size | contigs | N50 | L50 | completeness | QV kmer |\n' \
+                     '| :-------- | :-------: | :--: | :-----: | :-: | :-: | :----------: | :-----: |\n'
 
     for haplotype_t,assembler_t in product(args.haplotypes,args.assemblers):
         global haplotype
         haplotype = haplotype_t
         global assembler
-        assembler = assembler_
+        assembler = assembler_t
 
-        md_string, summary_string = generate_markdown_string(args.animal,assembler,haplotype,args.sample,md_string,summary_string)
+        md_string, summary_string = generate_markdown_string(md_string,summary_string)
 
     md_string = summary_string + md_string
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:
         rmtree('figures')
-        #for assembler in args.assemblers:
-        #    Path(f'{args.animal}_{assembler}_auN_curves.png').unlink(missing_ok=True)
 
 if __name__ == "__main__":
     main()

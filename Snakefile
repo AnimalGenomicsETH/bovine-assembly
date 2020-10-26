@@ -101,7 +101,7 @@ if 'canu' in config['assemblers']:
         output:
             'canu_{sample}/{haplotype}.contigs_raw.fa'
         shell:
-            'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 > {output}'
+            'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 --no-group-separator > {output}'
 
 if 'flye' in config['assemblers']:
     rule assembler_flye:
