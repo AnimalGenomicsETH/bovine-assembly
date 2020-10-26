@@ -33,7 +33,7 @@ haplotypes:
   - 'hap2'
 assemblers:
   - 'hifiasm'
-  #- 'canu'
+  - 'canu'
   #- 'flye'
 
 target_metrics:
@@ -56,6 +56,7 @@ target_metrics:
 pd_root: '/cluster/work/pausch/alex/software/purge_dups'
 kmc_root: '/cluster/work/pausch/alex/software/KMC'
 merqury_root: '/cluster/work/pausch/alex/software/merqury'
+tgs_root: '/cluster/work/pausch/alex/software/tgs_root'
 r_lib: '/cluster/work/pausch/alex/software/R_packages'
 
 ##filtering run_parameters

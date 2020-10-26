@@ -192,6 +192,22 @@ rule merge_masked_chromosomes:
     shell:
         'cat {input} > {output}'
 
+rule TGS_gapcloser:
+    input:
+        scaffolds = '{assembler}_{sample}/{animal}.{haplotype}.scaffolds.fasta',
+        reads = 'data/{parent}.hifi.fq.gz'
+    output:
+        '{assembler}_{sample}/{animal}.{haplotype}.scaff_seq'
+    params:
+        '{assembler}_{sample}/{animal}.{haplotype}'
+    threads: 16
+    resources:
+        mem_mb = 3000
+    shell:
+        '''
+        {config[tgs_root]}/TGS-Gap_Closer.sh --scaff {input.scaffolds} --reads {input.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads}
+        '''
+
 rule polish_scaffolds:
     input:
         scaffolds = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',

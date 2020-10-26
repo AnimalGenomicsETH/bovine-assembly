@@ -75,7 +75,7 @@ rule haplotype_canu:
     input:
         'canu_{sample}/trio/asm-haplotype{N}_edited.sh'
     output:
-        'canu_{sample}/hap{N}.contigs_raw.fa'
+        'canu_{sample}/hap{N}.contigs_alls.fa'
     params:
         temp = 'hap{N}.complete',
         dir_ = 'asm-haplotype{N}'

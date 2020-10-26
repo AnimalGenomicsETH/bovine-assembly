@@ -78,12 +78,12 @@ if 'hifiasm' in config['assemblers']:
         shell: 'gfatools gfa2fa {input} > {output}'
 
 if 'canu' in config['assemblers']:
-    localrules: assembler_canu
+    localrules: assembler_canu, strip_canu_bubbles
     rule assembler_canu:
         input:
             'data/reads.{sample}.hifi.fq.gz'
         output:
-            'canu_{sample}/asm.contigs_raw.fa'
+            'canu_{sample}/asm.contigs_all.fa'
         log: 'logs/assembler_canu/sample-{sample}.asm.out'
         params:
             temp = 'asm.complete'
@@ -95,6 +95,13 @@ if 'canu' in config['assemblers']:
             rm canu_{wildcards.sample}/{params.temp}
             mv canu_{wildcards.sample}/asm.contigs.fasta {output}
             '''
+    rule strip_canu_bubbles:
+        input:
+            'canu_{sample}/{animal}.{haplotype}.contigs_all.fa'
+        output:
+            'canu_{sample}/{animal}.{haplotype}.contigs_raw.fa'
+        shell:
+            'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 > {output}'
 
 if 'flye' in config['assemblers']:
     rule assembler_flye:
@@ -186,7 +193,7 @@ rule validation_busco:
         tmp_dir = '{haplotype}_{sample}_{assembler}_busco_results'
     threads: 24
     resources:
-        mem_mb = 3000,
+        mem_mb = 4000,
         walltime = '16:00'
     shell:
         '''
