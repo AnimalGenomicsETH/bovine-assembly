@@ -202,7 +202,7 @@ rule TGS_gapcloser:
         out = '{assembler}_{sample}/{animal}.{haplotype}'
     threads: 16
     resources:
-        mem_mb = 3000
+        mem_mb = 5000
     shell:
         '''
         {config[tgs_root]}/TGS-GapCloser.sh --scaff {input.scaffolds} --reads {input.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads}
