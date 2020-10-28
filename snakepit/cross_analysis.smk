@@ -182,7 +182,7 @@ rule repeat_masker:
 
 def aggregate_chrm_input(wildcards):
     checkpoint_output = checkpoints.split_chromosomes.get(**wildcards).output[0]
-    return expand(f'split_{wildcards.haplotype}_{wildcards.sample}_{wildcards.assembler}_chrm/{{chunk}}.chrm.fa.masked',chunk=glob_wildcards(os.path.join(checkpoint_output, '{chunk}.chrm.fa')).chunk)
+    return expand(f'split_{wildcards.haplotype}_{wildcards.sample}_{wildcards.assembler}_chrm/{{chunk}}.chrm.fa.masked',chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.chrm.fa')).chunk)
 
 rule merge_masked_chromosomes:
     input:

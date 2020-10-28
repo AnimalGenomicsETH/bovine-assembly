@@ -5,7 +5,7 @@ rule count_SR_reads:
         'data/{parent}_R{N}.fastq.gz'
     output:
         directory('data/{parent}.read_R{N}.meryl')
-    threads: 6
+    threads: 8
     resources:
         mem_mb = 10000,
         walltime = '12:00'
@@ -205,7 +205,7 @@ rule count_many:
 
 def aggregate_split_input(wildcards):
     checkpoint_output = checkpoints.split_reads.get(**wildcards).output[0]
-    return expand('split_reads_{sample}/chunk_{chunk}.meryl',sample=wildcards.sample,chunk=glob_wildcards(PurePath.joinpath(checkpoint_output, 'chunk_{chunk}.fq.gz')).chunk)
+    return expand('split_reads_{sample}/chunk_{chunk}.meryl',sample=wildcards.sample,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('chunk_{chunk}.fq.gz')).chunk)
 
 rule merge_many:
     input:

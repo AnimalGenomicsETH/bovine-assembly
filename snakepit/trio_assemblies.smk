@@ -51,10 +51,9 @@ rule trio_canu:
         full = 'canu_{sample}/trio/asm.complete'
     shell:
         '''
-        canu -haplotype -p asm -d canu_{wildcards.sample}/trio genomesize={config[genome_est]}g -haplotype1 {input.sire} -haplotype2 {input.dam} -pacbio-raw {input.reads} -batMemory=60 executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" > {log}
-        while [ ! -e {params.full} ]; do sleep 60; done
+        canu -haplotype -p asm -d canu_{wildcards.sample}/trio genomesize={config[genome_est]}g -haplotype1 {input.sire} -haplotype2 {input.dam} -pacbio-raw {input.reads} -batMemory=60 executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' > {log}
+        while [ ! -e {output[1]} ]; do sleep 60; done
         echo "complete file found, ending sleep loop"
-        rm {params.full}
         '''
 
 rule prep_haplotype_canu:
@@ -68,7 +67,8 @@ rule prep_haplotype_canu:
         '''
         #ONSEC=" 'onSuccess=\\\"touch {params.temp}\\\"'"
         ONSEC='  onSuccess="touch {params.temp}" \\\\'
-        sed -e '/raw/d' -e 's/-pacbio/-pacbio-hifi/' -e "10 a $ONSEC" {input} > {output}
+        ONFAIL='  onFailure="touch {params.temp}" \\\\'
+        sed -e '/raw/d' -e 's/-pacbio/-pacbio-hifi/' -e "10 a $ONSEC" -e "11 a $ONFAIL" {input} > {output}
         '''
 
 rule haplotype_canu:

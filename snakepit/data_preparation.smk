@@ -40,7 +40,7 @@ rule filter_SR_data:
     resources:
         mem_mb = 4000
     shell:
-        'fastp -i {input.reads[0]} -I {input.reads[1]} -o {output.reads[1]} -O {output.reads[1]} -g --thread {threads} --html data/{wildcards.parent}.html --json /dev/null'
+        'fastp -i {input.reads[0]} -I {input.reads[1]} -o {output.reads[0]} -O {output.reads[1]} -g --thread {threads} --html data/{wildcards.parent}.html --json /dev/null'
 
 rule sample_data:
     input:
