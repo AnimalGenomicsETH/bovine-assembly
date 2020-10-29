@@ -38,18 +38,7 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
-        #f'canu_100/{config["animal"]}.hap1.scaffolds.fasta',
-        #f'canu_100/{config["animal"]}.hap2.scaffolds.fasta',
-        #f'hifiasm_100/{config["animal"]}.hap1.scaffolds.fasta',
-        #f'hifiasm_100/{config["animal"]}.asm.qv',
-        #f'hifiasm_100/{config["animal"]}.hap2.contigs.fasta',
-        #f'hifiasm_100/{config["animal"]}.trio.completeness.stats',
-        #f'hifiasm_100/{config["animal"]}.hap2.{config["animal"]}.hap2.contigs.continuity.NG.png',
-        #f'hifiasm_100/{config["animal"]}.asm.{config["animal"]}.asm.contigs.continuity.NG.png',
-        #f'hifiasm_100/{config["animal"]}.asm.dnadiff.report',
-        #'results/BSWCHEF1201525146361_100_hifiasm.gaps.txt',
         expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
-        #f'hifiasm_100/{config["animal"]}.corrected.scaffolds.fasta'
 
 if 'hifiasm' in config['assemblers']:
     rule assembler_hifiasm:
@@ -59,7 +48,7 @@ if 'hifiasm' in config['assemblers']:
             'hifiasm_{sample}/asm.p_ctg.gfa'
         threads: 36
         resources:
-            mem_mb = 4000,
+            mem_mb = 5000,
             walltime = '24:00'
         params:
             out = 'hifiasm_{sample}/asm',
