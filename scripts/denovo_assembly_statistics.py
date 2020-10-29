@@ -6,6 +6,7 @@ from itertools import cycle
 from numpy import linspace, cumsum
 
 animal, haplotype, sample, assembler = '', '', '', ''
+
 def open_results(extension):
     return open(f'results/{animal}_{haplotype}_{sample}_{assembler}.{extension}','r')
 
@@ -298,8 +299,6 @@ def main(direct_input=None):
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:
         rmtree('figures')
-        #for assembler in args.assemblers:
-        #    Path(f'{args.animal}_{assembler}_auN_curves.png').unlink(missing_ok=True)
 
 if __name__ == "__main__":
     main()
