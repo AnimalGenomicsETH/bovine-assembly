@@ -21,15 +21,30 @@ def plot_chromosomes(primary_chrm='CM',unplaced_chrm='VLPJ'):
     #sns.lmplot(data=dx,x='start',y='avg_depth',col='chrm',col_wrap=6,scatter_kws={'alpha':.001},line_kws={'color':''})
     plt.show(block=False)
 
-def load_chrom_coverage():
-    pass
+def filter_chromosomes(df,primary_chrm=None):
+    return df[[primary_chrm in f for f in df['chrm']]] if primary_chrm else df
+
+def load_chrm_coverage(run,read,primary_chrm=None):
+    df = pandas.read_csv(f'{run}.chrm.{read}.coverage.txt',delimiter='\t',header=0,names=['chrm','start','stop','reads','bases','coverage','depth','baseQ','mapQ'])
+    return filter_chromosomes(df,primary_chrm)
 
 def load_window_coverage(run,read,primary_chrm=None):
     df = pandas.read_csv(f'{run}.windows.{read}.coverage.txt',delimiter='\t',header=0,names=['chrm','start','stop','depth'])
     df['avg_depth'] = df.apply(lambda x: x['depth']/(x['stop']-x['start']), axis=1)
+    return filter_chromosomes(df,primary_chrm)
 
-    if primary_chrm:
-        return df[[primary_chrm in f for f in df['chrm']]]
-    return df
+def plot_chromosomes_new():
+    df = load_window_coverage('BSWCHEF120152514636_100_hifiasm','hifi','CM')
+    g = sns.relplot(data=df,x='start',y='avg_depth',col='chrm',col_wrap=6,kind='line',facet_kws={'sharex':False})
+    g.map_dataframe(add_std,'start','avg_depth')
+    plt.show(block=False)
 
-plot_chromosomes()
+def add_std(x,y,data,**kwargs):
+    mean = np.mean(data['y'])
+    std = np.std(data['y'])
+    ax = plt.gca()
+    ax.axhline(mean,c='r')
+    for sign in (1,-1):
+        ax.axhline(mean+sign*std,c='k',ls='--')
+
+plot_chromosomes_new()
