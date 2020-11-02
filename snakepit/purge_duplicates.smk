@@ -5,9 +5,9 @@ rule map_reads:
         asm = '{assembler}_{sample}/{haplotype}.contigs_raw.fa',
         reads = 'data/reads.{sample}.hifi.fq.gz'
     output:
-        '{assembler}_{sample}/{haplotype}/read_aln.paf'
+        '{assembler}_{sample}/{haplotype}_pd/read_aln.paf'
     params:
-        '{assembler}_{sample}/{haplotype}'
+        lambda wildcards, output: PurePath(output[0]).parent
     threads: 24
     resources:
         mem_mb = 2500
@@ -19,17 +19,17 @@ rule map_reads:
 
 rule cut_and_split:
     input:
-        paf = '{assembler}_{sample}/{haplotype}/read_aln.paf',
+        paf = '{assembler}_{sample}/{haplotype}_pd/read_aln.paf',
         asm = '{assembler}_{sample}/{haplotype}.contigs_raw.fa'
     output:
-        splits = '{assembler}_{sample}/{haplotype}/split.fasta',
-        asm = '{assembler}_{sample}/{haplotype}/contigs_raw.fa'
+        splits = '{assembler}_{sample}/{haplotype}_pd/split.fasta',
+        asm = '{assembler}_{sample}/{haplotype}_pd/contigs_raw.fa'
     params:
-        '{assembler}_{sample}/{haplotype}'
+        lambda wildcards, output: PurePath(output[0]).parent
     shell:
         '''
-        mkdir -p {params} && cd {params}
-        ln -sfn ../../{input.asm} ../../{output.asm}
+        cp {input.asm} {output.asm}
+        cd {params}
         {config[pd_root]}/bin/pbcstat ../../{input.paf}
         {config[pd_root]}/bin/calcuts PB.stat > cutoffs
         {config[pd_root]}/bin/split_fa ../../{input.asm} > ../../{output.splits}
@@ -37,9 +37,9 @@ rule cut_and_split:
 
 rule map_splits:
     input:
-        '{assembler}_{sample}/{haplotype}/split.fasta'
+        '{assembler}_{sample}/{haplotype}_pd/split.fasta'
     output:
-        '{assembler}_{sample}/{haplotype}/ctg-aln.paf'
+        '{assembler}_{sample}/{haplotype}_pd/ctg-aln.paf'
     threads: 24
     resources:
         mem_mb = 2500
@@ -48,26 +48,30 @@ rule map_splits:
 
 rule purge_dups:
     input:
-        paf = '{assembler}_{sample}/{haplotype}/ctg-aln.paf',
+        paf = '{assembler}_{sample}/{haplotype}_pd/ctg-aln.paf',
         contigs = '{assembler}_{sample}/{haplotype}.contigs_raw.fa'
     output:
-        contigs = '{assembler}_{sample}/{haplotype}/purged.fa',
-        bed = temp('{assembler}_{sample}/{haplotype}/dups.bed')
+        contigs = '{assembler}_{sample}/{haplotype}_pd/purged.fa',
+        bed = '{assembler}_{sample}/{haplotype}_pd/dups.bed'#TEMP
     params:
-        out = lambda wildcards, output: PurePath(output['bed']).parent
+        dir_ = lambda wildcards, output: PurePath(output['bed']).parent,
+        bed = lambda wildcards, output: PurePath(output['bed']).name,
+        contigs = lambda wildcards, output: PurePath(output['contigs']).name
     shell:
         '''
         {config[pd_root]}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > {output.bed}
-        {config[pd_root]}/bin/get_seqs {output.bed} {input.contigs} -p {params.out}/
+        cd {params.dir_}
+        {config[pd_root]}/bin/get_seqs {params.bed} {params.contigs}
         '''
 
 rule assess_purging:
     input:
-        expand('{{assembler}}_{{sample}}/{{haplotype}}/{progress}.matrix',progress=['purged','contigs_raw'])
+        matrix = expand('{{assembler}}_{{sample}}/{{haplotype}}_pd/{progress}.matrix',progress=['purged','contigs_raw']),
+        purged = '{assembler}_{sample}/{haplotype}_pd/purged.fa'
     output:
         '{assembler}_{sample}/{haplotype}.contigs.fasta'
     shell:
-        'mv {wildcards.assembler}_{wildcards.sample}/{wildcards.haplotype}/purged.fa {output}'
+        'mv {input.purged} {output}'
 
 rule KMC_reads:
     input:
@@ -89,10 +93,10 @@ rule KMC_reads:
 
 rule KMC_ref:
     input:
-        '{assembler}_{sample}/{haplotype}/{progress}.fa'
+        '{assembler}_{sample}/{haplotype}_pd/{progress}.fa'
     output:
-        base = '{assembler}_{sample}/{haplotype}/haplotype_kmer_{progress}',
-        raw = multiext('{assembler}_{sample}/{haplotype}/haplotype_kmer_{progress}','.kmc_pre','.kmc_suf')
+        base = '{assembler}_{sample}/{haplotype}_pd/{haplotype}_kmer_{progress}',
+        raw = multiext('{assembler}_{sample}/{haplotype}_pd/{haplotype}_kmer_{progress}','.kmc_pre','.kmc_suf')
     threads: 12
     resources:
         mem_mb = 3000,
@@ -109,12 +113,12 @@ rule KMC_ref:
 rule KMC_analysis:
     input:
         reads = 'data/reads.{sample}.kmer_reads',
-        asm = '{assembler}_{sample}/{haplotype}/haplotype_kmer_{progress}'
+        asm = '{assembler}_{sample}/{haplotype}_pd/{haplotype}_kmer_{progress}'
     output:
-        matrix = '{assembler}_{sample}/{haplotype}/{progress}.matrix',
-        plot = '{assembler}_{sample}/{haplotype}/{progress}.spectra.png'
+        matrix = '{assembler}_{sample}/{haplotype}_pd/{progress}.matrix',
+        plot = '{assembler}_{sample}/{haplotype}_pd/{progress}.spectra.png'
     params:
-        reads = '{assembler}_{sample}/{haplotype}/{haplotype}_kmer_reads'
+        reads = '{assembler}_{sample}/{haplotype}_pd/{haplotype}_kmer_reads'
     threads: 2
     resources:
         mem_mb = 20000

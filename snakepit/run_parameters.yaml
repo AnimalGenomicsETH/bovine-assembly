@@ -25,8 +25,9 @@ cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
 k-mers: 21
 genome_est: 2.7
 mem_adj: 1100
-split_size: 10
-
+split_size:
+  hifi: 10
+  SR: 2
 haplotypes:
   - 'asm'
   - 'hap1'

@@ -4,7 +4,7 @@ rule count_SR_reads:
     input:
         'data/{parent}_R{N}.fastq.gz'
     output:
-        directory('data/{parent}.read_R{N}.meryl')
+        directory('datax/{parent}.read_R{N}.meryl')
     threads: 6
     resources:
         mem_mb = 10000,
@@ -16,9 +16,9 @@ rule count_SR_reads:
 
 rule merge_SR_reads:
     input:
-        expand('data/{{parent}}.read_R{N}.meryl', N = (1,2))
+        expand('data/{{parent}}.read_R{N}.SR.meryl', N = (1,2))
     output:
-        directory('data/{parent}.meryl')
+        directory('data/{parent}.SR.meryl')
     threads: 12
     resources:
         mem_mb = 4000
@@ -30,8 +30,8 @@ rule merge_SR_reads:
 #NOTE technically should be w.r.t. the read sampling?
 rule generate_hapmers:
     input:
-        dam = 'data/dam.meryl',
-        sire = 'data/sire.meryl',
+        dam = 'data/dam.SR.meryl',
+        sire = 'data/sire.SR.meryl',
         child = 'data/reads.cleaned.hifi.meryl'
     output:
         expand('data/{parent}.hapmer.meryl', parent = ('dam', 'sire'))
@@ -136,7 +136,7 @@ rule merqury_phase_block:
     params:
         dir_ = '{assembler}_{sample}',
         out = '{haplotype}',
-        asm = lambda wildcards,input: PurePath(input.asm).name
+        asm = lambda wildcards,input: PurePath(input.asm).name,
         #'{haplotype}.contigs.fasta',
         hapmers = expand('../data/{parent}.hapmer.meryl',parent=('sire','dam'))
     threads: 12
@@ -178,30 +178,31 @@ rule merqury_block_n_stats:
 
 checkpoint split_reads:
     input:
-        'data/reads.{sample}.hifi.fq.gz'
-        #'data/{data}.{read_t}.fq.gz'
+        #'data/reads.{sample}.hifi.fq.gz'
+        'data/{data}.{modifier}.{read_t}.fq.gz'
         #split_{data}_{read_t}/chunk_{chunk}.meryl'
     output:
-        directory('split_reads_{sample}')
-        #split_{data}_{read_t}
+        #directory('split_reads_{sample}')
+        directory('split_{data}_{modifier}_{read_t}')
+    params:
+        lambda wildcards: config["split_size"][wildcards.read_t]
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
     shell:
         '''
         mkdir -p {output}
-        zcat {input} | split -a 2 -d -C {config[split_size]}GiB --filter='pigz -p 6 > $FILE.fq.gz' - {output}/chunk_
-        #{config[split_size][wildcards.read_t]}
+        zcat {input} | split -a 2 -d -C {params}GiB --filter='pigz -p 6 > $FILE.fq.gz' - {output}/chunk_
         '''
 
 rule count_many:
     input:
-        'split_reads_{sample}/chunk_{chunk}.fq.gz'
-        #split_{data}_{read_t}/chunk_{chunk}.meryl'
+        #'split_reads_{sample}/chunk_{chunk}.fq.gz'
+        'split_{data}_{modifier}_{read_t}/chunk_{chunk}.fq.gz'
     output:
-        directory('split_reads_{sample}/chunk_{chunk}.meryl')
-        #split_{data}_{read_t}/chunk_{chunk}.meryl'
-    threads: 18
+        #directory('split_reads_{sample}/chunk_{chunk}.meryl')
+        directory('split_{data}_{modifier}_{read_t}/chunk_{chunk}.meryl')
+    threads: lambda wildcards: 18 if wildcards.read_t == 'hifi' else 4
     resources:
         mem_mb = 3000
     params:
@@ -211,15 +212,16 @@ rule count_many:
 
 def aggregate_split_input(wildcards):
     checkpoint_output = checkpoints.split_reads.get(**wildcards).output[0]
-    return expand('split_reads_{sample}/chunk_{chunk}.meryl',sample=wildcards.sample,chunk=glob_wildcards(PurePath.joinpath(checkpoint_output, 'chunk_{chunk}.fq.gz')).chunk)
-    #return expand('split_{data}_{read_t}/chunk_{chunk}.meryl',data=wildcards.data,read_t=wildcards.read_t,chunk=glob_wildcards(PurePath.joinpath(checkpoint_output, 'chunk_{chunk}.fq.gz')).chunk)
+    #return expand('split_reads_{sample}/chunk_{chunk}.meryl',sample=wildcards.sample,chunk=glob_wildcards(PurePath.joinpath(checkpoint_output, 'chunk_{chunk}.fq.gz')).chunk)
+    return expand('split_{data}_{modifier}_{read_t}/chunk_{chunk}.meryl',data=wildcards.data,modifier=wildcards.modifier,read_t=wildcards.read_t,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('chunk_{chunk}.fq.gz')).chunk)
 
 rule merge_many:
     input:
         aggregate_split_input
     output:
-        directory('data/reads.{sample}.hifi.meryl')
+        #directory('data/reads.{sample}.hifi.meryl')
         #directory('data/{data}.{read_t}.meryl')
+        directory('data/{data}.{modifier}.{read_t}.meryl')
     threads: 12
     resources:
         mem_mb = 4000
@@ -245,7 +247,7 @@ rule merqury_prep:
     input:
         'data/reads.{sample}.hifi.meryl'
     output:
-        hist = 'data/reads..{sample}.hifi.hist',
+        hist = 'data/reads.{sample}.hifi.hist',
         filt = 'data/reads.{sample}.hifi.filt'
     threads: 12
     resources:

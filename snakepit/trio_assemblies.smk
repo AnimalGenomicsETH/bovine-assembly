@@ -2,7 +2,7 @@ localrules: trio_canu, prep_haplotype_canu, haplotype_canu
 
 rule trio_yak:
     input:
-        expand('data/{{parent}}_R{N}.fastq.gz', N = (1,2))
+        expand('data/{{parent}}.read_R{N}.SR.fq.gz', N = (1,2))
     output:
         'data/{parent}.yak'
     threads: 24
@@ -40,10 +40,10 @@ rule trio_hifiasm:
 rule trio_canu:
     input:
         reads = 'data/reads.{sample}.hifi.fq.gz',
-        dam = expand('data/dam_R{N}.fastq.gz', N = (1,2)),
-        sire =  expand('data/sire_R{N}.fastq.gz', N = (1,2))
+        dam = expand('data/dam.read_R{N}.SR.fq.gz', N = (1,2)),
+        sire =  expand('data/sire.read_R{N}.SR.fq.gz', N = (1,2))
     output:
-        expand('canu_{{sample}}/trio/asm-haplotype{N}.sh',N=(1,2))
+        expand('canu_{{sample}}/trio/asm-haplotype{N}.sh', N=(1,2))
     log:
         'logs/assembler_canu/sample-{sample}.partion.out'
     params:

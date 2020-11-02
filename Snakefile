@@ -31,7 +31,10 @@ wildcard_constraints:
     parent = r'[^\W_]+',
     haplotype = r'\w+',
     hap = r'\w+',
-    sample = r'\d+'
+    sample = r'\d+',
+    data = r'[^\W_]+',
+    modifier = r'\w+',
+    read_t  = r'[^\W_]+'
 
 #------------#
 #DEFINE RULES#

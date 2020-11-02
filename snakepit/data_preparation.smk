@@ -35,7 +35,7 @@ rule filter_SR_data:
     input:
         reads = lambda wildcards: expand(f'{config["data"][config["animal"]]["short_reads"][wildcards.parent]}_R{{N}}.fastq.gz', N = (1,2))
     output:
-        reads = expand('data/{{parent}}_R{N}.fastq.gz', N = (1,2))
+        reads = expand('data/{{parent}}.read_R{N}.SR.fq.gz', N = (1,2))
     threads: 12
     resources:
         mem_mb = 4000

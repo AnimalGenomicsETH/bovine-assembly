@@ -81,7 +81,7 @@ rule remap_reads:
 
 rule map_SR_reads:
     input:
-        reads = expand('data/offspring_R{N}.fastq.gz',N=(1,2)),
+        reads = expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
     output:
         '{assembler}_{sample}/{haplotype}_scaffolds_SR_reads.sam'
