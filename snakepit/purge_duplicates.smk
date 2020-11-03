@@ -49,14 +49,14 @@ rule map_splits:
 rule purge_dups:
     input:
         paf = '{assembler}_{sample}/{haplotype}_pd/ctg-aln.paf',
-        contigs = '{assembler}_{sample}/{haplotype}.contigs_raw.fa'
+        contigs = '{assembler}_{sample}/{haplotype}_pd/contigs_raw.fa'
     output:
         contigs = '{assembler}_{sample}/{haplotype}_pd/purged.fa',
         bed = '{assembler}_{sample}/{haplotype}_pd/dups.bed'#TEMP
     params:
         dir_ = lambda wildcards, output: PurePath(output['bed']).parent,
         bed = lambda wildcards, output: PurePath(output['bed']).name,
-        contigs = lambda wildcards, output: PurePath(output['contigs']).name
+        contigs = lambda wildcards, input: PurePath(input['contigs']).name
     shell:
         '''
         {config[pd_root]}/bin/purge_dups -2 -T cutoffs -c PB.base.cov {input.paf} > {output.bed}

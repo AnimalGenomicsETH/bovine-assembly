@@ -51,7 +51,7 @@ if 'hifiasm' in config['assemblers']:
             'hifiasm_{sample}/asm.p_ctg.gfa'
         threads: 36
         resources:
-            mem_mb = 5000,
+            mem_mb = 8000,
             walltime = '24:00'
         params:
             out = 'hifiasm_{sample}/asm',

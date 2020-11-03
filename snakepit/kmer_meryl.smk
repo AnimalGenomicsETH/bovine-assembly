@@ -32,7 +32,7 @@ rule generate_hapmers:
     input:
         dam = 'data/dam.SR.meryl',
         sire = 'data/sire.SR.meryl',
-        child = 'data/reads.cleaned.hifi.meryl'
+        child = 'data/reads.100.hifi.meryl'
     output:
         expand('data/{parent}.hapmer.meryl', parent = ('dam', 'sire'))
     threads: 12
