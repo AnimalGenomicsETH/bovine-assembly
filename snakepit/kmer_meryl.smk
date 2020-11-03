@@ -30,11 +30,11 @@ rule merge_SR_reads:
 #NOTE technically should be w.r.t. the read sampling?
 rule generate_hapmers:
     input:
-        dam = 'data/dam.SR.meryl',
-        sire = 'data/sire.SR.meryl',
+        dam = 'data/dam.{read_t}.meryl',
+        sire = 'data/sire.{read_t}.meryl',
         child = 'data/reads.100.hifi.meryl'
     output:
-        expand('data/{parent}.hapmer.meryl', parent = ('dam', 'sire'))
+        expand('data/{parent}.{read_t}.hapmer.meryl', parent = ('dam', 'sire'))
     threads: 12
     resources:
         mem_mb = 4000
@@ -50,14 +50,14 @@ rule generate_hapmers:
 
 rule hap_blob:
     input:
-        hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
+        hapmers = expand('data/{parent}.{read_t}.hapmer.meryl',parent=('sire','dam')),
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
     output:
-        '{assembler}_{sample}/{hap}.hapmers.blob.png'
+        '{assembler}_{sample}/{hap}.{read_t}.hapmers.blob.png'
     params:
         dir_ = '{assembler}_{sample}',
         out = '{hap}',
-        hapmers = expand('../data/{parent}.hapmer.meryl', parent=('sire','dam')),
+        hapmers = expand('../data/{parent}.{read_t}.hapmer.meryl', parent=('sire','dam')),
         asm = lambda wildcards: expand('{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
     threads: 8
     resources:
@@ -103,7 +103,7 @@ rule merqury_spectra_cn:
 rule spectra_hap:
     input:
         reads = 'data/reads.{sample}.hifi.meryl',
-        hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
+        hapmers = expand('data/{parent}.{read_t}.hapmer.meryl',parent=('sire','dam')),
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
         stats = multiext('{assembler}_{sample}/{hap}','.qv','.completeness.stats')
     output:
@@ -112,7 +112,7 @@ rule spectra_hap:
     params:
         dir_ = '{assembler}_{sample}',
         out = '{hap}',
-        hapmers = expand('../data/{parent}.hapmer.meryl',parent=('sire','dam')),
+        hapmers = expand('../data/{parent}.{read_t}.hapmer.meryl',parent=('sire','dam')),
         asm = lambda wildcards,input: tuple(PurePath(i).name for i in input['asm'])#('/'expand('{{animal}}.{X}.contigs.fasta',X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
     threads: 12
     resources:
@@ -130,7 +130,7 @@ rule spectra_hap:
 rule merqury_phase_block:
     input:
         asm = '{assembler}_{sample}/{haplotype}.contigs.fasta',
-        hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam'))
+        hapmers = expand('data/{parent}.{read_t}.hapmer.meryl',parent=('sire','dam'))
     output:
         '{assembler}_{sample}/{haplotype}.100_20000.phased_block.bed'
     params:
@@ -138,7 +138,7 @@ rule merqury_phase_block:
         out = '{haplotype}',
         asm = lambda wildcards,input: PurePath(input.asm).name,
         #'{haplotype}.contigs.fasta',
-        hapmers = expand('../data/{parent}.hapmer.meryl',parent=('sire','dam'))
+        hapmers = expand('../data/{parent}.{read_t}.hapmer.meryl',parent=('sire','dam'))
     threads: 12
     resources:
         mem_mb = 6000
@@ -266,7 +266,7 @@ rule merqury_formatting:
         '{assembler}_{sample}/{haplotype}.{haplotype}.contigs.continuity.NG.png',
         lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hap.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
-        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hapmers.blob.png', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
+        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.{read_t}.hapmers.blob.png', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
     output:
         'results/{haplotype}_{sample}_{assembler}.merqury.stats.txt'
     shell:

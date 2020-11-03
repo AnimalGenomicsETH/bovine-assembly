@@ -155,11 +155,19 @@ checkpoint split_chromosomes:
     input:
         '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
     output:
-        directory('split_{haplotype}_{sample}_{assembler}_chrm')
+        dir_ = directory('split_{haplotype}_{sample}_{assembler}_chrm'),
+        headers = temp('split_{haplotype}_{sample}_{assembler}_chrm/headers.temp'),
+        chrm = temp('split_{haplotype}_{sample}_{assembler}_chrm/chrm.temp'),
+        ur_tigs = 'split_{haplotype}_{sample}_{assembler}_chrm/unplaced_ref_contigs.chrm.fa',
+        ua_tigs = 'split_{haplotype}_{sample}_{assembler}_chrm/unplaced_asm_contigs.chrm.fa',
     shell:
         '''
-        mkdir -p {output}
-        awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {input}
+        mkdir -p {output.dir_}
+        grep ">" {intput} > {output.headers}
+        grep {config[ref_chrm]} {output.headers} | cut -c 2- | seqtk subseq {input} - > {output.chrm}
+        grep {config[ref_tig]} {output.headers} | cut -c 2- | seqtk subseq {input} - > {output.ur_tigs}
+        grep -v -e {config[ref_chrm]} -e {config[ref_tig]} {output.headers} | cut -c 2- | seqtk subseq {input} - > {output.ua_tigs}
+        awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output.dir_}/"filename".chrm.fa"}}' {output.chrm}
         '''
 
 rule repeat_masker:
