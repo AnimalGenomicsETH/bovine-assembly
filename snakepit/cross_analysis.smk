@@ -82,7 +82,7 @@ rule map_hifi_reads:
         '''
             meryl-tip count k=15 output {output.db} {input.asm}
             meryl-tip print greater-than distinct={config[winnow_threshold]} {output.db} > {output.rep}
-            winnowmap -W {output.ref} -ax map-pb {input.asm} {input.reads} > {output.sam}
+            winnowmap -W {output.rep} -ax map-pb {input.asm} {input.reads} > {output.sam}
         '''
 
 rule remap_reads:
@@ -173,27 +173,28 @@ checkpoint split_chromosomes:
     input:
         '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
     output:
-        dir_ = directory('split_{haplotype}_{sample}_{assembler}_chrm'),
-        headers = temp('split_{haplotype}_{sample}_{assembler}_chrm/headers.temp'),
-        chrm = temp('split_{haplotype}_{sample}_{assembler}_chrm/chrm.temp'),
-        ur_tigs = 'split_{haplotype}_{sample}_{assembler}_chrm/unplaced_ref_contigs.chrm.fa',
-        ua_tigs = 'split_{haplotype}_{sample}_{assembler}_chrm/unplaced_asm_contigs.chrm.fa',
+        directory('{assembler}_{sample}/{haplotype}_split_chrm'),
+    params:
+        headers = 'headers.temp',
+        chrm = 'chrm.temp',
+        ur_tigs = 'unplaced_ref_contigs.chrm.fa',
+        ua_tigs = 'unplaced_asm_contigs.chrm.fa',
     shell:
         '''
-        mkdir -p {output.dir_}
-        grep ">" {intput} > {output.headers}
-        grep {config[ref_chrm]} {output.headers} | cut -c 2- | seqtk subseq {input} - > {output.chrm}
-        grep {config[ref_tig]} {output.headers} | cut -c 2- | seqtk subseq {input} - > {output.ur_tigs}
-        grep -v -e {config[ref_chrm]} -e {config[ref_tig]} {output.headers} | cut -c 2- | seqtk subseq {input} - > {output.ua_tigs}
-        awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output.dir_}/"filename".chrm.fa"}}' {output.chrm}
+        mkdir -p {output}
+        grep ">" {input} > {output}/{params.headers}
+        grep "{config[ref_chrm]}" {output}/{params.headers} | cut -c 2- | seqtk subseq {input} - > {output}/{params.chrm}
+        grep "{config[ref_tig]}" {output}/{params.headers} | cut -c 2- | seqtk subseq {input} - > {output}/{params.ur_tigs}
+        grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {output}/{params.headers} | cut -c 2- | seqtk subseq {input} - > {output}/{params.ua_tigs}
+        awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {output}/{params.chrm}
         '''
 
 rule repeat_masker:
     input:
-        'split_{haplotype}_{sample}_{assembler}_chrm/{chunk}.chrm.fa'
+        '{assembler}_{sample}/{haplotype}_split_chrm/{chunk}.chrm.fa'
     output:
         #NOTE repeatmasker doesn't output .masked if no masking, so just wrap the plain sequence via seqtk
-        'split_{haplotype}_{sample}_{assembler}_chrm/{chunk}.chrm.fa.masked'
+        '{assembler}_{sample}/{haplotype}_split_chrm/{chunk}.chrm.fa.masked'
     threads: 8
     resources:
         mem_mb = 400,
@@ -208,7 +209,7 @@ rule repeat_masker:
 
 def aggregate_chrm_input(wildcards):
     checkpoint_output = checkpoints.split_chromosomes.get(**wildcards).output[0]
-    return expand(f'split_{wildcards.haplotype}_{wildcards.sample}_{wildcards.assembler}_chrm/{{chunk}}.chrm.fa.masked',chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.chrm.fa')).chunk)
+    return expand('{fpath}/{chunk}.chrm.fa.masked',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.chrm.fa')).chunk)
 
 rule merge_masked_chromosomes:
     input:

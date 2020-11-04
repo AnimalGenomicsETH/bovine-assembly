@@ -27,11 +27,11 @@ def main(direct_input=None):
     parser = argparse.ArgumentParser(description='masker.')
     parser.add_argument('--sample', type=str, required=True)
     parser.add_argument('--assembler', type=str, required=True)
-    parser.add_argument('--haplotypes', nargs='+', required=True)
+    parser.add_argument('--haplotype', type=str, required=True)
 
     args = parser.parse_args(direct_input)
 
-    df = build_repeat_dataframe(f'split_{args.haplotype}_{args.sample}_{args.assembler}')
+    df = build_repeat_dataframe(f'split_{args.haplotype}_{args.sample}_{args.assembler}_chrm')
     df.to_csv(f'results/{args.haplotype}_{args.sample}_{args.assembler}.repeats.csv',index=False)
 
 if __name__ == '__main__':
