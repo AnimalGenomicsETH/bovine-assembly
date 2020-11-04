@@ -66,12 +66,31 @@ rule ragtag_scaffold:
         mv {params}/ragtag.scaffolds.fasta {output}
         '''
 
+rule map_hifi_reads:
+    input:
+        reads = 'data/reads.cleaned.hifi.fq.gz',
+        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
+    output:
+        sam = '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.sam',
+        db = directory('{assembler}_{sample}/{haplotype}_winnow.meryl'),
+        rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
+    threads: 24
+    resources:
+        mem_mb = 6000,
+        walltime = '12:00'
+    shell:
+        '''
+            meryl-tip count k=15 output {output.db} {input.asm}
+            meryl-tip print greater-than distinct={config[winnow_threshold]} {output.db} > {output.rep}
+            winnowmap -W {output.ref} -ax map-pb {input.asm} {input.reads} > {output.sam}
+        '''
+
 rule remap_reads:
     input:
         reads = 'data/reads.cleaned.hifi.fq.gz',
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.sam'
+        '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.dead'
     threads: 24
     resources:
         mem_mb = 6000,
@@ -100,10 +119,9 @@ rule sam_to_bam:
     threads: 16
     resources:
         mem_mb = 6000,
-        #disk_scratch = 350
         disk_scratch = lambda wildcards, input: int(input.size_mb/750)
     shell:
-        'samtools sort {input} -m 4000M -@ {threads} -T $TMPDIR -o {output}'
+        'samtools sort {input} -m 3000M -@ {threads} -T $TMPDIR -o {output}'
 
 rule prep_window:
     input:

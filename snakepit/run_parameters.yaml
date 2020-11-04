@@ -30,6 +30,7 @@ mem_adj: 1100
 split_size:
   hifi: 10
   SR: 2
+winnow_threshold: 0.9998
 haplotypes:
   - 'asm'
   - 'hap1'

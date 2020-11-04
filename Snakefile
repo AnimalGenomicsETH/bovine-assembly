@@ -52,7 +52,6 @@ if 'hifiasm' in config['assemblers']:
         threads: 36
         resources:
             mem_mb = lambda wildcards, input, threads: int(input.size_mb*1.75/threads),
-            #mem_mb = 8000,
             walltime = '24:00'
         params:
             out = 'hifiasm_{sample}/asm',
