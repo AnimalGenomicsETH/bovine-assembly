@@ -66,23 +66,35 @@ rule ragtag_scaffold:
         mv {params}/ragtag.scaffolds.fasta {output}
         '''
 
+rule generate_winnow_meryl:
+    input:
+        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
+    output:
+        db = directory('{assembler}_{sample}/{haplotype}_winnow_k{K,\d+}.meryl'), #TEMP
+        rep = '{assembler}_{sample}/{haplotype}_repetitive_k{K,\d+}.txt' #TEMP
+    threads: 6
+    resources:
+        mem_mb = 3000
+    shell:
+        '''
+        meryl-tip count k={wildcards.K} output {output.db} {input.asm}
+        meryl-tip print greater-than distinct={config[winnow_threshold]} {output.db} > {output.rep}
+        '''
+
 rule map_hifi_reads:
     input:
         reads = 'data/reads.cleaned.hifi.fq.gz',
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
+        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
+        rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
     output:
         sam = '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.sam',
-        db = directory('{assembler}_{sample}/{haplotype}_winnow.meryl'),
-        rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
     threads: 24
     resources:
         mem_mb = 6000,
-        walltime = '12:00'
+        walltime = '20:00'
     shell:
         '''
-            meryl-tip count k=15 output {output.db} {input.asm}
-            meryl-tip print greater-than distinct={config[winnow_threshold]} {output.db} > {output.rep}
-            winnowmap -W {output.rep} -ax map-pb {input.asm} {input.reads} > {output.sam}
+        winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} -o {output.sam}
         '''
 
 rule remap_reads:
@@ -94,7 +106,7 @@ rule remap_reads:
     threads: 24
     resources:
         mem_mb = 6000,
-        walltime = '8:00'
+        walltime = '4:00'
     shell:
         'minimap2 -ax asm20 -t {threads} {input.asm} {input.reads} > {output}'
 
@@ -107,7 +119,7 @@ rule map_SR_reads:
     threads: 24
     resources:
         mem_mb = 6000,
-        walltime = '8:00'
+        walltime = '4:00'
     shell:
         'minimap2 -ax sr -t {threads} {input.asm} {input.reads} > {output}'
 
