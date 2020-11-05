@@ -20,11 +20,15 @@ for _dir in ['data','results','intermediates']:
 for assembler, sample in product(config['assemblers'],config['sampling']):
     Path(f'{assembler}_{sample}').mkdir(exist_ok=True)
 
+FOLDER_PATH = '{assembler}_{sample}/'
+
 include: 'snakepit/kmer_meryl.smk'
 include: 'snakepit/cross_analysis.smk'
 include: 'snakepit/data_preparation.smk'
 include: 'snakepit/trio_assemblies.smk'
 include: 'snakepit/purge_duplicates.smk'
+
+
 
 wildcard_constraints:
     assembler = r'[^\W_]+',
@@ -34,7 +38,7 @@ wildcard_constraints:
     sample = r'\d+',
     data = r'[^\W_]+',
     modifier = r'\w+',
-    read_t  = r'[^\W_]+'
+    read_t  = r'hifi|SR'
 
 #------------#
 #DEFINE RULES#
@@ -49,13 +53,13 @@ if 'hifiasm' in config['assemblers']:
             'data/reads.{sample}.hifi.fq.gz'
         output:
             'hifiasm_{sample}/asm.p_ctg.gfa'
+        params:
+            out = 'hifiasm_{sample}/asm',
+            settings = '-r 4 -a 5 -n 5'
         threads: 36
         resources:
             mem_mb = lambda wildcards, input, threads: int(input.size_mb*1.75/threads),
             walltime = '24:00'
-        params:
-            out = 'hifiasm_{sample}/asm',
-            settings = '-r 4 -a 5 -n 5'
         shell:
             'hifiasm -o {params.out} -t {threads} {params.settings} {input}'
 
@@ -186,7 +190,7 @@ rule validation_busco:
         tmp_dir = '{haplotype}_{sample}_{assembler}_busco_results'
     threads: 24
     resources:
-        mem_mb = 4000,
+        mem_mb = 3500,
         walltime = '16:00'
     shell:
         '''

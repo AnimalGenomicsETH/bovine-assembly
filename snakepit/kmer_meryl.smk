@@ -138,7 +138,6 @@ rule merqury_phase_block:
         dir_ = '{assembler}_{sample}',
         out = '{haplotype}',
         asm = lambda wildcards,input: PurePath(input.asm).name,
-        #'{haplotype}.contigs.fasta',
         hapmers = expand('../data/{parent}.SR.hapmer.meryl',parent=('sire','dam'))
     threads: 12
     resources:
@@ -163,7 +162,6 @@ rule merqury_block_n_stats:
         dir_ = '{assembler}_{sample}',
         out = '{haplotype}',
         asm_block = lambda wildcards,input: tuple(PurePath(i).name for i in input['asm_block'])
-        #asm_block = multiext('{animal}.{haplotype}','.contigs.fasta','.100_20000.phased_block.bed')
     threads: 6
     resources:
         mem_mb = 2500
@@ -179,11 +177,8 @@ rule merqury_block_n_stats:
 
 checkpoint split_reads:
     input:
-        #'data/reads.{sample}.hifi.fq.gz'
         'data/{data}.{modifier}.{read_t}.fq.gz'
-        #split_{data}_{read_t}/chunk_{chunk}.meryl'
     output:
-        #directory('split_reads_{sample}')
         directory('split_{data}_{modifier}_{read_t}')
     params:
         lambda wildcards: config["split_size"][wildcards.read_t]
@@ -198,10 +193,8 @@ checkpoint split_reads:
 
 rule count_many:
     input:
-        #'split_reads_{sample}/chunk_{chunk}.fq.gz'
         'split_{data}_{modifier}_{read_t}/chunk_{chunk}.fq.gz'
     output:
-        #directory('split_reads_{sample}/chunk_{chunk}.meryl')
         directory('split_{data}_{modifier}_{read_t}/chunk_{chunk}.meryl')
     threads: lambda wildcards: 18 if wildcards.read_t == 'hifi' else 4
     resources:

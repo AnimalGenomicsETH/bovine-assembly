@@ -33,8 +33,7 @@ rule trio_hifiasm:
         #NOTE /dev/null is used since the overlaps already exist from original hifiasm run
         '''
         hifiasm -o {params.out} -t {threads} -1 {input.pat} -2 {input.mat} /dev/null
-        mv {params.old[0]} {params.new[0]}
-        mv {params.old[1]} {params.new[1]}
+        mv {params.old[0]} {params.new[0]} && mv {params.old[1]} {params.new[1]}
         '''
 
 rule trio_canu:

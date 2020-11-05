@@ -182,11 +182,12 @@ checkpoint split_chromosomes:
     shell:
         '''
         mkdir -p {output}
-        grep ">" {input} > {output}/{params.headers}
-        grep "{config[ref_chrm]}" {output}/{params.headers} | cut -c 2- | seqtk subseq {input} - > {output}/{params.chrm}
-        grep "{config[ref_tig]}" {output}/{params.headers} | cut -c 2- | seqtk subseq {input} - > {output}/{params.ur_tigs}
-        grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {output}/{params.headers} | cut -c 2- | seqtk subseq {input} - > {output}/{params.ua_tigs}
+        grep ">" {input} | cut -c 2- > {output}/{params.headers}
+        grep "{config[ref_chrm]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.chrm}
+        grep "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ur_tigs}
+        grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ua_tigs}
         awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {output}/{params.chrm}
+        rm {params.headers} {params.chrm}
         '''
 
 rule repeat_masker:
@@ -209,6 +210,7 @@ rule repeat_masker:
 
 def aggregate_chrm_input(wildcards):
     checkpoint_output = checkpoints.split_chromosomes.get(**wildcards).output[0]
+    return (f'{fname}.masked' for fname in glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.chrm.fa')))
     return expand('{fpath}/{chunk}.chrm.fa.masked',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.chrm.fa')).chunk)
 
 rule merge_masked_chromosomes:
