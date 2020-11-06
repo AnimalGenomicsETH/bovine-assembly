@@ -194,7 +194,7 @@ rule validation_busco:
     threads: 24
     resources:
         mem_mb = 3500,
-        walltime = '16:00'
+        walltime = '6:00'
     shell:
         '''
         busco --cpu {threads} -i {input} -o {params.tmp_dir}

@@ -70,8 +70,8 @@ rule generate_winnow_meryl:
     input:
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
     output:
-        db = directory('{assembler}_{sample}/{haplotype}_winnow_k{K,\d+}.meryl'), #TEMP
-        rep = '{assembler}_{sample}/{haplotype}_repetitive_k{K,\d+}.txt' #TEMP
+        db = temp(directory('{assembler}_{sample}/{haplotype}_winnow_k{K,\d+}.meryl')),
+        rep = temp('{assembler}_{sample}/{haplotype}_repetitive_k{K,\d+}.txt')
     threads: 6
     resources:
         mem_mb = 3000,
@@ -133,19 +133,19 @@ rule map_SR_reads:
         reads = expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_SR_reads.sam' #TEMP
+        '{assembler}_{sample}/{haplotype}_scaffolds_SR_reads.bam' #TEMP
     threads: 24
     resources:
         mem_mb = 6000,
         walltime = '4:00'
     shell:
-        'minimap2 -ax sr -t {threads} {input.asm} {input.reads} > {output}' # | samtools view -b -o {output} -
+        'minimap2 -ax sr -t {threads} {input.asm} {input.reads} | samtools view -b -o {output} -'
 
 rule sam_to_bam:
     input:
         '{assembler}_{sample}/{file}.sam'
     output:
-        '{assembler}_{sample}/{file}.bam'
+        '{assembler}_{sample}/{file}.dead'
     threads: 16
     resources:
         mem_mb = 6000,
@@ -242,7 +242,6 @@ rule repeat_masker:
 
 def aggregate_chrm_input(wildcards):
     checkpoint_output = checkpoints.split_chromosomes.get(**wildcards).output[0]
-    return (f'{fname}.masked' for fname in glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.chrm.fa')))
     return expand('{fpath}/{chunk}.chrm.fa.masked',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.chrm.fa')).chunk)
 
 rule merge_masked_chromosomes:
