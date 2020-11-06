@@ -18,6 +18,16 @@ rule raw_merge_files:
         protected('data/reads.raw.hifi.fq.gz')
     shell: 'cat {input} > {output}'
 
+rule convert_reads_to_fasta:
+    input:
+        f'{config["data"][config["animal"]]["long_reads"][{{parent}}]}.ccs.bam'
+    output:
+        'data/{parent}.fasta'
+    shell:
+        '''
+        samtools fasta -@ {threads} -c 0 -0 /dev/null {input} > {output}
+        '''
+
 rule filter_hifi_data:
     input:
         'data/reads.raw.hifi.fq.gz'

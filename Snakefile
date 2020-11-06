@@ -129,7 +129,7 @@ rule validation_yak:
         qv = 'results/{haplotype}_{sample}_{assembler}.asm-ccs.qv.txt'
     threads: 16
     resources:
-        mem_mb = 5000
+        mem_mb = 6000
     shell:
         '''
         yak count -b 37 -t {threads} -o {output.yak} {input.reads}
@@ -156,7 +156,7 @@ rule validation_refalign:
         NGA = 'results/{haplotype}_{sample}_{assembler}.NGA50.txt'
     threads: 24
     resources:
-        mem_mb = 3000,
+        mem_mb = 4000,
         walltime = '2:00'
     shell:
         '''

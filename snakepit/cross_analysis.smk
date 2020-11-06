@@ -217,7 +217,9 @@ checkpoint split_chromosomes:
         grep "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ur_tigs}
         grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ua_tigs}
         awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {output}/{params.chrm}
-        rm {params.headers} {params.chrm}
+        split -a 2 -d -C 50Mib --additional-suffix=.chrm.fa {output}/{params.ua_tigs} {output}/unplaced_asm_contigs_
+        split -a 2 -d -C 50Mib --additional-suffix=.chrm.fa {output}/{params.ur_tigs} {output}/unplaced_ref_contigs_
+        rm {output}/{params.headers} {output}/{params.chrm} {output}/{params.ua_tigs} {output}/{params.ur_tigs}
         '''
 
 rule repeat_masker:

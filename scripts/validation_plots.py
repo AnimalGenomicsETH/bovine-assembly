@@ -33,8 +33,8 @@ def load_window_coverage(run,read,primary_chrm=None):
     df['avg_depth'] = df.apply(lambda x: x['depth']/(x['stop']-x['start']), axis=1)
     return filter_chromosomes(df,primary_chrm)
 
-def plot_chromosomes_new():
-    df = load_window_coverage('BSWCHEF120152514636_100_hifiasm','hifi','CM')
+def plot_chromosomes_new(fname,read_t,primary_chrm):
+    df = load_window_coverage(fname,read_t,primary_chrm)
     g = sns.relplot(data=df,x='start',y='avg_depth',col='chrm',col_wrap=6,kind='line',facet_kws={'sharex':False})
     g.map_dataframe(add_std,'start','avg_depth')
     plt.show(block=False)
@@ -44,7 +44,8 @@ def add_std(x,y,data,**kwargs):
     std = np.std(data['y'])
     ax = plt.gca()
     ax.axhline(mean,c='r')
+    ax.set_ylim([0,50])
     for sign in (1,-1):
         ax.axhline(mean+sign*std,c='k',ls='--')
 
-plot_chromosomes_new()
+plot_chromosomes_new('../data/asm_100_canu','hifi','NC')
