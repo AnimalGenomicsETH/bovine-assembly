@@ -1,6 +1,4 @@
-localrules: sample_data, raw_QC
-
-raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
+localrules: raw_merge_files, sample_data, raw_QC
 
 rule raw_read_conversion:
     input:

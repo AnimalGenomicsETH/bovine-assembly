@@ -11,8 +11,11 @@ def glob_purges(wildcards):
         req_files.extend([_file.replace('.fa','.spectra.png'),_file.replace('contigs_raw.fa','purged.spectra.png')])
     return req_files
 
+#GLOBAL VAR
+raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
+
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: analysis_report, raw_merge_files, plot_dot, paf_variants, generate_reffai, dnadiff
+localrules: analysis_report, plot_dot, paf_variants, generate_reffai, dnadiff
 
 for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)

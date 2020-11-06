@@ -74,7 +74,8 @@ rule generate_winnow_meryl:
         rep = '{assembler}_{sample}/{haplotype}_repetitive_k{K,\d+}.txt' #TEMP
     threads: 6
     resources:
-        mem_mb = 3000
+        mem_mb = 3000,
+        walltime = '1:00'
     shell:
         '''
         meryl-tip count k={wildcards.K} output {output.db} {input.asm}
@@ -87,7 +88,7 @@ rule map_hifi_reads:
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
         rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
     output:
-        sam = '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.sam',
+        sam = '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.dead'
     threads: 24
     resources:
         mem_mb = 6000,
@@ -97,31 +98,48 @@ rule map_hifi_reads:
         winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} -o {output.sam}
         '''
 
-rule remap_reads:
+rule map_hifi_cell:
     input:
-        reads = 'data/reads.cleaned.hifi.fq.gz',
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
+        reads = 'data/{read_name}.temp.fastq.gz',
+        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
+        rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
     output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.dead'
+        '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads_{read_name}.bam'
     threads: 24
     resources:
-        mem_mb = 6000,
+        mem_mb = 4000,
         walltime = '4:00'
     shell:
-        'minimap2 -ax asm20 -t {threads} {input.asm} {input.reads} > {output}'
+        '''
+        winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} | samtools view -b -o {output} -
+        '''
+
+rule merge_sort_map_cells:
+    input:
+        expand('{{assembler}}_{{sample}}/{{haplotype}}_scaffolds_hifi_reads_{read_name}.bam',read_name=glob_wildcards(raw_long_reads).read_name)
+    output:
+        sam = '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.bam'
+    threads: 16
+    resources:
+        mem_mb = 6000,
+        disk_scratch = lambda wildcards, input: int(input.size_mb/750)
+    shell:
+        '''
+        samtools cat -@ {threads} {input} | samtools sort {input} -m 3000M -@ {threads} -T $TMPDIR -o {output}
+        '''
 
 rule map_SR_reads:
     input:
         reads = expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_SR_reads.sam'
+        '{assembler}_{sample}/{haplotype}_scaffolds_SR_reads.sam' #TEMP
     threads: 24
     resources:
         mem_mb = 6000,
         walltime = '4:00'
     shell:
-        'minimap2 -ax sr -t {threads} {input.asm} {input.reads} > {output}'
+        'minimap2 -ax sr -t {threads} {input.asm} {input.reads} > {output}' # | samtools view -b -o {output} -
 
 rule sam_to_bam:
     input:
