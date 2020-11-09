@@ -34,7 +34,7 @@ rule generate_hapmers:
         sire = 'data/sire.{read_t}.meryl',
         child = 'data/reads.100.hifi.meryl'
     output:
-        expand('data/{parent}.{{read_t}}.hapmer.meryl', parent = ('dam', 'sire'))
+        directory(expand('data/{parent}.{{read_t}}.hapmer.meryl', parent = ('dam', 'sire')))
     threads: 12
     resources:
         mem_mb = 4000

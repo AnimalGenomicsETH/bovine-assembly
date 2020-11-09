@@ -20,7 +20,7 @@ rule raw_merge_files:
 
 rule convert_reads_to_fasta:
     input:
-        f'{config["data"][config["animal"]]["long_reads"][{{parent}}]}.ccs.bam'
+        lambda wildcards: f'{config["data"][config["animal"]]["long_reads"][{{wildcards.parent}}]}.ccs.bam'
     output:
         'data/{parent}.fasta'
     shell:

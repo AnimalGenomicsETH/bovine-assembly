@@ -108,7 +108,7 @@ rule map_hifi_cell:
     threads: 24
     resources:
         mem_mb = 4000,
-        walltime = '4:00'
+        walltime = '20:00'
     shell:
         '''
         winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} | samtools view -b -o {output} -
@@ -125,7 +125,7 @@ rule merge_sort_map_cells:
         disk_scratch = lambda wildcards, input: int(input.size_mb/750)
     shell:
         '''
-        samtools cat -@ {threads} {input} | samtools sort {input} -m 3000M -@ {threads} -T $TMPDIR -o {output}
+        samtools cat --threads {threads} {input} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}
         '''
 
 rule map_SR_reads:
@@ -159,7 +159,7 @@ rule prep_window:
     output:
         fai = '{assembler}_{sample}/{haplotype}.scaffolds.fasta.fai',
         genome = '{assembler}_{sample}/{haplotype}.genome',
-            bed = '{assembler}_{sample}/{haplotype}.windows.bed'
+        bed = '{assembler}_{sample}/{haplotype}.windows.bed'
     params:
         10000
     shell:
