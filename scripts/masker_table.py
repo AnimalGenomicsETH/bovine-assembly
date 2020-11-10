@@ -31,7 +31,7 @@ def main(direct_input=None):
 
     args = parser.parse_args(direct_input)
 
-    df = build_repeat_dataframe(f'split_{args.haplotype}_{args.sample}_{args.assembler}_chrm')
+    df = build_repeat_dataframe(f'{args.assembler}_{args.sample}/{args.haplotype}_split_chrm')
     df.to_csv(f'results/{args.haplotype}_{args.sample}_{args.assembler}.repeats.csv',index=False)
 
 if __name__ == '__main__':

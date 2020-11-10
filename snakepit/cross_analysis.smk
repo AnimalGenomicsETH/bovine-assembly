@@ -1,4 +1,4 @@
-localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes, masked_stats
+localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes, masked_stats, mumandco
 
 rule count_telomers:
     input:
@@ -217,8 +217,8 @@ checkpoint split_chromosomes:
         grep "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ur_tigs}
         grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ua_tigs}
         awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {output}/{params.chrm}
-        split -a 2 -d -C 50Mib --additional-suffix=.chrm.fa {output}/{params.ua_tigs} {output}/unplaced_asm_contigs_
-        split -a 2 -d -C 50Mib --additional-suffix=.chrm.fa {output}/{params.ur_tigs} {output}/unplaced_ref_contigs_
+        split -a 2 -d -C 50MiB --additional-suffix=.chrm.fa {output}/{params.ua_tigs} {output}/unplaced_asm_contigs_
+        split -a 2 -d -C 50MiB --additional-suffix=.chrm.fa {output}/{params.ur_tigs} {output}/unplaced_ref_contigs_
         rm {output}/{params.headers} {output}/{params.chrm} {output}/{params.ua_tigs} {output}/{params.ur_tigs}
         '''
 
@@ -259,6 +259,14 @@ rule masked_stats:
         'results/{haplotype}_{sample}_{assembler}.repeats.csv'
     shell:
         'python {workflow.basedir}/scripts/masker_table.py --haplotype {wildcards.haplotype} --sample {wildcards.sample} --assembler {wildcards.assembler}'
+
+rule mumandco:
+    input:
+        '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
+    output:
+        directory('{assembler}_{sample}/{haplotype}_SV')
+    shell:
+        'mumandco -r {config[ref_genome]} -q {input} -g $( echo "({config[genome_est]}*1000000000)/1" | bc) -o {output}'
 
 rule TGS_gapcloser:
     input:

@@ -7,10 +7,12 @@ from numpy import linspace, cumsum
 
 animal, haplotype, sample, assembler = '', '', '', ''
 
-def open_results(extension):
-    return open(f'results/{animal}_{haplotype}_{sample}_{assembler}.{extension}','r')
+file_basename = f'{haplotype}_{sample}_{assembler}'
 
-def plot_chromosome_scaffolds(animal,assembler,sample):
+def open_results(extension):
+    return open(f'{file_basename}.{extension}','r')
+
+def plot_chromosome_scaffolds():
     chromosome = 0
     fig, ax = plt.subplots()
 
@@ -27,7 +29,7 @@ def plot_chromosome_scaffolds(animal,assembler,sample):
             for height, bottom in zip(scaffolds,h_sums):
                 ax.bar(chromosome,height,bottom=bottom,width=0.5,color=next(colours))
 
-    f_name = f'figures/{animal}_{sample}_{assembler}.chromosomes.png'
+    f_name = f'figures/{file_basename}.chromosomes.png'
     fig.savefig(f_name)
     return f_name
 
@@ -48,7 +50,7 @@ def load_auNCurves():
 
     return auN_values, metrics
 
-def plot_auNCurves(details):
+def plot_auNCurves():
     data, metrics = load_auNCurves()
     auN_data, aln_metrics = load_NGA()
 
@@ -74,7 +76,7 @@ def plot_auNCurves(details):
     ax_L.set_ylabel('number of contigs',fontsize=14)
 
     plt.tight_layout()
-    save_path = f'figures/{details}_auN_curves.png'
+    save_path = f'figures/{file_basename}_auN_curves.png'
     fig.savefig(save_path)
 
     return metrics, aln_metrics, save_path
@@ -156,7 +158,7 @@ def generate_markdown_reads():
                 f'Sampled at: {sample}\n\n' \
                 f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
 
-    df = pandas.read_csv(f'data/{animal}.{sample}.QC.txt')
+    df = pandas.read_csv(f'data/reads.{sample}.QC.txt')
     stats = df.describe().transpose()
 
     build_str += '## read metrics \n' \
@@ -169,9 +171,9 @@ def generate_markdown_reads():
         build_str += f'| {row} | {" | ".join(map("{:.2f}".format,stats.loc[row][1:]))} |\n'
     build_str += '\n'
 
-    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig(f'figures/{animal}.{sample}.QC.png')
+    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig(f'figures/reads.{sample}.QC.png')
 
-    build_str += IMAGE(f'figures/{animal}.{sample}.QC.png',.6) + '\n\n'
+    build_str += IMAGE(f'figures/reads.{sample}.QC.png',.6) + '\n\n'
     return build_str
 
 def generate_markdown_string(build_str,summary_str):
@@ -187,12 +189,12 @@ def generate_markdown_string(build_str,summary_str):
 
     build_str += '## assembly metrics\n'
 
-    asm_metrics, aln_metrics, auN_plot = plot_auNCurves(f'{animal}_{haplotype}_{sample}_{assembler}')
+    asm_metrics, aln_metrics, auN_plot = plot_auNCurves()
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]:,}\n\n'
 
     build_str += '### scaffolded chromosomes\n' + \
-                 IMAGE(plot_chromosome_scaffolds(animal,assembler,sample),.5) + '\n\n'
+                 IMAGE(plot_chromosome_scaffolds(),.5) + '\n\n'
 
     build_str += f'Contig length and quantity\n\n' \
                  f'**N50**: {asm_metrics["N50"]/1e6:.2f} mb\n\n' \
@@ -201,8 +203,8 @@ def generate_markdown_string(build_str,summary_str):
 
     if assembler == 'canu':
         build_str += 'Purged coverage:\n\n' + \
-                     IMAGE(f'{assembler}_{sample}/{animal}.contigs_raw.spectra.png',.4) + \
-                     IMAGE(f'{assembler}_{sample}/{animal}.purged.spectra.png',.4) + '\n\n'
+                     IMAGE(f'{assembler}_{sample}/{haplotype}.contigs_raw.spectra.png',.4) + \
+                     IMAGE(f'{assembler}_{sample}/{haplotype}.purged.spectra.png',.4) + '\n\n'
 
     build_str += '### reference metrics\n' \
                  '* Coverage\n' \
@@ -212,7 +214,7 @@ def generate_markdown_string(build_str,summary_str):
                  '* Contigs\n' \
                  f'  * breaks: {aln_metrics["#breaks"]}\n' \
                  f'  * auNGA: {aln_metrics["AUNGA"]}\n\n' + \
-                 IMAGE(f'results/{animal}_{haplotype}_{sample}_{assembler}.dot.png',.7) + '\n\n'
+                 IMAGE(f'results/{file_basename}.dot.png',.7) + '\n\n'
 
     build_str += '## validation results\n\n'
 
@@ -220,8 +222,11 @@ def generate_markdown_string(build_str,summary_str):
     build_str += '### merqury k-mers\n' \
                  f'Coverage: {float(kmer_stats["CV"])/100:.1%}\n\n' \
                  f'QV: {kmer_stats["QV"]}\n\n' + \
-                 IMAGE(f'{assembler}_{sample}/{animal}.{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
-
+                 IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
+    
+    build_str += f'Switch error: {kmer_stats["switch"]}\n\n' \
+                 IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'             
+    
     lineage, busco_string = busco_report()
     build_str += '### BUSCO \n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
