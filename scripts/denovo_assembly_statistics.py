@@ -224,7 +224,7 @@ def generate_markdown_string(build_str,summary_str):
                  f'QV: {kmer_stats["QV"]}\n\n' + \
                  IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
     
-    build_str += f'Switch error: {kmer_stats["switch"]}\n\n' \
+    build_str += f'Switch error: {kmer_stats["switch"]}\n\n' + \
                  IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'             
     
     lineage, busco_string = busco_report()

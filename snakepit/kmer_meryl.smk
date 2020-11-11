@@ -1,19 +1,5 @@
 localrules: split_reads, merqury_formatting
 
-rule count_SR_reads:
-    input:
-        'data/{parent}_R{N}.fastq.gz'
-    output:
-        directory('datax/{parent}.read_R{N}.meryl')
-    threads: 6
-    resources:
-        mem_mb = 10000,
-        walltime = '12:00'
-    params:
-        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
-    shell:
-        'meryl count k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input}'
-
 rule merge_SR_reads:
     input:
         expand('data/{{parent}}.read_R{N}.SR.meryl', N = (1,2))
