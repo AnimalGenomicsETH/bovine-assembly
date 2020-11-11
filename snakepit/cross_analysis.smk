@@ -217,8 +217,8 @@ checkpoint split_chromosomes:
         grep "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ur_tigs}
         grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ua_tigs}
         awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {output}/{params.chrm}
-        split -a 2 -d -C 50MiB --additional-suffix=.chrm.fa {output}/{params.ua_tigs} {output}/unplaced_asm_contigs_
-        split -a 2 -d -C 50MiB --additional-suffix=.chrm.fa {output}/{params.ur_tigs} {output}/unplaced_ref_contigs_
+        split -a 2 -d -l 50 --additional-suffix=.chrm.fa {output}/{params.ua_tigs} {output}/unplaced_asm_contigs_
+        split -a 2 -d -l 50 --additional-suffix=.chrm.fa {output}/{params.ur_tigs} {output}/unplaced_ref_contigs_
         rm {output}/{params.headers} {output}/{params.chrm} {output}/{params.ua_tigs} {output}/{params.ur_tigs}
         '''
 
@@ -248,17 +248,13 @@ rule merge_masked_chromosomes:
     input:
         aggregate_chrm_input
     output:
-        '{assembler}_{sample}/{haplotype}.scaffolds.fasta.masked'
-    shell:
-        'cat {input} > {output}'
-
-rule masked_stats:
-    input:
-        '{assembler}_{sample}/{haplotype}.scaffolds.fasta.masked'
-    output:
+        '{assembler}_{sample}/{haplotype}.scaffolds.fasta.masked',
         'results/{haplotype}_{sample}_{assembler}.repeats.csv'
     shell:
-        'python {workflow.basedir}/scripts/masker_table.py --haplotype {wildcards.haplotype} --sample {wildcards.sample} --assembler {wildcards.assembler}'
+        '''
+        cat {input} > {output}
+        python {workflow.basedir}/scripts/masker_table.py --haplotype {wildcards.haplotype} --sample {wildcards.sample} --assembler {wildcards.assembler}
+        '''
 
 rule mumandco:
     input:

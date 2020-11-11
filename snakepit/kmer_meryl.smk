@@ -71,7 +71,7 @@ rule merqury_spectra_cn:
     output:
         multiext('{assembler}_{sample}/{hap}.{read_t}', '.qv', '.completeness.stats')
     params:
-        dir_ = lambda wildcards, output: PurePath(output[0]).parent, 
+        dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         out = '{hap}.{read_t}',
         read_db = lambda wildcards, input: '..' / PurePath(input['read_db']),
         asm = lambda wildcards, input: tuple(PurePath(fname).name for fname in input['asm'])
@@ -177,7 +177,7 @@ checkpoint split_reads:
     shell:
         '''
         mkdir -p {output}
-        zcat {input} | split -a 2 -d -C {params}GiB --filter='pigz -p 6 > $FILE.fq.gz' - {output}/chunk_
+        zcat {input} | split -a 2 -d -l {params} --filter='pigz -p 6 > $FILE.fq.gz' - {output}/chunk_
         '''
 
 rule count_many:
