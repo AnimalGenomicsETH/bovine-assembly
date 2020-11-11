@@ -28,8 +28,8 @@ k-mers: 21
 genome_est: 2.7
 mem_adj: 1100
 split_size:
-  hifi: 10
-  SR: 2
+  hifi: 5000000
+  SR: 200000000
 winnow_threshold: 0.9998
 haplotypes:
   - 'asm'
