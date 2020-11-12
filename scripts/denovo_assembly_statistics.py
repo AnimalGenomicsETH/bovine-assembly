@@ -7,10 +7,11 @@ from numpy import linspace, cumsum
 
 animal, haplotype, sample, assembler = '', '', '', ''
 
-file_basename = f'{haplotype}_{sample}_{assembler}'
+def get_basename():
+    return f'{haplotype}_{sample}_{assembler}'
 
 def open_results(extension):
-    return open(f'{file_basename}.{extension}','r')
+    return open(f'results/{get_basename()}.{extension}','r')
 
 def plot_chromosome_scaffolds():
     chromosome = 0
@@ -29,7 +30,7 @@ def plot_chromosome_scaffolds():
             for height, bottom in zip(scaffolds,h_sums):
                 ax.bar(chromosome,height,bottom=bottom,width=0.5,color=next(colours))
 
-    f_name = f'figures/{file_basename}.chromosomes.png'
+    f_name = f'figures/{get_basename()}.chromosomes.png'
     fig.savefig(f_name)
     return f_name
 
@@ -57,8 +58,6 @@ def plot_auNCurves():
     fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(6, 4))
 
     x_vals = linspace(0,100,len(data[0]))
-    print(x_vals)
-    print(auN_data)
     ax_N.plot(x_vals,data[0],'forestgreen',label='Nx')
     ax_N.plot(x_vals,auN_data[0],'darkorange',label='NGx')
     ax_N.plot(x_vals,auN_data[1],'darkmagenta',label='NGAx')
@@ -76,7 +75,7 @@ def plot_auNCurves():
     ax_L.set_ylabel('number of contigs',fontsize=14)
 
     plt.tight_layout()
-    save_path = f'figures/{file_basename}_auN_curves.png'
+    save_path = f'figures/{get_basename()}_auN_curves.png'
     fig.savefig(save_path)
 
     return metrics, aln_metrics, save_path
@@ -94,7 +93,6 @@ def load_NGA():
             else:
                 (key, value) = line.rstrip().split()
                 data[key] = value
-    print(auN_data)
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
 def kmer_QV():
@@ -167,11 +165,11 @@ def generate_markdown_reads():
     build_str += f'| | {" | ".join(stats.columns[1:])} |\n' + \
                  ' -- '.join('|'*(len(stats.columns)+1)) +'\n'
 
-    for row in ('length','quality'):
+    for row in ('length',' quality'):
         build_str += f'| {row} | {" | ".join(map("{:.2f}".format,stats.loc[row][1:]))} |\n'
     build_str += '\n'
 
-    seaborn.jointplot(data=df,x='length',y='quality',kind='hex',joint_kws={'bins':'log'}).savefig(f'figures/reads.{sample}.QC.png')
+    seaborn.jointplot(data=df,x='length',y=' quality',kind='hex',joint_kws={'bins':'log'}).savefig(f'figures/reads.{sample}.QC.png')
 
     build_str += IMAGE(f'figures/reads.{sample}.QC.png',.6) + '\n\n'
     return build_str
@@ -214,18 +212,18 @@ def generate_markdown_string(build_str,summary_str):
                  '* Contigs\n' \
                  f'  * breaks: {aln_metrics["#breaks"]}\n' \
                  f'  * auNGA: {aln_metrics["AUNGA"]}\n\n' + \
-                 IMAGE(f'results/{file_basename}.dot.png',.7) + '\n\n'
+                 IMAGE(f'results/{get_basename()}.dot.png',.7) + '\n\n'
 
     build_str += '## validation results\n\n'
 
     kmer_stats = kmer_QV()
-    build_str += '### merqury k-mers\n' \
-                 f'Coverage: {float(kmer_stats["CV"])/100:.1%}\n\n' \
-                 f'QV: {kmer_stats["QV"]}\n\n' + \
-                 IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
+    build_str += '### merqury k-mers\n' #\
+                 #f'Coverage: {float(kmer_stats["CV"])/100:.1%}\n\n' \
+                 #f'QV: {kmer_stats["QV"]}\n\n' + \
+    build_str += IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
     
-    build_str += f'Switch error: {kmer_stats["switch"]}\n\n' + \
-                 IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'             
+    #build_str += f'Switch error: {kmer_stats["switch"]}\n\n' + \
+    build_str += IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'             
     
     lineage, busco_string = busco_report()
     build_str += '### BUSCO \n' \
@@ -241,7 +239,7 @@ def generate_markdown_string(build_str,summary_str):
         build_str += f'| {row} | {" | ".join(values)} |\n'
 
     summary_str += f'| *{assembler}* | {haplotype} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
-                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
+                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {busco_string[2:7]} | xx |\n' #{float(kmer_stats["QV"]):.1f} |\n'
 
 
     return build_str, summary_str

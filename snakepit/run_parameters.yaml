@@ -29,7 +29,7 @@ genome_est: 2.7
 mem_adj: 1100
 split_size:
   hifi: 5000000
-  SR: 200000000
+  SR: 100000000
 winnow_threshold: 0.9998
 haplotypes:
   - 'asm'

@@ -1,4 +1,4 @@
-localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes, masked_stats, mumandco
+localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes, mumandco
 
 rule count_telomers:
     input:
