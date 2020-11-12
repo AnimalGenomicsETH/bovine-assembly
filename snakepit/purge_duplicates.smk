@@ -3,7 +3,7 @@ localrules: cut_and_split, purge_dups, assess_purging
 rule map_reads:
     input:
         asm = '{assembler}_{sample}/{haplotype}.contigs_raw.fa',
-        reads = 'data/reads.{sample}.hifi.fq.gz'
+        reads = 'data/offspring.{sample}.hifi.fq.gz'
     output:
         '{assembler}_{sample}/{haplotype}_pd/read_aln.paf'
     params:
@@ -66,19 +66,19 @@ rule purge_dups:
 
 rule assess_purging:
     input:
-        matrix = expand('{{assembler}}_{{sample}}/{{haplotype}}_pd/{progress}.matrix',progress=['purged','contigs_raw']),
-        purged = '{assembler}_{sample}/{haplotype}_pd/purged.fa'
+        matrix = expand('canu_{{sample}}/{{haplotype}}_pd/{progress}.matrix',progress=['purged','contigs_raw']),
+        purged = 'canu_{sample}/{haplotype}_pd/purged.fa'
     output:
-        '{assembler}_{sample}/{haplotype}.contigs.fasta'
+        'canu_{sample}/{haplotype}.contigs.fasta'
     shell:
         'mv {input.purged} {output}'
 
 rule KMC_reads:
     input:
-        'data/reads.{sample}.hifi.fq.gz'
+        'data/offspring.{sample}.hifi.fq.gz'
     output:
-        base = 'data/reads.{sample}.kmer_reads',
-        raw = multiext('data/reads.{sample}.kmer_reads','','.kmc_pre','.kmc_suf')
+        base = 'data/offspring.{sample}.kmer_reads',
+        raw = multiext('data/offspring.{sample}.kmer_reads','','.kmc_pre','.kmc_suf')
     threads: 12
     resources:
         mem_mb = 4000,
@@ -112,7 +112,7 @@ rule KMC_ref:
 
 rule KMC_analysis:
     input:
-        reads = 'data/reads.{sample}.kmer_reads',
+        reads = 'data/offspring.{sample}.kmer_reads',
         asm = '{assembler}_{sample}/{haplotype}_pd/{haplotype}_kmer_{progress}'
     output:
         matrix = '{assembler}_{sample}/{haplotype}_pd/{progress}.matrix',

@@ -44,8 +44,12 @@ def add_std(x,y,data,**kwargs):
     std = np.std(data['y'])
     ax = plt.gca()
     ax.axhline(mean,c='r')
-    ax.set_ylim([0,50])
+    print(f'mean {mean:.2f}, std {std:.2f}')
+    ax.set_ylim([0,100])
     for sign in (1,-1):
         ax.axhline(mean+sign*std,c='k',ls='--')
 
-plot_chromosomes_new('../data/asm_100_canu','hifi','NC')
+plot_chromosomes_new('../data/asm_100_hifiasm','hifi','NC')
+
+
+plot_chromosomes_new('../data/asm_100_hifiasm','minimap2','NC')

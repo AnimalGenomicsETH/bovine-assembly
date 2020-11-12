@@ -1,10 +1,10 @@
-localrules: raw_merge_files, sample_data, raw_QC
+localrules: raw_merge_files, sample_data, raw_QC, fastq_to_fasta
 
 rule raw_read_conversion:
     input:
-        raw_long_reads
+        lambda wildcards: f'{config["data"][config["animal"]]["long_reads"][wildcards.individual]}{{read_name}}.ccs.bam'
     output:
-        temp('data/{read_name}.temp.fastq.gz')
+        temp('data/{individual}_{read_name}.temp.fastq.gz')
     threads: 8
     resources:
         mem_mb = 3000
@@ -13,31 +13,29 @@ rule raw_read_conversion:
 
 rule raw_merge_files:
     input:
-        expand('data/{read_name}.temp.fastq.gz',read_name=glob_wildcards(raw_long_reads).read_name)
+        lambda wildcards: expand('data/{{individual}}_{read_name}.temp.fastq.gz',read_name=glob_wildcards(f'{config["data"][config["animal"]]["long_reads"][wildcards.individual]}{{read_name}}.ccs.bam').read_name)
     output:
-        protected('data/reads.raw.hifi.fq.gz')
+        protected('data/{individual}.raw.hifi.fq.gz')
     shell: 'cat {input} > {output}'
-
-rule convert_reads_to_fasta:
-    input:
-        lambda wildcards: f'{config["data"][config["animal"]]["long_reads"][{{wildcards.parent}}]}.ccs.bam'
-    output:
-        'data/{parent}.fasta'
-    shell:
-        '''
-        samtools fasta -@ {threads} -c 0 -0 /dev/null {input} > {output}
-        '''
 
 rule filter_hifi_data:
     input:
-        'data/reads.raw.hifi.fq.gz'
+        'data/{individual}.raw.hifi.fq.gz'
     output:
-        'data/reads.cleaned.hifi.fq.gz'
+        'data/{individual}.cleaned.hifi.fq.gz'
     threads: 12
     resources:
         mem_mb = 4000
     shell:
-        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --length_limit {config[filtering][max_length]} --thread {threads} --html data/reads.html --json /dev/null'
+        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --length_limit {config[filtering][max_length]} --thread {threads} --html data/{wildcards.individual}.html --json /dev/null'
+
+rule fastq_to_fasta:
+    input:
+        'data/{parent}.cleaned.hifi.fq.gz'
+    output:
+        'data/{parent}.hifi.fasta'
+    shell:
+        'seqtk seq -a {input} > {output}'
 
 rule filter_SR_data:
     input:
@@ -52,9 +50,9 @@ rule filter_SR_data:
 
 rule sample_data:
     input:
-        'data/reads.cleaned.hifi.fq.gz'
+        'data/offspring.cleaned.hifi.fq.gz'
     output:
-        'data/reads.{sample}.hifi.fq.gz'
+        'data/offspring.{sample}.hifi.fq.gz'
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
@@ -70,8 +68,8 @@ rule sample_data:
 
 rule raw_QC:
     input:
-        'data/reads.{read_t}.hifi.fq.gz'
+        'data/offspring.{read_t}.hifi.fq.gz'
     output:
-        'data/reads.{read_t}.QC.txt'
+        'data/offspring.{read_t}.QC.txt'
     shell:
         '{workflow.basedir}/src/fasterqc {input} {output}'

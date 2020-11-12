@@ -1,4 +1,4 @@
-localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes, mumandco
+localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes
 
 rule count_telomers:
     input:
@@ -38,7 +38,7 @@ rule count_scaffold_gaps:
 rule ragtag_correct:
     input:
         asm = '{assembler}_{sample}/{haplotype}.contigs.fasta',
-        reads = 'data/reads.cleaned.hifi.fq.gz'
+        reads = 'data/offspring.cleaned.hifi.fq.gz'
     output:
         '{assembler}_{sample}/{haplotype}.contigs.corrected.fasta'
     threads: 24
@@ -84,7 +84,7 @@ rule generate_winnow_meryl:
 
 rule map_hifi_reads:
     input:
-        reads = 'data/reads.cleaned.hifi.fq.gz',
+        reads = 'data/offspring.cleaned.hifi.fq.gz',
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
         rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
     output:
@@ -100,7 +100,7 @@ rule map_hifi_reads:
 
 rule map_hifi_cell:
     input:
-        reads = 'data/{read_name}.temp.fastq.gz',
+        reads = 'data/offspring_{read_name}.temp.fastq.gz',
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
         rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
     output:
@@ -256,22 +256,14 @@ rule merge_masked_chromosomes:
         python {workflow.basedir}/scripts/masker_table.py --haplotype {wildcards.haplotype} --sample {wildcards.sample} --assembler {wildcards.assembler}
         '''
 
-rule mumandco:
-    input:
-        '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
-    output:
-        directory('{assembler}_{sample}/{haplotype}_SV')
-    shell:
-        'mumandco -r {config[ref_genome]} -q {input} -g $( echo "({config[genome_est]}*1000000000)/1" | bc) -o {output}'
-
 rule TGS_gapcloser:
     input:
         scaffolds = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
-        reads = lambda wildcards: expand('data/{parent}.fasta', parent = 'sire' if wildcards.haplotype == 'hap1' else 'dam')
+        reads = lambda wildcards: expand('data/{parent}.hifi.fasta', parent = 'sire' if wildcards.haplotype == 'hap1' else 'dam')
     output:
         '{assembler}_{sample}/{haplotype}.scaff_seq'
     params:
-        '{assembler}_{sample}/{haplotype}'
+        out = '{assembler}_{sample}/{haplotype}'
     threads: 16
     resources:
         mem_mb = 5000
@@ -284,7 +276,7 @@ rule polish_scaffolds:
     input:
         scaffolds = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
         aln = '{assembler}_{sample}/{haplotype}_scaffolds_reads.sam',
-        reads = 'data/reads.{sample}.hifi.fq.gz'
+        reads = 'data/offspring.{sample}.hifi.fq.gz'
     output:
         '{assembler}_{sample}/{haplotype}.polished.fasta'
     threads: 16

@@ -18,7 +18,7 @@ rule generate_hapmers:
     input:
         dam = 'data/dam.{read_t}.meryl',
         sire = 'data/sire.{read_t}.meryl',
-        child = 'data/reads.100.hifi.meryl'
+        child = 'data/offspring.100.hifi.meryl'
     output:
         directory(expand('data/{parent}.{{read_t}}.hapmer.meryl', parent = ('dam', 'sire')))
     params:
@@ -64,10 +64,10 @@ rule hap_blob:
 
 rule merqury_spectra_cn:
     input:
-        read_db = 'data/reads.{sample}.hifi.meryl',
+        read_db = 'data/offspring.{sample}.hifi.meryl',
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
         asm_dbs = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.meryl', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
-        filt = 'data/reads.{sample}.hifi.filt'
+        filt = 'data/offspring.{sample}.hifi.filt'
     output:
         multiext('{assembler}_{sample}/{hap}.{read_t}', '.qv', '.completeness.stats')
     params:
@@ -93,7 +93,7 @@ rule merqury_spectra_cn:
 
 rule spectra_hap:
     input:
-        reads = 'data/reads.{sample}.hifi.meryl',
+        reads = 'data/offspring.{sample}.hifi.meryl',
         hapmers = expand('data/{parent}.{{read_t}}.hapmer.meryl',parent=('sire','dam')),
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
         stats = multiext('{assembler}_{sample}/{hap}.{read_t}','.qv','.completeness.stats')
@@ -225,10 +225,10 @@ rule count_asm_kmers:
 
 rule merqury_prep:
     input:
-        'data/reads.{sample}.hifi.meryl'
+        'data/offspring.{sample}.hifi.meryl'
     output:
-        hist = 'data/reads.{sample}.hifi.hist',
-        filt = 'data/reads.{sample}.hifi.filt'
+        hist = 'data/offspring.{sample}.hifi.hist',
+        filt = 'data/offspring.{sample}.hifi.filt'
     threads: 12
     resources:
         mem_mb = 2000

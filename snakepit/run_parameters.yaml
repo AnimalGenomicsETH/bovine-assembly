@@ -1,10 +1,20 @@
 workdir: '../'
 animal: 'BSWCHEF120152514636'
-
 data:
+  test:
+    long_reads:
+      offspring: 'off/'
+      dam: 'dam/'
+      sire: 'sire/'
+    short_reads:
+      sire: 's'
+      dam: 'd'
+      offspring: 'o'
   BSWCHEF120152514636:
     long_reads:
       offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEF120152514636/ccs/'
+      dam: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEF120141990854/ccs/'
+      sire: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEM120127981876/ccs/'
     short_reads:
       sire: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_320'
       dam: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_409'
@@ -33,29 +43,35 @@ split_size:
 winnow_threshold: 0.9998
 haplotypes:
   - 'asm'
-  - 'hap1'
-  - 'hap2'
+  - 'trio'
+  - 'parents'
 assemblers:
   - 'hifiasm'
   - 'canu'
   #- 'flye'
 
 target_metrics:
-  - 'asm-ccs.qv.txt'
-  - 'NGA50.txt'
-  - 'auN.txt'
-  - 'asmgene.txt'
-  - 'merqury.stats.txt'
-  - 'BUSCO.txt'
-  - 'dot.png'
-  - 'gaps.txt'
-  - 'windows.hifi.coverage.txt'
-  - 'chrm.hifi.coverage.txt'
-  - 'windows.SR.coverage.txt'
-  - 'chrm.SR.coverage.txt'
-  - 'telo.txt'
-  - 'vcf'
-  - 'repeats.csv'
+  general:
+    - 'asm-ccs.qv.txt'
+    - 'NGA50.txt'
+    - 'auN.txt'
+    - 'asmgene.txt'
+    - 'BUSCO.txt'
+    - 'dot.png'
+    - 'gaps.txt'
+  primary:
+    - 'windows.hifi.coverage.txt'
+    - 'chrm.hifi.coverage.txt'
+    - 'windows.SR.coverage.txt'
+    - 'chrm.SR.coverage.txt'
+    - 'telo.txt'
+    - 'vcf'
+    - 'repeats.csv'
+    - 'merqury.stats.txt'
+  trio:
+    - 'merqury.stats.txt'
+  parents:
+    - 'vcf'
 
 ##sources of non-bin programs
 pd_root: '/cluster/work/pausch/alex/software/purge_dups'

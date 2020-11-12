@@ -15,7 +15,7 @@ rule trio_yak:
 
 rule trio_hifiasm:
     input:
-        reads = 'data/reads.{sample}.hifi.fq.gz',
+        reads = 'data/offspring.{sample}.hifi.fq.gz',
         mat = 'data/dam.yak',
         pat = 'data/sire.yak',
         asm = 'hifiasm_{sample}/asm.contigs.fasta'
@@ -38,7 +38,7 @@ rule trio_hifiasm:
 
 rule trio_canu:
     input:
-        reads = 'data/reads.{sample}.hifi.fq.gz',
+        reads = 'data/offspring.{sample}.hifi.fq.gz',
         dam = expand('data/dam.read_R{N}.SR.fq.gz', N = (1,2)),
         sire =  expand('data/sire.read_R{N}.SR.fq.gz', N = (1,2))
     output:

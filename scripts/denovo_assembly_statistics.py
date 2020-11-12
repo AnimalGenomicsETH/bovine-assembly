@@ -156,7 +156,7 @@ def generate_markdown_reads():
                 f'Sampled at: {sample}\n\n' \
                 f'Time of report generation: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
 
-    df = pandas.read_csv(f'data/reads.{sample}.QC.txt')
+    df = pandas.read_csv(f'data/offspring.{sample}.QC.txt')
     stats = df.describe().transpose()
 
     build_str += '## read metrics \n' \
@@ -169,9 +169,9 @@ def generate_markdown_reads():
         build_str += f'| {row} | {" | ".join(map("{:.2f}".format,stats.loc[row][1:]))} |\n'
     build_str += '\n'
 
-    seaborn.jointplot(data=df,x='length',y=' quality',kind='hex',joint_kws={'bins':'log'}).savefig(f'figures/reads.{sample}.QC.png')
+    seaborn.jointplot(data=df,x='length',y=' quality',kind='hex',joint_kws={'bins':'log'}).savefig(f'figures/offspring.{sample}.QC.png')
 
-    build_str += IMAGE(f'figures/reads.{sample}.QC.png',.6) + '\n\n'
+    build_str += IMAGE(f'figures/offspring.{sample}.QC.png',.6) + '\n\n'
     return build_str
 
 def generate_markdown_string(build_str,summary_str):
@@ -221,10 +221,10 @@ def generate_markdown_string(build_str,summary_str):
                  #f'Coverage: {float(kmer_stats["CV"])/100:.1%}\n\n' \
                  #f'QV: {kmer_stats["QV"]}\n\n' + \
     build_str += IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
-    
+
     #build_str += f'Switch error: {kmer_stats["switch"]}\n\n' + \
-    build_str += IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'             
-    
+    build_str += IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'
+
     lineage, busco_string = busco_report()
     build_str += '### BUSCO \n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'

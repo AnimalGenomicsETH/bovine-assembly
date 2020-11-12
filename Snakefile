@@ -30,12 +30,12 @@ include: 'snakepit/cross_analysis.smk'
 include: 'snakepit/data_preparation.smk'
 include: 'snakepit/trio_assemblies.smk'
 include: 'snakepit/purge_duplicates.smk'
-
-
+include: 'snakepit/variant_calling.smk'
+include: 'snakepit/capture_logic.smk'
 
 wildcard_constraints:
     assembler = r'[^\W_]+',
-    parent = r'[^\W_]+',
+    parent = r'dam|sire',
     haplotype = r'\w+',
     hap = r'\w+',
     sample = r'\d+',
@@ -53,11 +53,11 @@ rule all:
 if 'hifiasm' in config['assemblers']:
     rule assembler_hifiasm:
         input:
-            'data/reads.{sample}.hifi.fq.gz'
+            'data/offspring.{sample}.hifi.fq.gz'
         output:
             'hifiasm_{sample}/asm.p_ctg.gfa'
         params:
-            out = 'hifiasm_{sample}/asm',
+            out = lambda wildcards, output: PurePath(output[0]).parent,
             settings = '-r 4 -a 5 -n 5'
         threads: 36
         resources:
@@ -77,11 +77,26 @@ if 'hifiasm' in config['assemblers']:
             walltime = '0:45'
         shell: 'gfatools gfa2fa {input} > {output}'
 
+    rule assembler_hifiasm_parental:
+        input:
+            'data/{parent}.cleaned.hifi.fq.gz'
+        output:
+            'hifiasm_100/{parent}.p_ctg.gfa'
+        params:
+            out = 'hifiasm_100/{parent}',
+            settings = '-r 4 -a 5 -n 5'
+        threads: 36
+        resources:
+            mem_mb = lambda wildcards, input, threads: int(input.size_mb*1.75/threads),
+            walltime = '24:00'
+        shell:
+            'hifiasm -o {params.out} -t {threads} {params.settings} {input}'
+
 if 'canu' in config['assemblers']:
-    localrules: assembler_canu, strip_canu_bubbles
+    localrules: assembler_canu, strip_canu_bubbles, assembler_canu_parents
     rule assembler_canu:
         input:
-            'data/reads.{sample}.hifi.fq.gz'
+            'data/offspring.{sample}.hifi.fq.gz'
         output:
             'canu_{sample}/asm.contigs_all.fa'
         log: 'logs/assembler_canu/sample-{sample}.asm.out'
@@ -95,6 +110,24 @@ if 'canu' in config['assemblers']:
             rm canu_{wildcards.sample}/{params.temp}
             mv canu_{wildcards.sample}/asm.contigs.fasta {output}
             '''
+
+    rule assembler_canu_parents:
+        input:
+            'data/{parent}.cleaned.hifi.fq.gz'
+        output:
+            'canu_100/{parent}.contigs_all.fa'
+        log: 'logs/assembler_canu_parents/parent-{parent}.out'
+        params:
+            temp = '{parent}.complete'
+        shell:
+            '''
+            canu -p {wildcards.parent} -d canu_100 genomeSize={config[genome_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" onFailure="touch {params.temp}" > {log}
+            while [ ! -e canu_100/{params.temp} ]; do sleep 60; done
+            echo "complete file found, ending sleep loop"
+            rm canu_100/{params.temp}
+            mv canu_100/{wildcards.parent}.contigs.fasta {output}
+            '''
+
     rule strip_canu_bubbles:
         input:
             'canu_{sample}/{haplotype}.contigs_all.fa'
@@ -106,7 +139,7 @@ if 'canu' in config['assemblers']:
 if 'flye' in config['assemblers']:
     rule assembler_flye:
         input:
-            'data/reads.{sample}.hifi.fq.gz'
+            'data/offspring.{sample}.hifi.fq.gz'
         output:
             'flye_{sample}/asm.contigs.fasta'
         threads: 36
@@ -122,7 +155,7 @@ if 'flye' in config['assemblers']:
 ##Requires yak installed
 rule validation_yak:
     input:
-        reads = 'data/reads.{sample}.hifi.fq.gz',
+        reads = 'data/offspring.{sample}.hifi.fq.gz',
         contigs = '{assembler}_{sample}/{haplotype}.contigs.fasta'
     output:
         yak = temp('intermediates/{haplotype}_{sample}_{assembler}.yak'),
@@ -167,7 +200,7 @@ rule validation_refalign:
 rule validation_asmgene:
     input:
         asm = '{assembler}_{sample}/{haplotype}.contigs.fasta',
-        reads = 'data/reads.{sample}.hifi.fq.gz'
+        reads = 'data/offspring.{sample}.hifi.fq.gz'
     output:
         asm_paf = temp('intermediates/{haplotype}_{sample}_{assembler}_asm_aln.paf'),
         ref_paf = temp('intermediates/{haplotype}_{sample}_{assembler}_ref_aln.paf'),
@@ -258,8 +291,9 @@ rule generate_reffai:
 
 rule analysis_report:
     input:
-        expand('results/{haplotype}_{{sample}}_{assembler}.{ext}',haplotype=config['haplotypes'],assembler=config['assemblers'],ext=config['target_metrics']),
-        'data/reads.{sample}.QC.txt'#,
+        capture_logic
+        #expand('results/{haplotype}_{{sample}}_{assembler}.{ext}',haplotype=config['haplotypes'],assembler=config['assemblers'],ext=config['target_metrics']),
+        #'data/reads.{sample}.QC.txt'#,
         #glob_purges#,
         #expand('{assembler}_{{sample}}/{{animal}}.scaffolds.fasta.masked',assembler=config['assemblers'])
     output:
