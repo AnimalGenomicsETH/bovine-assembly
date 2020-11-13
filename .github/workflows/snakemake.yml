@@ -4,7 +4,7 @@ on:
     branches: [ master ]
 jobs:
   build:
-    runs_on: ubuntu_latest
+    runs-on: ubuntu_latest
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
