@@ -27,6 +27,7 @@ include: 'snakepit/data_preparation.smk'
 include: 'snakepit/trio_assemblies.smk'
 include: 'snakepit/purge_duplicates.smk'
 include: 'snakepit/variant_calling.smk'
+include: 'snakepit/mappers.smk'
 include: 'snakepit/capture_logic.smk'
 
 wildcard_constraints:
@@ -232,34 +233,13 @@ rule validation_busco:
         mv {params.tmp_dir} {output.out_dir}
         '''
 
-rule generate_dot_paf:
-    input:
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
-    output:
-        '{assembler}_{sample}/{haplotype}_ref_scaffolds.paf'
-    #params:
-    #   ref = lambda wildcards: config['ref_genome'][wildcards.reference]
-    threads: 24
-    resources:
-        mem_mb = 2000
-    shell:
-        'minimap2 -cx asm5 --cs -t {threads} {config[ref_genome]} {input.asm} > {output}'
-
 rule plot_dot:
     input:
-        '{assembler}_{sample}/{haplotype}_ref_scaffolds.paf'
+        '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.{mapper}.paf'
     output:
-        'results/{haplotype}_{sample}_{assembler}.dot.png'
+        'results/{haplotype}_{sample}_{assembler}.{reference}.{mapper}.dot.png'
     shell:
         'minidot -L {input} | convert -density 150 - {output}'
-
-rule paf_variants:
-    input:
-        '{assembler}_{sample}/{haplotype}_ref_scaffolds.paf'
-    output:
-        'results/{haplotype}_{sample}_{assembler}.vcf'
-    shell:
-        'sort {input} -k6,6 -k8,8n | paftools.js call -f {config[ref_genome]} - > {output}'
 
 rule generate_reffai:
     output:

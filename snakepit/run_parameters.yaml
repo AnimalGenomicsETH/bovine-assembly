@@ -57,22 +57,24 @@ target_metrics:
     - 'auN.txt'
     - 'asmgene.txt'
     - 'BUSCO.txt'
-    - 'dot.png'
+    - 'ref.mm2.dot.png'
+    - 'ref.wm2.dot.png'
     - 'gaps.txt'
     - 'ref.mumSV.txt'
+    - 'mm2.vcf'
+    - 'wm2.vcf'
   primary:
     - 'windows.hifi.coverage.txt'
     - 'chrm.hifi.coverage.txt'
     - 'windows.SR.coverage.txt'
     - 'chrm.SR.coverage.txt'
     - 'telo.txt'
-    - 'vcf'
     - 'repeats.csv'
     - 'merqury.stats.txt'
   trio:
     - 'merqury.stats.txt'
   parents:
-    - 'vcf'
+    - 'merqury.stats.txt'
 
 ##sources of non-bin programs
 pd_root: '/cluster/work/pausch/alex/software/purge_dups'
