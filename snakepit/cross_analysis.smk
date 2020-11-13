@@ -66,77 +66,6 @@ rule ragtag_scaffold:
         mv {params}/ragtag.scaffolds.fasta {output}
         '''
 
-rule generate_winnow_meryl:
-    input:
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
-    output:
-        db = temp(directory('{assembler}_{sample}/{haplotype}_winnow_k{K,\d+}.meryl')),
-        rep = temp('{assembler}_{sample}/{haplotype}_repetitive_k{K,\d+}.txt')
-    threads: 6
-    resources:
-        mem_mb = 3000,
-        walltime = '1:00'
-    shell:
-        '''
-        meryl count k={wildcards.K} output {output.db} {input.asm}
-        meryl print greater-than distinct={config[winnow_threshold]} {output.db} > {output.rep}
-        '''
-
-rule map_hifi_cell:
-    input:
-        reads = 'data/offspring_{read_name}.temp.fastq.gz',
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
-        rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
-    output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads_{read_name}.bam'
-    threads: 24
-    resources:
-        mem_mb = 4000,
-        walltime = '20:00'
-    shell:
-        '''
-        winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} | samtools view -b -o {output} -
-        '''
-
-rule merge_sort_map_cells:
-    input:
-        expand('{{assembler}}_{{sample}}/{{haplotype}}_scaffolds_hifi_reads_{read_name}.bam',read_name=glob_wildcards(raw_long_reads).read_name)
-    output:
-        sam = '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.bam'
-    threads: 16
-    resources:
-        mem_mb = 6000,
-        disk_scratch = lambda wildcards, input: int(input.size_mb/750)
-    shell:
-        '''
-        samtools cat --threads {threads} {input} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}
-        '''
-
-rule map_SR_reads:
-    input:
-        reads = expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
-    output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_SR_reads.bam' #TEMP
-    threads: 24
-    resources:
-        mem_mb = 6000,
-        walltime = '4:00'
-    shell:
-        'minimap2 -ax sr -t {threads} {input.asm} {input.reads} | samtools view -b -o {output} -'
-
-rule sam_to_bam:
-    input:
-        '{assembler}_{sample}/{file}.sam'
-    output:
-        '{assembler}_{sample}/{file}.dead'
-    threads: 16
-    resources:
-        mem_mb = 6000,
-        disk_scratch = lambda wildcards, input: int(input.size_mb/750)
-    shell:
-        'samtools sort {input} -m 3000M -@ {threads} -T $TMPDIR -o {output}'
-
 rule prep_window:
     input:
         '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
@@ -201,8 +130,14 @@ checkpoint split_chromosomes:
         grep "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ur_tigs}
         grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ua_tigs}
         awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {output}/{params.chrm}
-        split -a 2 -d -l 50 --additional-suffix=.chrm.fa {output}/{params.ua_tigs} {output}/unplaced_asm_contigs_
-        split -a 2 -d -l 50 --additional-suffix=.chrm.fa {output}/{params.ur_tigs} {output}/unplaced_ref_contigs_
+
+        for val in ref asm; do
+            paste -d " " - - < unplaced_$val_contigs.chrm.fa > {output}/collapsed_$val.txt
+            split -a 2 -d -C 50MiB --additional-suffix=.chrm.fa {output}/collapsed_$val.txt {output}/unplaced_$val_contigs_
+            find {output}/unplaced_$val_contigs_* -exec bash -c "cat {{}} | tr -s ' ' '\n' > {{}}.temp && mv {{}}.temp {{}}" \;
+        done
+        #split -a 2 -d -l 50 --additional-suffix=.chrm.fa {output}/{params.ua_tigs} {output}/unplaced_asm_contigs_
+        #split -a 2 -d -l 50 --additional-suffix=.chrm.fa {output}/{params.ur_tigs} {output}/unplaced_ref_contigs_
         rm {output}/{params.headers} {output}/{params.chrm} {output}/{params.ua_tigs} {output}/{params.ur_tigs}
         '''
 

@@ -6,7 +6,7 @@ rule mumandco:
     output:
         dir_ = directory('{assembler}_{sample}/{haplotype}_{reference}_SV_output'),
         results = multiext('{assembler}_{sample}/{haplotype}_{reference}_SV_output/{haplotype}_{reference}_SV','.summary.txt','.SVs_all.tsv'),
-        summary = 'results/{haplotype}_{sample}_{haplotype}.{reference}.mumSV.txt'
+        summary = 'results/{haplotype}_{sample}_{assembler}.{reference}.mumSV.txt'
     params:
         dir_ = '{assembler}_{sample}/{haplotype}_{reference}_SV',
         ref = lambda wildcards: config['ref_genome'] if wildcards.reference == 'ref' else '{assembler}_{sample}/{reference}.scaffolds.fasta',
@@ -19,6 +19,14 @@ rule mumandco:
 #rule summarise_variants:
 #    input:
 #        '{assembler}_{sample}/{haplotype}_{reference}_SV'
+
+rule paf_variants:
+    input:
+        '{assembler}_{sample}/{haplotype}_scaffolds_ref.{mapper}.paf'
+    output:
+        'results/{haplotype}_{sample}_{assembler}.{mapper}.vcf'
+    shell:
+        'sort {input} -k6,6 -k8,8n | paftools.js call -f {config[ref_genome]} - > {output}'
 
 rule nucmer:
     input:
