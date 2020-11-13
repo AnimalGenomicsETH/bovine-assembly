@@ -1,10 +1,23 @@
 localrules: split_reads, merqury_formatting
 
+rule count_SR_reads:
+    input:
+        'data/{individual}.read_R{N}.SR.fq.gz'
+    output:
+        'data/{individual}.read_R{N}.meryl'
+    threads: 24
+    resources:
+        mem_mb = 4000
+    params:
+        mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
+    shell:
+        'meryl count k={config[k-mers]} memory={params.mem} threads={threads} output {output} {input}'
+
 rule merge_SR_reads:
     input:
-        expand('data/{{parent}}.read_R{N}.SR.meryl', N = (1,2))
+        expand('data/{{individual}}.read_R{N}.meryl', N = (1,2))
     output:
-        directory('data/{parent}.SR.meryl')
+        directory('data/{individual}.meryl')
     threads: 12
     resources:
         mem_mb = 4000
@@ -16,11 +29,11 @@ rule merge_SR_reads:
 #NOTE technically should be w.r.t. the read sampling?
 rule generate_hapmers:
     input:
-        dam = 'data/dam.{read_t}.meryl',
-        sire = 'data/sire.{read_t}.meryl',
-        child = 'data/offspring.100.hifi.meryl'
+        dam = 'data/dam.meryl',
+        sire = 'data/sire.meryl',
+        child = 'data/offspring.meryl'
     output:
-        directory(expand('data/{parent}.{{read_t}}.hapmer.meryl', parent = ('dam', 'sire')))
+        directory(expand('data/{parent}.hapmer.meryl', parent = ('dam', 'sire')))
     params:
         dam = lambda wildcards,input: PurePath(input['dam']).name,
         sire = lambda wildcards,input: PurePath(input['sire']).name,
@@ -40,13 +53,13 @@ rule generate_hapmers:
 
 rule hap_blob:
     input:
-        hapmers = expand('data/{parent}.{{read_t}}.hapmer.meryl',parent=('sire','dam')),
+        hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
     output:
-        '{assembler}_{sample}/{hap}.{read_t}.hapmers.blob.png'
+        '{assembler}_{sample}/{hap}.hapmers.blob.png'
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
-        out = '{hap}.{read_t}',
+        out = '{hap}',
         hapmers = lambda wildcards, input: tuple('..' / PurePath(fname) for fname in input['hapmers']),
         asm = lambda wildcards, input: tuple(PurePath(fname).name for fname in input['asm'])
     threads: 8
@@ -64,15 +77,15 @@ rule hap_blob:
 
 rule merqury_spectra_cn:
     input:
-        read_db = 'data/offspring.{sample}.hifi.meryl',
+        read_db = 'data/offspring.meryl',
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
         asm_dbs = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.meryl', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
-        filt = 'data/offspring.{sample}.hifi.filt'
+        filt = 'data/offspring.filt'
     output:
-        multiext('{assembler}_{sample}/{hap}.{read_t}', '.qv', '.completeness.stats')
+        multiext('{assembler}_{sample}/{hap}', '.qv', '.completeness.stats')
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
-        out = '{hap}.{read_t}',
+        out = '{hap}',
         read_db = lambda wildcards, input: '..' / PurePath(input['read_db']),
         asm = lambda wildcards, input: tuple(PurePath(fname).name for fname in input['asm'])
     threads: 8
@@ -80,8 +93,7 @@ rule merqury_spectra_cn:
         mem_mb = 6000
     envmodules:
         'gcc/8.2.0',
-        'r/4.0.2',
-        'igv/2.8.2'
+        'r/4.0.2'
     shell:
         '''
         cd {params.dir_}
@@ -93,15 +105,15 @@ rule merqury_spectra_cn:
 
 rule spectra_hap:
     input:
-        reads = 'data/offspring.{sample}.hifi.meryl',
-        hapmers = expand('data/{parent}.{{read_t}}.hapmer.meryl',parent=('sire','dam')),
+        reads = 'data/offspring.meryl',
+        hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
-        stats = multiext('{assembler}_{sample}/{hap}.{read_t}','.qv','.completeness.stats')
+        stats = '{assembler}_{sample}/{hap}.completeness.stats'
     output:
-        '{assembler}_{sample}/{hap}.{read_t}.hap.completeness.stats'
+        '{assembler}_{sample}/{hap}.hap.completeness.stats'
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
-        out = '{hap}.{read_t}',
+        out = '{hap}',
         hapmers = lambda wildcards, input: tuple('..' / PurePath(fname) for fname in input['hapmers']),
         asm = lambda wildcards, input: tuple(PurePath(fname).name for fname in input['asm'])
     threads: 12
@@ -120,7 +132,7 @@ rule spectra_hap:
 rule merqury_phase_block:
     input:
         asm = '{assembler}_{sample}/{haplotype}.contigs.fasta',
-        hapmers = expand('data/{parent}.SR.hapmer.meryl',parent=('sire','dam'))
+        hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam'))
     output:
         multiext('{assembler}_{sample}/{haplotype}.100_20000.','phased_block.bed','switch.bed')
     params:
@@ -133,8 +145,7 @@ rule merqury_phase_block:
         mem_mb = 6000
     envmodules:
        'gcc/8.2.0',
-       'r/4.0.2',
-       'igv/2.8.2'
+       'r/4.0.2'
     shell:
         '''
         cd {params.dir_}
@@ -166,11 +177,11 @@ rule merqury_block_n_stats:
 
 checkpoint split_reads:
     input:
-        'data/{data}.{modifier}.{read_t}.fq.gz'
+        'data/{data}.{modifier}.SR.fq.gz'
     output:
-        directory('split_{data}_{modifier}_{read_t}')
+        directory('split_{data}_{modifier}')
     params:
-        lambda wildcards: config["split_size"][wildcards.read_t]
+        lambda wildcards: config["split_size"]['SR']
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
@@ -182,9 +193,9 @@ checkpoint split_reads:
 
 rule count_many:
     input:
-        'split_{data}_{modifier}_{read_t}/chunk_{chunk}.fq.gz'
+        'split_{data}_{modifier}_SR/chunk_{chunk}.fq.gz'
     output:
-        temp(directory('split_{data}_{modifier}_{read_t}/chunk_{chunk}.meryl'))
+        temp(directory('split_{data}_{modifier}_SR/chunk_{chunk}.meryl'))
     threads: lambda wildcards: 18 if wildcards.read_t == 'hifi' else 4
     resources:
         mem_mb = 3000
@@ -195,13 +206,13 @@ rule count_many:
 
 def aggregate_split_input(wildcards):
     checkpoint_output = checkpoints.split_reads.get(**wildcards).output[0]
-    return expand('split_{data}_{modifier}_{read_t}/chunk_{chunk}.meryl',data=wildcards.data,modifier=wildcards.modifier,read_t=wildcards.read_t,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('chunk_{chunk}.fq.gz')).chunk)
+    return expand('split_{individual}_SR/chunk_{chunk}.meryl',data=wildcards.data,modifier=wildcards.modifier,read_t=wildcards.read_t,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('chunk_{chunk}.fq.gz')).chunk)
 
 rule merge_many:
     input:
         aggregate_split_input
     output:
-        directory('data/{data}.{modifier}.{read_t}.meryl')
+        directory('data/{individual}.meryl')
     threads: 12
     resources:
         mem_mb = 4000
@@ -225,10 +236,10 @@ rule count_asm_kmers:
 
 rule merqury_prep:
     input:
-        'data/offspring.{sample}.hifi.meryl'
+        'data/offspring.meryl'
     output:
-        hist = 'data/offspring.{sample}.hifi.hist',
-        filt = 'data/offspring.{sample}.hifi.filt'
+        hist = 'data/offspring.hist',
+        filt = 'data/offspring.filt',
     threads: 12
     resources:
         mem_mb = 2000
@@ -238,15 +249,15 @@ rule merqury_prep:
         java -jar -Xmx1g {config[merqury_root]}/eval/kmerHistToPloidyDepth.jar {output.hist} > {output.hist}.ploidy
         filt=`sed -n 2p {output.hist}.ploidy | awk '{{print $NF}}'`
         echo $filt > {output.filt}
-        meryl greater-than $filt output data/{wildcards.sample}.hifi.gt$filt.meryl {input}
+        meryl greater-than $filt output data/offspring.gt$filt.meryl {input}
         '''
 
 rule merqury_formatting:
     input:
         '{assembler}_{sample}/{haplotype}.{haplotype}.contigs.continuity.NG.png',
-        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.SR.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
-        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.SR.hap.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
-        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.SR.hapmers.blob.png', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
+        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
+        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hap.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
+        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hapmers.blob.png', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
     output:
         'results/{haplotype}_{sample}_{assembler}.merqury.stats.txt'
     shell:

@@ -39,14 +39,16 @@ rule fastq_to_fasta:
 
 rule filter_SR_data:
     input:
-        reads = lambda wildcards: expand(f'{config["data"][config["animal"]]["short_reads"][wildcards.parent]}_R{{N}}.fastq.gz', N = (1,2))
+        reads = lambda wildcards: expand(f'{config["data"][config["animal"]]["short_reads"][wildcards.individual]}_R{{N}}.fastq.gz', N = (1,2))
     output:
-        reads = expand('data/{{parent}}.read_R{N}.SR.fq.gz', N = (1,2))
+        reads = expand('data/{{individual}}.read_R{N}.SR.fq.gz', N = (1,2))
+    params:
+        html = 'data/{individual}.html'
     threads: 12
     resources:
         mem_mb = 4000
     shell:
-        'fastp -i {input.reads[0]} -I {input.reads[1]} -o {output.reads[0]} -O {output.reads[1]} -g --thread {threads} --html data/{wildcards.parent}.html --json /dev/null'
+        'fastp -i {input.reads[0]} -I {input.reads[1]} -o {output.reads[0]} -O {output.reads[1]} -g --thread {threads} --html {params.html} --json /dev/null'
 
 rule sample_data:
     input:
