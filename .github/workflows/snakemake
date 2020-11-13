@@ -1,14 +1,18 @@
 name: snakemaker
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]
 jobs:
-  test_doc:
+  build:
     runs_on: ubuntu_latest
     steps:
-      - name: snakemake
-      uses: snakemake/snakemake-github-action@v1.12.0
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
         with:
-        directory: '.test'
-        args: '--dryrun --config animal=test'
+          python-version: 3.8
+      - name: snakemake
+        uses: snakemake/snakemake-github-action@v1.12.0
+        with:
+          directory: '.test'
+          args: '--dryrun --config animal=test'
