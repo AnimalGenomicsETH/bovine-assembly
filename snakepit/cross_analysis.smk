@@ -78,24 +78,8 @@ rule generate_winnow_meryl:
         walltime = '1:00'
     shell:
         '''
-        meryl-tip count k={wildcards.K} output {output.db} {input.asm}
-        meryl-tip print greater-than distinct={config[winnow_threshold]} {output.db} > {output.rep}
-        '''
-
-rule map_hifi_reads:
-    input:
-        reads = 'data/offspring.cleaned.hifi.fq.gz',
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
-        rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
-    output:
-        sam = '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.dead'
-    threads: 24
-    resources:
-        mem_mb = 6000,
-        walltime = '20:00'
-    shell:
-        '''
-        winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} -o {output.sam}
+        meryl count k={wildcards.K} output {output.db} {input.asm}
+        meryl print greater-than distinct={config[winnow_threshold]} {output.db} > {output.rep}
         '''
 
 rule map_hifi_cell:

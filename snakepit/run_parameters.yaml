@@ -3,13 +3,13 @@ animal: 'BSWCHEF120152514636'
 data:
   test:
     long_reads:
-      offspring: 'off/'
-      dam: 'dam/'
-      sire: 'sire/'
+      offspring: '.test/offspring/'
+      dam: '.test/dam/'
+      sire: '.test/sire/'
     short_reads:
-      sire: 's'
-      dam: 'd'
-      offspring: 'o'
+      sire: '.test/ssire'
+      dam: '.test/sdam'
+      offspring: '.test/soffspring'
   BSWCHEF120152514636:
     long_reads:
       offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEF120152514636/ccs/'
@@ -23,7 +23,7 @@ data:
     long_reads:
       offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEM120151536851/ccs/'
     short_reads:
-      dam: '/cluster/work/pausch/inputs/fastq/BTA/NELBRAM000008945535'
+      dam: '/cluster/work/pausch/inputs/fastq/BTA/BSWCHEF120071057962'
       sire: '/cluster/work/pausch/inputs/fastq/BTA/NELBRAM000008945535'
       offspring: '/cluster/work/pausch/inputs/fastq/BTA/BSWCHEM120151536851'
 
@@ -59,6 +59,7 @@ target_metrics:
     - 'BUSCO.txt'
     - 'dot.png'
     - 'gaps.txt'
+    - 'ref.mumSV.txt'
   primary:
     - 'windows.hifi.coverage.txt'
     - 'chrm.hifi.coverage.txt'

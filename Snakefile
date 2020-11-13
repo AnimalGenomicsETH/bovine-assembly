@@ -3,19 +3,15 @@ from glob import glob
 from itertools import product
 
 configfile: 'snakepit/run_parameters.yaml'
-workdir: PurePath(config['workdir']).joinpath(config['animal'])
 
-def glob_purges(wildcards):
-    req_files = []
-    for _file in glob('**/*.contigs_raw.fa',recursive=True):
-        req_files.extend([_file.replace('.fa','.spectra.png'),_file.replace('contigs_raw.fa','purged.spectra.png')])
-    return req_files
+if config['animal'] != 'test':
+    workdir: PurePath(config['workdir']).joinpath(config['animal'])
 
 #GLOBAL VAR
 raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: analysis_report, plot_dot, paf_variants, generate_reffai, dnadiff
+localrules: analysis_report, plot_dot, paf_variants, generate_reffai
 
 for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
@@ -36,6 +32,7 @@ include: 'snakepit/capture_logic.smk'
 wildcard_constraints:
     assembler = r'[^\W_]+',
     parent = r'dam|sire',
+    individual = r'dam|sire|offspring',
     haplotype = r'\w+',
     hap = r'\w+',
     sample = r'\d+',
@@ -263,25 +260,6 @@ rule paf_variants:
         'results/{haplotype}_{sample}_{assembler}.vcf'
     shell:
         'sort {input} -k6,6 -k8,8n | paftools.js call -f {config[ref_genome]} - > {output}'
-
-rule nucmer:
-    input:
-        '{assembler}_{sample}/{haplotype}.contigs.fasta'
-    output:
-        '{assembler}_{sample}/{haplotype}.delta'
-    threads: 24
-    resources:
-        mem_mb = 5500
-    shell:
-        'nucmer --maxmatch -l 100 -c 500 -t {threads} -p {wildcards.assembler}_{wildcards.sample}/{wildcards.haplotype} {config[ref_genome]} {input}'
-
-rule dnadiff:
-    input:
-        '{assembler}_{sample}/{haplotype}.delta'
-    output:
-        '{assembler}_{sample}/{haplotype}.dnadiff.report'
-    shell:
-        'dnadiff -d {input} -p {wildcards.assembler}_{wildcards.sample}/.{wildcards.haplotype}.dnadiff'
 
 rule generate_reffai:
     output:
