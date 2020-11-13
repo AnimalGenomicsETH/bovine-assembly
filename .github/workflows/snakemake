@@ -1,0 +1,14 @@
+name: snakemaker
+on:
+  push:
+    branches:
+      - master
+jobs:
+  test_doc:
+    runs_on: ubuntu_latest
+    steps:
+      - name: snakemake
+      uses: snakemake/snakemake-github-action@v1.12.0
+        with:
+        directory: '.test'
+        args: '--dryrun --config animal=test'
