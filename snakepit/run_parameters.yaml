@@ -54,7 +54,8 @@ target_metrics:
   general:
     - 'asm-ccs.qv.txt'
     - 'NGA50.txt'
-    - 'auN.txt'
+    - 'contigs.auN.txt'
+    - 'scaffolds.auN.txt'
     - 'asmgene.txt'
     - 'BUSCO.txt'
     - 'ref.mm2.dot.png'

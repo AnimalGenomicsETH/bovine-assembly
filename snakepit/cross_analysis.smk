@@ -167,11 +167,11 @@ rule merge_masked_chromosomes:
     input:
         aggregate_chrm_input
     output:
-        '{assembler}_{sample}/{haplotype}.scaffolds.fasta.masked',
-        'results/{haplotype}_{sample}_{assembler}.repeats.csv'
+        masked = '{assembler}_{sample}/{haplotype}.scaffolds.fasta.masked',
+        csv = 'results/{haplotype}_{sample}_{assembler}.repeats.csv'
     shell:
         '''
-        cat {input} > {output}
+        cat {input} > {output.masked}
         python {workflow.basedir}/scripts/masker_table.py --haplotype {wildcards.haplotype} --sample {wildcards.sample} --assembler {wildcards.assembler}
         '''
 

@@ -67,19 +67,18 @@ rule merge_sort_map_cells:
         mem_mb = 6000,
         disk_scratch = lambda wildcards, input: int(input.size_mb/750)
     shell:
-        '''
-        samtools cat --threads {threads} {input} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}
-        '''
+        'samtools cat --threads {threads} {input} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'
 
 rule map_SR_reads:
     input:
         reads = expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_SR_reads.bam' #TEMP
+        '{assembler}_{sample}/{haplotype}_scaffolds_SR_reads.bam'
     threads: 24
     resources:
         mem_mb = 6000,
-        walltime = '4:00'
+        walltime = '4:00',
+        disk_scratch = 200
     shell:
-        'minimap2 -ax sr -t {threads} {input.asm} {input.reads} | samtools view -b -o {output} -'
+        'minimap2 -ax sr -t {threads} {input.asm} {input.reads} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'

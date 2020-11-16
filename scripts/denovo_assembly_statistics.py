@@ -34,10 +34,10 @@ def plot_chromosome_scaffolds():
     fig.savefig(f_name)
     return f_name
 
-def load_auNCurves():
+def load_auNCurves(d_type):
     auN_values, metrics = [[],[]], dict()
 
-    with open_results('auN.txt') as file_in:
+    with open_results(f'{d_type}.auN.txt') as file_in:
         for line in file_in:
             if line[:2] == 'NL':
                 x, Nx, Lx  = (int(i) for i in line.rstrip().split()[1:])
@@ -52,7 +52,7 @@ def load_auNCurves():
     return auN_values, metrics
 
 def plot_auNCurves():
-    data, metrics = load_auNCurves()
+    data, metrics = load_auNCurves('contigs')
     auN_data, aln_metrics = load_NGA()
 
     fig, (ax_N,ax_L) = plt.subplots(1,2,sharex=True,figsize=(6, 4))
@@ -238,8 +238,10 @@ def generate_markdown_string(build_str,summary_str):
     for row, values in zip(('ref','asm'),gene_map[1:]):
         build_str += f'| {row} | {" | ".join(values)} |\n'
 
+    scaff_metrics = load_auNCurves('scaffolds')[1]
+
     summary_str += f'| *{assembler}* | {haplotype} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
-                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {busco_string[2:7]} | xx |\n' #{float(kmer_stats["QV"]):.1f} |\n'
+                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | xx |\n' #{float(kmer_stats["QV"]):.1f} |\n'
 
 
     return build_str, summary_str
@@ -287,8 +289,8 @@ def main(direct_input=None):
 
     md_string = ''
     summary_string = '# summary \n' \
-                     '| assembler | haplotype | size | contigs | N50 | L50 | completeness | QV kmer |\n' \
-                     '| :-------- | :-------: | :--: | :-----: | :-: | :-: | :----------: | :-----: |\n'
+                     '| assembler | haplotype | size | contigs | N50 | L50 | N50\' | BUSCO | QV |\n' \
+                     '| :-------- | :-------: | :--: | :-----: | :-: | :-: | :---: | :---: | :: |\n'
 
     for haplotype_t,assembler_t in product(args.haplotypes,args.assemblers):
         global haplotype

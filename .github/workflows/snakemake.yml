@@ -4,7 +4,7 @@ on:
     branches: [ master ]
 jobs:
   build:
-    runs-on: ubuntu_latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
@@ -12,7 +12,7 @@ jobs:
         with:
           python-version: 3.8
       - name: snakemake
-        uses: snakemake/snakemake-github-action@v1.12.0
+        uses: snakemake/snakemake-github-action@v1.13.0
         with:
           directory: '.test'
           args: '--dryrun --config animal=test'

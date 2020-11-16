@@ -11,7 +11,7 @@ if config['animal'] != 'test':
 raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: analysis_report, plot_dot, paf_variants, generate_reffai
+localrules: analysis_report, plot_dot, generate_reffai, validation_auN
 
 for _dir in ['data','results','intermediates']:
     Path(_dir).mkdir(exist_ok=True)
@@ -171,9 +171,9 @@ rule validation_yak:
 ##Requires k8 and calN50.js installed
 rule validation_auN:
     input:
-        '{assembler}_{sample}/{haplotype}.contigs.fasta'
+        '{assembler}_{sample}/{haplotype}.{sequence}.fasta'
     output:
-        'results/{haplotype}_{sample}_{assembler}.auN.txt'
+        'results/{haplotype}_{sample}_{assembler}.{sequence}.auN.txt'
     shell:
         'k8 ~/bin/calN50.js -s 0.01 {input} > {output}'
 

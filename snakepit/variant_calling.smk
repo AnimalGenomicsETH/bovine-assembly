@@ -1,4 +1,4 @@
-localrules: mumandco, dnadiff
+localrules: mumandco, dnadiff, paf_variants
 
 rule mumandco:
     input:
