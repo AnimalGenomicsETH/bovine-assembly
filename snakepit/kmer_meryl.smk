@@ -103,7 +103,7 @@ rule merqury_spectra_cn:
         $MERQURY/eval/spectra-cn.sh ../{input.read_db} {params.asm} {params.out}
         '''
 
-rule spectra_hap:
+rule merqury_spectra_hap:
     input:
         reads = 'data/offspring.meryl',
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
@@ -113,7 +113,7 @@ rule spectra_hap:
         '{assembler}_{sample}/{hap}.hap.completeness.stats'
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
-        out = '{hap}',
+        out = '{hap}.hap',
         hapmers = lambda wildcards, input: tuple('..' / PurePath(fname) for fname in input['hapmers']),
         asm = lambda wildcards, input: tuple(PurePath(fname).name for fname in input['asm'])
     threads: 12

@@ -30,3 +30,11 @@ src/*
 .github/workflows/*
 !.github/workflows/*.yml
 
+!.test
+!.test/*
+!.test/sire
+!.test/sire/*
+!.test/dam
+!.test/dam/*
+!.test/offspring
+!.test/offspring/*

@@ -149,7 +149,7 @@ rule repeat_masker:
         '{assembler}_{sample}/{haplotype}_split_chrm/{chunk}.chrm.fa.masked'
     threads: 8
     resources:
-        mem_mb = 400,
+        mem_mb = 600,
         walltime =  '2:00'
     shell:
         '''
