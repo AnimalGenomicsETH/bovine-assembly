@@ -13,12 +13,10 @@ rule mumandco:
     shell:
         '''
         mumandco -r {params.ref} -q {input} -g $( echo "({config[genome_est]}*1000000000)/1" | bc) -o {params.dir_}
-        cp {output.results[0]} {output.summary}
+        for SV_type in insertion deletion inversion transloc; do
+            awk -v var=$SV_type '$1 ~ /{config[ref_chrm]}/ && $2 ~ /{config[reg_chrm]}/ && $6 ~ var {sum += $5} END {print var" "sum}' {output.results[1]} > {outputs.summary}
+        done
         '''
-
-#rule summarise_variants:
-#    input:
-#        '{assembler}_{sample}/{haplotype}_{reference}_SV'
 
 rule paf_variants:
     input:
@@ -27,6 +25,24 @@ rule paf_variants:
         'results/{haplotype}_{sample}_{assembler}.{mapper}.vcf'
     shell:
         'sort {input} -k6,6 -k8,8n | paftools.js call -f {config[ref_genome]} - > {output}'
+
+rule dipcall_variants:
+    input:
+        hapA = '{assembler}_{sample}/{hapA}.contigs.fasta',
+        hapB = '{assembler}_{sample}/{hapB}.contigs.fasta'
+    output:
+        mak = temp('{hapA}_{hapB}.mak'),
+        vcf = '{assembler}_{sample}/{hapA}_{hapB}.dip.vcf.gz'
+    params:
+        '{hapA}_{hapB}'
+    threads: 16
+    resources:
+        mem_mb = 3000
+    shell:
+        '''
+        run-dipcall {params} {config[ref_genome]} {input.hapA} {input.hapB} > {output.mak}
+        make -j2 -f {output.mak}
+        '''
 
 rule nucmer:
     input:

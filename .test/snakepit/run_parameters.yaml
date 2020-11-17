@@ -1,0 +1,96 @@
+workdir: '../'
+animal: 'BSWCHEF120152514636'
+data:
+  test:
+    long_reads:
+      offspring: '.test/offspring/'
+      dam: '.test/dam/'
+      sire: '.test/sire/'
+    short_reads:
+      sire: '.test/ssire'
+      dam: '.test/sdam'
+      offspring: '.test/soffspring'
+  BSWCHEF120152514636:
+    long_reads:
+      offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEF120152514636/ccs/'
+      dam: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEF120141990854/ccs/'
+      sire: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEM120127981876/ccs/'
+    short_reads:
+      sire: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_320'
+      dam: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_409'
+      offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/BTA/fastq/OB_trio_SR/20200929.B-BOV_410'
+  BSWCHEM120151536851:
+    long_reads:
+      offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEM120151536851/ccs/'
+    short_reads:
+      dam: '/cluster/work/pausch/inputs/fastq/BTA/BSWCHEF120071057962'
+      sire: '/cluster/work/pausch/inputs/fastq/BTA/NELBRAM000008945535'
+      offspring: '/cluster/work/pausch/inputs/fastq/BTA/BSWCHEM120151536851'
+
+ref_genome: '/cluster/work/pausch/alex/REF_DATA/ARS_UCD1-2.fasta'
+ref_chrm: 'NC'
+ref_tig: 'NW'
+#'/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
+#'/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
+cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
+
+k-mers: 21
+genome_est: 2.7
+mem_adj: 1100
+split_size:
+  hifi: 5000000
+  SR: 100000000
+winnow_threshold: 0.9998
+haplotypes:
+  - 'asm'
+  - 'trio'
+  - 'parents'
+assemblers:
+  - 'hifiasm'
+  - 'canu'
+  #- 'flye'
+
+target_metrics:
+  general:
+    - 'asm-ccs.qv.txt'
+    - 'NGA50.txt'
+    - 'contigs.auN.txt'
+    - 'scaffolds.auN.txt'
+    - 'asmgene.txt'
+    - 'BUSCO.txt'
+    - 'ref.mm2.dot.png'
+    - 'ref.wm2.dot.png'
+    - 'gaps.txt'
+    - 'ref.mumSV.txt'
+    - 'mm2.vcf'
+    - 'wm2.vcf'
+  primary:
+    - 'windows.hifi.coverage.txt'
+    - 'chrm.hifi.coverage.txt'
+    - 'windows.SR.coverage.txt'
+    - 'chrm.SR.coverage.txt'
+    - 'telo.txt'
+    - 'repeats.csv'
+    - 'merqury.stats.txt'
+  trio:
+    - 'merqury.stats.txt'
+  parents:
+    - 'merqury.stats.txt'
+
+##sources of non-bin programs
+pd_root: '/cluster/work/pausch/alex/software/purge_dups'
+kmc_root: '/cluster/work/pausch/alex/software/KMC'
+merqury_root: '/cluster/work/pausch/alex/software/merqury'
+tgs_root: '/cluster/work/pausch/alex/software/TGS-GapCloser'
+r_lib: '/cluster/work/pausch/alex/software/R_packages'
+
+##filtering run_parameters
+filtering:
+  avg_qual: 20
+  min_length: 1000
+  max_length: 1000000
+
+##sample levels
+sampling:
+  - 100
+  #- 75

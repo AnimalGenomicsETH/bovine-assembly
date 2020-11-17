@@ -38,3 +38,5 @@ src/*
 !.test/dam/*
 !.test/offspring
 !.test/offspring/*
+!.test/snakepit
+!.test/snakepit/*

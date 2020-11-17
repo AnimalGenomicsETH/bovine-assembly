@@ -14,18 +14,6 @@ rule generate_winnow_meryl:
         meryl print greater-than distinct={config[winnow_threshold]} {output.db} > {output.rep}
         '''
 
-rule winnowmap_asm_ref:
-    input:
-        rep = '{assembler}_{sample}/{haplotype}_repetitive_k19.txt',
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
-    output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_ref.wm2.pxaf'
-    threads: 24
-    resources:
-        mem_mb = 3000
-    shell:
-        'winnowmap -W {input.rep} -cx asm5 --cs -t {threads} {config[ref_genome]} {input.asm} -o {output}'
-
 rule map_asm_ref:
     input:
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
@@ -43,7 +31,7 @@ rule map_asm_ref:
 
 rule map_hifi_cell:
     input:
-        reads = 'data/offspring_{read_name}.temp.fastq.gz',
+        reads = lambda wildcards: f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz',
         asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
         rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
     output:
@@ -53,13 +41,11 @@ rule map_hifi_cell:
         mem_mb = 4000,
         walltime = '20:00'
     shell:
-        '''
-        winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} | samtools view -b -o {output} -
-        '''
+        'winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} | samtools view -b -o {output} -'
 
 rule merge_sort_map_cells:
     input:
-        expand('{{assembler}}_{{sample}}/{{haplotype}}_scaffolds_hifi_reads_{read_name}.bam',read_name=glob_wildcards(raw_long_reads).read_name)
+        lambda wildcards: expand('{{assembler}}_{{sample}}/{{haplotype}}_scaffolds_hifi_reads_{read_name}.bam',read_name=glob_wildcards(f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz').read_name)
     output:
         sam = '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.bam'
     threads: 16
