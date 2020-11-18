@@ -14,7 +14,7 @@ rule mumandco:
         '''
         mumandco -r {params.ref} -q {input} -g $( echo "({config[genome_est]}*1000000000)/1" | bc) -o {params.dir_}
         for SV_type in insertion deletion inversion transloc; do
-            awk -v var=$SV_type '$1 ~ /{config[ref_chrm]}/ && $2 ~ /{config[reg_chrm]}/ && $6 ~ var {sum += $5} END {print var" "sum}' {output.results[1]} > {outputs.summary}
+            awk -v var=$SV_type '$1 ~ /{config[ref_chrm]}/ && $2 ~ /{config[ref_chrm]}/ && $6 ~ var {{sum += $5}} END {{print var" "sum}}' {output.results[1]} > {output.summary}
         done
         '''
 
@@ -31,7 +31,7 @@ rule dipcall_variants:
         hapA = '{assembler}_{sample}/{hapA}.contigs.fasta',
         hapB = '{assembler}_{sample}/{hapB}.contigs.fasta'
     output:
-        mak = temp('{hapA}_{hapB}.mak'),
+        mak = temp('{assembler}_{sample}/{hapA}_{hapB}.mak'),
         vcf = '{assembler}_{sample}/{hapA}_{hapB}.dip.vcf.gz'
     params:
         '{hapA}_{hapB}'

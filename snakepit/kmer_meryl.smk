@@ -210,15 +210,15 @@ rule merqury_formatting:
         '{assembler}_{sample}/{haplotype}.{haplotype}.contigs.continuity.NG.png',
         stats = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         hap_stats = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hap.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
-        qv = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hapmers.blobp.ng', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
+        qv = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hapmers.blob.png', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         switches = '{assembler}_{sample}/{haplotype}.100_20000.switches.txt'
     output:
         'results/{haplotype}_{sample}_{assembler}.merqury.stats.txt'
     shell:
         '''
-        awk '/{wildcards.haplotype}/ {print "QV "$4}' {input.qv} > {output}
-        awk '/{wildcards.haplotype}/ {print "completeness "$5}' {input.stats} > {output}
-        awk '/{wildcards.haplotype}/ && /sire/ {print "sire "$5}' {input.hap_stats} > {output}
-        awk '/{wildcards.haplotype}/ && /dam/ {print "dam "$5}' {input.hap_stats} > {output}
-        awk '{print "switches "$14+0}' {input.switches} > {output}
+        awk '/{wildcards.haplotype}/ {{print "QV "$4}}' {input.qv} > {output}
+        awk '/{wildcards.haplotype}/ {{print "completeness "$5}}' {input.stats} > {output}
+        awk '/{wildcards.haplotype}/ && /sire/ {{print "sire "$5}}' {input.hap_stats} > {output}
+        awk '/{wildcards.haplotype}/ && /dam/ {{print "dam "$5}}' {input.hap_stats} > {output}
+        awk '{{print "switches "$14+0}}' {input.switches} > {output}
         '''

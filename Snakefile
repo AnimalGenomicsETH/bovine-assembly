@@ -149,6 +149,14 @@ if 'flye' in config['assemblers']:
             flye --pacbio-hifi {input} -t {threads} --keep-haplotypes -o flye_{wildcards.sample}
             mv flye_{wildcards.sample}/assembly.fasta {output}
             '''
+if 'IPA' in config['assemblers']:
+    rule assembler_IPA:
+        input:
+            'data/offspring.{sample}.hifi.fq.gz'
+        output:
+            'IPA_{sample}/{haplotype}.contigs.fasta'
+        shell:
+            'snakemake --profile "lsf" -n --snakefile /cluster/work/pausch/alex/software/miniconda3/envs/pbipa/etc/ipa.snakefile --configfile config.yaml  -U finish -d RUN'
 
 ##Requires yak installed
 rule validation_yak:
