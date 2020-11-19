@@ -14,7 +14,7 @@ rule mumandco:
         '''
         mumandco -r {params.ref} -q {input} -g $( echo "({config[genome_est]}*1000000000)/1" | bc) -o {params.dir_}
         for SV_type in insertion deletion inversion transloc; do
-            awk -v var=$SV_type '$1 ~ /{config[ref_chrm]}/ && $2 ~ /{config[ref_chrm]}/ && $6 ~ var {{sum += $5}} END {{print var" "sum}}' {output.results[1]} > {output.summary}
+            awk -v var=$SV_type '$1 ~ /{config[ref_chrm]}/ && $2 ~ /{config[ref_chrm]}/ && $6 ~ var {{sum += $5; count++}} END {{print var" "count" "sum}}' {output.results[1]} > {output.summary}
         done
         '''
 

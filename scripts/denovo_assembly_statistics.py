@@ -96,11 +96,14 @@ def load_NGA():
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
 def kmer_QV():
-    data = dict()
-    with open_results('merqury.stats.txt') as file_in:
-        for line in file_in:
-            data[line[:2]] = line.rstrip().split()[1]
-    return data
+    #data = dict()
+    #with open_results('merqury.stats.txt') as file_in:
+    #    data.update({key:value for (key,value) in line.rstrip().split()})
+    #return data
+    return {key:value for line in open_results('merqury.stats.txt') for (key,value) in line.rstrip().split()}
+
+def load_mumSV(reference='ref'):
+    return {key:value for line in open_results(f'{reference}.mumSV.txt') for (key,*value) in line.rstrip().split()}
 
 def load_asmgene():
     table = [[],[],[]]
@@ -217,17 +220,26 @@ def generate_markdown_string(build_str,summary_str):
     build_str += '## validation results\n\n'
 
     kmer_stats = kmer_QV()
-    build_str += '### merqury k-mers\n' #\
-                 #f'Coverage: {float(kmer_stats["CV"])/100:.1%}\n\n' \
-                 #f'QV: {kmer_stats["QV"]}\n\n' + \
+    build_str += '### merqury k-mers\n' \
+                 f'Coverage: {float(kmer_stats["completeness"])/100:.1%}\n\n' \
+                 f'QV: {kmer_stats["QV"]}\n\n' + \
     build_str += IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
 
-    #build_str += f'Switch error: {kmer_stats["switch"]}\n\n' + \
+    build_str += f'Switch error: {kmer_stats["switches"]}\n\n' \
+                 f'dam: {kmer_stats["dam"]}\n\n' \
+                 f'sire: {kmer_stats["sire"]}\n\n' + \
     build_str += IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'
 
     lineage, busco_string = busco_report()
     build_str += '### BUSCO \n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
+
+    mumsv = load_mumSV('ref')
+    build_str += '### structural variants\n' + \
+                 '\n\n'.join(f'variant: {variant}, count: {count}, total size: {size/1e6} mB' for variant, (count, size) in mumsv.items()) + '\n\n'
+
+    build_str += '### repeat content\n' \
+                 'work coming soon\n\n'
 
     build_str += '### asmgene\n'
 
@@ -241,7 +253,7 @@ def generate_markdown_string(build_str,summary_str):
     scaff_metrics = load_auNCurves('scaffolds')[1]
 
     summary_str += f'| *{assembler}* | {haplotype} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
-                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | xx |\n' #{float(kmer_stats["QV"]):.1f} |\n'
+                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
 
 
     return build_str, summary_str

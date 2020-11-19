@@ -13,7 +13,7 @@ raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
 localrules: analysis_report, plot_dot, generate_reffai, validation_auN
 
-for _dir in ['data','results','intermediates']:
+for _dir in ['data','results']:
     Path(_dir).mkdir(exist_ok=True)
 
 for assembler, sample in product(config['assemblers'],config['sampling']):
@@ -164,7 +164,7 @@ rule validation_yak:
         reads = 'data/offspring.{sample}.hifi.fq.gz',
         contigs = '{assembler}_{sample}/{haplotype}.contigs.fasta'
     output:
-        yak = temp('intermediates/{haplotype}_{sample}_{assembler}.yak'),
+        yak = temp('{assembler}_{sample}/{haplotype}.yak'),
         qv = 'results/{haplotype}_{sample}_{assembler}.asm-ccs.qv.txt'
     threads: 16
     resources:
@@ -174,7 +174,18 @@ rule validation_yak:
         yak count -b 37 -t {threads} -o {output.yak} {input.reads}
         yak qv -t {threads} {output.yak} {input.contigs} > {output.qv}
         '''
-        #inspect completeness
+
+rule validation_yak_trio:
+    input:
+        contigs = '{assembler}_{sample}/{haplotype}.contigs.fasta',
+        parents = expand('data/{parent}.yak', parent = ('sire','dam'))
+    output:
+        'results/{haplotype}_{sample}_{assembler}.trioyak.txt'
+    threads: 16
+    resources:
+        mem_mb = 6000
+    shell:
+        'yak trioeval -t {threads} {input.parents} {input.contigs} > {output}'
 
 ##Requires k8 and calN50.js installed
 rule validation_auN:
@@ -191,7 +202,7 @@ rule validation_refalign:
         ref_fai  = f'{config["ref_genome"]}.fai',#f'{config['ref_genome']}[{{reference}}].fai'
         asm = '{assembler}_{sample}/{haplotype}.contigs.fasta'
     output:
-        paf = temp('intermediates/{haplotype}_{sample}_{assembler}_asm.paf'),
+        paf = temp('{assembler}_{sample}/{haplotype}_asm.paf'),
         NGA = 'results/{haplotype}_{sample}_{assembler}.NGA50.txt'
     threads: 24
     resources:
@@ -208,8 +219,8 @@ rule validation_asmgene:
         asm = '{assembler}_{sample}/{haplotype}.contigs.fasta',
         reads = 'data/offspring.{sample}.hifi.fq.gz'
     output:
-        asm_paf = temp('intermediates/{haplotype}_{sample}_{assembler}_asm_aln.paf'),
-        ref_paf = temp('intermediates/{haplotype}_{sample}_{assembler}_ref_aln.paf'),
+        asm_paf = temp('{assembler}_{sample}/{haplotype}_asm_aln.paf'),
+        ref_paf = temp('{assembler}_{sample}/{haplotype}_ref_aln.paf'),
         asmgene = 'results/{haplotype}_{sample}_{assembler}.asmgene.txt'
     threads: 24
     resources:
@@ -258,17 +269,9 @@ rule generate_reffai:
 rule analysis_report:
     input:
         capture_logic
-        #expand('results/{haplotype}_{{sample}}_{assembler}.{ext}',haplotype=config['haplotypes'],assembler=config['assemblers'],ext=config['target_metrics']),
-        #'data/reads.{sample}.QC.txt'#,
-        #glob_purges#,
-        #expand('{assembler}_{{sample}}/{{animal}}.scaffolds.fasta.masked',assembler=config['assemblers'])
     output:
         f'{config["animal"]}_{{sample}}_analysis_report.pdf'
     log:
         'logs/analysis_report/sample-{sample}.out'
     shell:
         'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {config[animal]} --sample {wildcards.sample} --haplotypes {config[haplotypes]} --assemblers {config[assemblers]} --css {workflow.basedir}/scripts/report.css --outfile {output} > {log}'
-
-#onsuccess:
-#    print('Cleaning up intermediate files')
-#    shell('rm -rf intermediates')

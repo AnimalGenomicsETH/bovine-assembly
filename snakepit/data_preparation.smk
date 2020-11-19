@@ -70,8 +70,8 @@ rule sample_data:
 
 rule raw_QC:
     input:
-        'data/offspring.{read_t}.hifi.fq.gz'
+        'data/{individual}.{sample}.hifi.fq.gz'
     output:
-        'data/offspring.{read_t}.QC.txt'
+        'data/{individual}.{sample}.QC.txt'
     shell:
         '{workflow.basedir}/src/fasterqc {input} {output}'

@@ -5,7 +5,7 @@ def have_parental_data(read_t):
     return True
 
 def capture_logic(wildcards):
-    required_files = []
+    required_files = [f'data/offspring.{wildcards.sample}.QC.txt']
     for assembler in config['assemblers']:
         a_path = PurePath(f'{assembler}_{wildcards.sample}')
         r_path = PurePath('results')
@@ -35,6 +35,6 @@ def capture_logic(wildcards):
 
 
             if 'trio' in config['haplotypes']:
-                required_files.extend([a_path / 'dam_hap2_SV_output/dam_hap2_SV.summary.txt',a_path / 'sire_hap1_SV_output/sire_hap1_SV.summary.txt'])
+                required_files.extend([r_path / f'hap2_100_{assembler}.dam.mumSV.txt', r_path / f'hap1_100_{assembler}.sire.mumSV.txt'])
                 required_files.extend([r_path / f'hap2_100_{assembler}.dam.mm2.dot.png', r_path / f'hap1_100_{assembler}.sire.mm2.dot.png'])
-    return map(str,required_files)#[str(rf) for rf in required_files]
+    return map(str,required_files)
