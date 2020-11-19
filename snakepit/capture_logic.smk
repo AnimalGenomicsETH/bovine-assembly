@@ -25,7 +25,7 @@ def capture_logic(wildcards):
                 if have_parental_data('long_reads'):
                     required_files.append(a_path / f'hap{N}.scaff_seq')
 
-        if 'parents' in config['haplotypes'] and have_parental_data('long_reads'):
+        if 'parents' in config['haplotypes'] and have_parental_data('long_reads') and wildcards.sample == 100:
 
             for parent in ('dam', 'sire'):
                 required_files.extend([a_path / f'{parent}.scaffolds.fasta'])
