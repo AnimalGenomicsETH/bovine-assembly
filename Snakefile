@@ -11,7 +11,7 @@ if config['animal'] != 'test':
 raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: analysis_report, plot_dot, generate_reffai, validation_auN
+localrules: analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign
 
 for _dir in ['data','results']:
     Path(_dir).mkdir(exist_ok=True)
@@ -64,7 +64,7 @@ if 'hifiasm' in config['assemblers']:
         shell:
             'hifiasm -o {params.out} -t {threads} {params.settings} {input}'
 
- ##Requires gfatools installed
+    ##Requires gfatools installed
     rule assembler_hifiasm_conversion:
         input:
             'hifiasm_{sample}/{haplotype}.p_ctg.gfa'
@@ -161,18 +161,22 @@ if 'IPA' in config['assemblers']:
 ##Requires yak installed
 rule validation_yak:
     input:
-        reads = 'data/offspring.{sample}.hifi.fq.gz',
+        yak = 'data/offspring.yak',
         contigs = '{assembler}_{sample}/{haplotype}.contigs.fasta'
     output:
-        yak = temp('{assembler}_{sample}/{haplotype}.yak'),
-        qv = 'results/{haplotype}_{sample}_{assembler}.asm-ccs.qv.txt'
+        asm_yak = temp('{assembler}_{sample}/{haplotype}.yak'),
+        qv = 'results/{haplotype}_{sample}_{assembler}.yak.qv.txt',
+        completeness = 'results/{haplotype}_{sample}_{assembler}.yak.completeness.txt'
+    params:
+        kmer = 31
     threads: 16
     resources:
-        mem_mb = 6000
+        mem_mb = 5000
     shell:
         '''
-        yak count -b 37 -t {threads} -o {output.yak} {input.reads}
-        yak qv -t {threads} {output.yak} {input.contigs} > {output.qv}
+        yak count -k {params.kmer} -b 37 -t {threads} -K1.5g -o {output.asm_yak} {input.contigs}
+        yak qv -t {threads} -l1m -K4g {input.yak} {input.contigs} > {output.qv}
+        yak inspect {input.yak} {output.asm_yak} > {output.completeness}
         '''
 
 rule validation_yak_trio:
@@ -180,7 +184,7 @@ rule validation_yak_trio:
         contigs = '{assembler}_{sample}/{haplotype}.contigs.fasta',
         parents = expand('data/{parent}.yak', parent = ('sire','dam'))
     output:
-        'results/{haplotype}_{sample}_{assembler}.trioyak.txt'
+        'results/{haplotype}_{sample}_{assembler}.yak.trio.txt'
     threads: 16
     resources:
         mem_mb = 6000
@@ -194,25 +198,17 @@ rule validation_auN:
     output:
         'results/{haplotype}_{sample}_{assembler}.{sequence}.auN.txt'
     shell:
-        'k8 ~/bin/calN50.js -s 0.01 {input} > {output}'
+        'calN50.js -s 0.01 {input} > {output}'
 
 ##Requires minigraph and paftools.js installed
 rule validation_refalign:
     input:
-        ref_fai  = f'{config["ref_genome"]}.fai',#f'{config['ref_genome']}[{{reference}}].fai'
-        asm = '{assembler}_{sample}/{haplotype}.contigs.fasta'
+        fai = f'{config["ref_genome"]}.fai',
+        paf = '{assembler}_{sample}/{haplotype}_contigs_ref.mm2.paf'
     output:
-        paf = temp('{assembler}_{sample}/{haplotype}_asm.paf'),
-        NGA = 'results/{haplotype}_{sample}_{assembler}.NGA50.txt'
-    threads: 24
-    resources:
-        mem_mb = 4000,
-        walltime = '2:00'
+        'results/{haplotype}_{sample}_{assembler}.NGA50.txt'
     shell:
-        '''
-        minigraph -k 21 -xasm  --show-unmap=yes -t {threads} {config[ref_genome]} {input.asm} > {output.paf}
-        paftools.js asmstat {input.ref_fai} {output.paf} > {output.NGA}
-        '''
+        'paftools.js asmstat {input.fai} {input.paf} > {output}'
 
 rule validation_asmgene:
     input:
@@ -244,7 +240,7 @@ rule validation_busco:
     threads: 24
     resources:
         mem_mb = 3500,
-        walltime = '6:00'
+        walltime = '8:00'
     shell:
         '''
         busco --cpu {threads} -i {input} -o {params.tmp_dir}

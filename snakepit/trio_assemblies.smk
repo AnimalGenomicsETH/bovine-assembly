@@ -1,10 +1,10 @@
 localrules: trio_canu, prep_haplotype_canu, haplotype_canu
 
-rule trio_yak:
+rule yak_count:
     input:
-        expand('data/{{parent}}.read_R{N}.SR.fq.gz', N = (1,2))
+        expand('data/{{individual}}.read_R{N}.SR.fq.gz', N = (1,2))
     output:
-        'data/{parent}.yak'
+        'data/{individual}.yak'
     threads: 24
     resources:
         mem_mb = 3000

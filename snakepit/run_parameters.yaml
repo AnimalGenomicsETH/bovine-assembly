@@ -52,7 +52,7 @@ assemblers:
 
 target_metrics:
   general:
-    - 'asm-ccs.qv.txt'
+    - 'yak.qv.txt'
     - 'NGA50.txt'
     - 'contigs.auN.txt'
     - 'scaffolds.auN.txt'
@@ -73,6 +73,7 @@ target_metrics:
     - 'repeats.csv'
     - 'merqury.stats.txt'
   trio:
+    - 'yak.trio.txt'
     - 'merqury.stats.txt'
   parents:
     - 'merqury.stats.txt'

@@ -16,10 +16,10 @@ rule generate_winnow_meryl:
 
 rule map_asm_ref:
     input:
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
+        asm = '{assembler}_{sample}/{haplotype}.{seq_type}.fasta',
         rep = lambda wildcards: '{assembler}_{sample}/{haplotype}_repetitive_k19.txt' if wildcards.mapper == 'wm2' else []
     output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.{mapper}.paf'
+        '{assembler}_{sample}/{haplotype}_{seq_type}_{reference}.{mapper}.paf'
     params:
        ref = lambda wildcards: config['ref_genome'] if wildcards.reference == 'ref' else '{assembler}_{sample}/{reference}.scaffolds.fasta',
        mapper = lambda wildcards, input: f'winnowmap -W {input.rep}' if wildcards.mapper == 'wm2' else 'minimap2'
