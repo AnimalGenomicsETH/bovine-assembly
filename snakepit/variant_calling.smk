@@ -1,8 +1,18 @@
-localrules: mumandco, dnadiff, paf_variants
+localrules: mumandco, dnadiff, paf_variants, sam2delta_conversion
+
+rule sam2delta_conversion:
+    input:
+        '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam'
+    output:
+        '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam.delta'
+    shell:
+        'python {workflow.basedir}/scripts/sam2delta.py {input}'
 
 rule mumandco:
     input:
-        '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
+        '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
+        '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam.delta',
+        '{assembler}_{sample}/{reference}_scaffolds_{haplotype}.wm2.sam.delta'
     output:
         dir_ = directory('{assembler}_{sample}/{haplotype}_{reference}_SV_output'),
         results = multiext('{assembler}_{sample}/{haplotype}_{reference}_SV_output/{haplotype}_{reference}_SV','.summary.txt','.SVs_all.tsv'),

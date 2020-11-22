@@ -10,7 +10,7 @@ data:
       sire: 'ssire'
       dam: 'sdam'
       offspring: 'soffspring'
-ref_genome: ''
+ref_genome: 'test_ref.fasta'
 ref_chrm: 'NC'
 ref_tig: 'NW'
 
