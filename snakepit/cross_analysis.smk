@@ -151,6 +151,7 @@ rule repeat_masker:
     resources:
         mem_mb = 600,
         walltime =  '2:00'
+        #-lib {config[repeat_library]}
     shell:
         '''
         RepeatMasker -qq -xsmall -pa $(({threads}/2)) -species "Bos taurus" {input}

@@ -4,15 +4,15 @@ rule sam2delta_conversion:
     input:
         '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam'
     output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam.delta'
+        temp('{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam.delta')
     shell:
         'python {workflow.basedir}/scripts/sam2delta.py {input}'
 
 rule mumandco:
     input:
-        '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
-        '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam.delta',
-        '{assembler}_{sample}/{reference}_scaffolds_{haplotype}.wm2.sam.delta'
+        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
+        ref = '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam.delta',
+        qur = '{assembler}_{sample}/{reference}_scaffolds_{haplotype}.wm2.sam.delta'
     output:
         dir_ = directory('{assembler}_{sample}/{haplotype}_{reference}_SV_output'),
         results = multiext('{assembler}_{sample}/{haplotype}_{reference}_SV_output/{haplotype}_{reference}_SV','.summary.txt','.SVs_all.tsv'),
@@ -20,11 +20,16 @@ rule mumandco:
     params:
         dir_ = '{assembler}_{sample}/{haplotype}_{reference}_SV',
         ref = lambda wildcards: config['ref_genome'] if wildcards.reference == 'ref' else '{assembler}_{sample}/{reference}.scaffolds.fasta',
+        ref_delta = '{assembler}_{sample}/{haplotype}_{reference}_SV_ref.delta',
+        qur_delta = '{assembler}_{sample}/{haplotype}_{reference}_SV_query.delta'
+
     shell:
         '''
+        cp {input.ref} {params.ref_delta} && cp {input.qur} {params.qur_delta}
         mumandco -r {params.ref} -q {input} -g $( echo "({config[genome_est]}*1000000000)/1" | bc) -o {params.dir_}
         for SV_type in insertion deletion inversion transloc; do
-            awk -v var=$SV_type '$1 ~ /{config[ref_chrm]}/ && $2 ~ /{config[ref_chrm]}/ && $6 ~ var {{sum += $5; count++}} END {{print var" "count" "sum}}' {output.results[1]} > {output.summary}
+            awk -v var=$SV_type '$6 ~ var {{sum += $5; count++}} END {{print "all "var" "count" "sum}}' {output.results[1]} > {output.summary}
+            awk -v var=$SV_type '$1 ~ /{config[ref_chrm]}/ && $2 ~ /{config[ref_chrm]}/ && $6 ~ var {{sum += $5; count++}} END {{print "chrm "var" "count" "sum}}' {output.results[1]} > {output.summary}
         done
         '''
 

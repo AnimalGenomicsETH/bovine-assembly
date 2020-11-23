@@ -25,6 +25,8 @@ def capture_logic(wildcards):
                 if have_parental_data('long_reads'):
                     required_files.append(a_path / f'hap{N}.scaff_seq')
 
+            required_files.append(r_path / f'hap2_100_{assembler}.hap1.mumSV.txt')
+
         if 'parents' in config['haplotypes'] and have_parental_data('long_reads') and wildcards.sample == 100:
 
             for parent in ('dam', 'sire'):

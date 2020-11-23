@@ -34,7 +34,7 @@ wildcard_constraints:
     assembler = r'[^\W_]+',
     parent = r'dam|sire',
     individual = r'dam|sire|offspring',
-    haplotype = r'\w+',
+    haplotype = r'asm|hap1|hap2|sire|dam|ref',
     hap = r'\w+',
     sample = r'\d+',
     data = r'[^\W_]+',

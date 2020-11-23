@@ -78,6 +78,7 @@ rule haplotype_canu:
     params:
         temp = 'hap{N}.complete',
         dir_ = 'asm-haplotype{N}'
+        #can wait for the haplotype.success file?
     log:
         'logs/assembler_canu_trio/sample-{sample}.haplotype-{N}.out'
     shell:
