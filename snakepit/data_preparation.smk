@@ -23,11 +23,13 @@ rule filter_hifi_data:
         'data/{individual}.raw.hifi.fq.gz'
     output:
         'data/{individual}.cleaned.hifi.fq.gz'
+    params:
+        html = 'data/{individual}.hifi.html'
     threads: 12
     resources:
         mem_mb = 4000
     shell:
-        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --length_limit {config[filtering][max_length]} --thread {threads} --html data/{wildcards.individual}.html --json /dev/null'
+        'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --length_limit {config[filtering][max_length]} --thread {threads} --html {params.html} --json /dev/null'
 
 rule fastq_to_fasta:
     input:
@@ -43,7 +45,7 @@ rule filter_SR_data:
     output:
         reads = expand('data/{{individual}}.read_R{N}.SR.fq.gz', N = (1,2))
     params:
-        html = 'data/{individual}.html'
+        html = 'data/{individual}.SR.html'
     threads: 12
     resources:
         mem_mb = 4000

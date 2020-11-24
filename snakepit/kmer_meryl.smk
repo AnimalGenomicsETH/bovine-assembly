@@ -1,4 +1,4 @@
-localrules: split_reads, merqury_formatting
+localrules: merqury_formatting
 
 rule count_asm_kmers:
     input:
@@ -17,7 +17,7 @@ rule count_SR_reads:
     input:
         'data/{individual}.read_R{N}.SR.fq.gz'
     output:
-        'data/{individual}.read_R{N}.meryl'
+        directory('data/{individual}.read_R{N}.meryl')
     threads: 24
     resources:
         mem_mb = 4000

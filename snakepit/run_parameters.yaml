@@ -33,6 +33,7 @@ ref_tig: 'NW'
 #'/cluster/work/pausch/alex/REF_DATA/ARS-UCD1-2.fa.gz'
 #'/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
 cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
+repeat_library: '/cluster/work/pausch/alex/Libraries/BosTau9_repeat_library.fasta'
 
 k-mers: 21
 genome_est: 2.7

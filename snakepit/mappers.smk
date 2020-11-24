@@ -1,3 +1,5 @@
+ruleorder: convert_sam_to_paf > map_asm_ref
+
 rule generate_winnow_meryl:
     input:
         asm = lambda wildcards: '{assembler}_{sample}/{haplotype}.scaffolds.fasta' if wildcards.haplotype !='ref' else f'{config["ref_genome"]}'
@@ -18,18 +20,25 @@ rule map_asm_ref:
     input:
         asm = lambda wildcards: '{assembler}_{sample}/{haplotype}.{seq_type}.fasta' if wildcards.haplotype != 'ref' else [],
         rep = lambda wildcards: '{assembler}_{sample}/{haplotype}_repetitive_k19.txt' if wildcards.mapper == 'wm2' else [],
-        ref = lambda wildcards: '{assembler}_{sample}/{reference}.{seq_type}.fasta' if wildcards.reference != 'ref' else []
+        ref = lambda wildcards: '{assembler}_{sample}/{reference}.{seq_type}.fasta' if wildcards.reference != 'ref' else f'{config["ref_genome"]}'
     output:
         '{assembler}_{sample}/{haplotype}_{seq_type}_{reference}.{mapper}.{ext,sam|paf}'
     params:
-       ref = lambda wildcards: config['ref_genome'] if wildcards.reference == 'ref' else '{assembler}_{sample}/{reference}.{seq_type}.fasta',
        mapper = lambda wildcards, input: f'winnowmap -W {input.rep}' if wildcards.mapper == 'wm2' else 'minimap2',
        out_t = lambda wildcards: '-c' if wildcards.ext == 'paf' else '-a'
     threads: 24
     resources:
-        mem_mb = 2000
+        mem_mb = lambda wildcards: 2000 if wildcards.mapper == 'mm2' else 3000
     shell:
-        '{params.mapper} {params.out_t} -x asm5 --cs -t {threads} {params.ref} {input.asm} -o {output}'
+        '{params.mapper} {params.out_t} -x asm5 --cs -t {threads} {input.ref} {input.asm} -o {output}'
+
+rule convert_sam_to_paf:
+    input:
+        '{assembler}_{sample}/{haplotype}_{seq_type}_{reference}.{mapper}.sam'
+    output:
+        '{assembler}_{sample}/{haplotype}_{seq_type}_{reference}.{mapper}.paf'
+    shell:
+        'paftools.js sam2paf {input} > {output}'
 
 rule map_hifi_cell:
     input:

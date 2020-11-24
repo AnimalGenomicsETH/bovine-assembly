@@ -56,7 +56,7 @@ rule ragtag_scaffold:
     output:
         '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
     params:
-        '{assembler}_{sample}/{haplotype}'
+        '{assembler}_{sample}/{haplotype}_scaf'
     threads: 24
     resources:
         mem_mb = 2000
@@ -147,14 +147,14 @@ rule repeat_masker:
     output:
         #NOTE repeatmasker doesn't output .masked if no masking, so just wrap the plain sequence via seqtk
         '{assembler}_{sample}/{haplotype}_split_chrm/{chunk}.chrm.fa.masked'
-    threads: 8
+    threads: 16
     resources:
-        mem_mb = 600,
-        walltime =  '2:00'
-        #-lib {config[repeat_library]}
+        mem_mb = 500,
+        walltime =  '4:00'
+        #
     shell:
         '''
-        RepeatMasker -qq -xsmall -pa $(({threads}/2)) -species "Bos taurus" {input}
+        RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} {input} #-species "Bos taurus"
         if [ ! -f {output} ]; then
           seqtk seq -l60 {input} > {output}
         fi
@@ -179,17 +179,20 @@ rule merge_masked_chromosomes:
 rule TGS_gapcloser:
     input:
         scaffolds = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
-        reads = lambda wildcards: expand('data/{parent}.hifi.fasta', parent = 'sire' if wildcards.haplotype == 'hap1' else 'dam')
+        reads = lambda wildcards: f'data/{"sire" if wildcards.haplotype == "hap1" else "dam"}.hifi.fasta'
     output:
-        '{assembler}_{sample}/{haplotype}.scaff_seq'
+        '{assembler}_{sample}/{haplotype}.filled.fasta'
     params:
-        out = '{assembler}_{sample}/{haplotype}'
-    threads: 16
+        dir_ = directory('{assembler}_{sample}/{haplotype}_TGS'),
+        out = '{assembler}_{sample}/{haplotype}_TGS/{haplotype}'
+    threads: 24
     resources:
-        mem_mb = 5000
+        mem_mb = 3000
     shell:
         '''
+        mkdir -p {params.dir_}
         {config[tgs_root]}/TGS-GapCloser.sh --scaff {input.scaffolds} --reads {input.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads}
+        mv {params.out}.scaff_seq {output}
         '''
 
 rule polish_scaffolds:

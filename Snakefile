@@ -11,7 +11,7 @@ if config['animal'] != 'test':
 raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign
+localrules: all, analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign
 
 for _dir in ['data','results']:
     Path(_dir).mkdir(exist_ok=True)
@@ -116,14 +116,15 @@ if 'canu' in config['assemblers']:
             'canu_100/{parent}.contigs_all.fa'
         log: 'logs/assembler_canu_parents/parent-{parent}.out'
         params:
+            dir_ = 'canu_100/{parent}_asm',
             temp = '{parent}.complete'
         shell:
             '''
-            canu -p {wildcards.parent} -d canu_100 genomeSize={config[genome_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" onFailure="touch {params.temp}" > {log}
-            while [ ! -e canu_100/{params.temp} ]; do sleep 60; done
+            canu -p {wildcards.parent} -d {params.dir_} genomeSize={config[genome_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" onFailure="touch {params.temp}" > {log}
+            while [ ! -e {params.dir_}/{params.temp} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
-            rm canu_100/{params.temp}
-            mv canu_100/{wildcards.parent}.contigs.fasta {output}
+            rm {params.dir_}/{params.temp}
+            mv {params.dir_}/{wildcards.parent}.contigs.fasta {output}
             '''
 
     rule strip_canu_bubbles:
@@ -156,7 +157,7 @@ if 'IPA' in config['assemblers']:
         output:
             'IPA_{sample}/{haplotype}.contigs.fasta'
         shell:
-            'snakemake --profile "lsf" -n --snakefile /cluster/work/pausch/alex/software/miniconda3/envs/pbipa/etc/ipa.snakefile --configfile config.yaml  -U finish -d RUN'
+            'snakemake --profile "lsf" -n --snakefile /cluster/work/pausch/alex/software/miniconda3/envs/pbipa/etc/ipa.snakefile --configfile config.yaml  -U finish -d {wildcards.haplotype}'
 
 ##Requires yak installed
 rule validation_yak:
@@ -169,13 +170,13 @@ rule validation_yak:
         completeness = 'results/{haplotype}_{sample}_{assembler}.yak.completeness.txt'
     params:
         kmer = 31
-    threads: 16
+    threads: 8
     resources:
-        mem_mb = 5000
+        mem_mb = 4000
     shell:
         '''
         yak count -k {params.kmer} -b 37 -t {threads} -K1.5g -o {output.asm_yak} {input.contigs}
-        yak qv -t {threads} -l1m -K4g {input.yak} {input.contigs} > {output.qv}
+        yak qv -t {threads} -l100k -K2g {input.yak} {input.contigs} > {output.qv}
         yak inspect {input.yak} {output.asm_yak} > {output.completeness}
         '''
 
@@ -237,10 +238,10 @@ rule validation_busco:
         summary = 'results/{haplotype}_{sample}_{assembler}.BUSCO.txt'
     params:
         tmp_dir = '{haplotype}_{sample}_{assembler}_busco_results'
-    threads: 24
+    threads: 12
     resources:
-        mem_mb = 3500,
-        walltime = '8:00'
+        mem_mb = 5000,
+        walltime = '16:00'
     shell:
         '''
         busco --cpu {threads} -i {input} -o {params.tmp_dir}
