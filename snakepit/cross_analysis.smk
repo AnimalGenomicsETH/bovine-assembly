@@ -118,27 +118,26 @@ checkpoint split_chromosomes:
     output:
         directory('{assembler}_{sample}/{haplotype}_split_chrm'),
     params:
+        asm = lambda wildcards, input: '../' + PurePath(input[0]).name,
         headers = 'headers.temp',
         chrm = 'chrm.temp',
         ur_tigs = 'unplaced_ref_contigs.chrm.fa',
         ua_tigs = 'unplaced_asm_contigs.chrm.fa',
     shell:
         '''
-        mkdir -p {output}
-        grep ">" {input} | cut -c 2- > {output}/{params.headers}
-        grep "{config[ref_chrm]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.chrm}
-        grep "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ur_tigs}
-        grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {output}/{params.headers} | seqtk subseq {input} - > {output}/{params.ua_tigs}
-        awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> "{output}/"filename".chrm.fa"}}' {output}/{params.chrm}
+        mkdir -p {output} && cd {output}
+        grep ">" {params.asm} | cut -c 2- > {params.headers}
+        grep "{config[ref_chrm]}" {params.headers} | seqtk subseq {params.asm} - > {params.chrm}
+        grep "{config[ref_tig]}" {params.headers} | seqtk subseq {params.asm} - > {params.ur_tigs}
+        grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {params.headers} | seqtk subseq {params.asm} - > {params.ua_tigs}
+        awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> filename".chrm.fa"}}' {params.chrm}
 
         for val in ref asm; do
-            paste -d " " - - < unplaced_$val_contigs.chrm.fa > {output}/collapsed_$val.txt
-            split -a 2 -d -C 50MiB --additional-suffix=.chrm.fa {output}/collapsed_$val.txt {output}/unplaced_$val_contigs_
-            find {output}/unplaced_$val_contigs_* -exec bash -c "cat {{}} | tr -s ' ' '\n' > {{}}.temp && mv {{}}.temp {{}}" \;
+            paste -d " " - - < unplaced_${{val}}_contigs.chrm.fa > collapsed_${{val}}.txt
+            split -a 2 -d -C 50MiB --additional-suffix=.chrm.fa collapsed_${{val}}.txt unplaced_${{val}}_contigs_
+            find unplaced_${{val}}_contigs_* -exec bash -c "cat {{}} | tr -s ' ' '\n' > {{}}.temp && mv {{}}.temp {{}}" \;
         done
-        #split -a 2 -d -l 50 --additional-suffix=.chrm.fa {output}/{params.ua_tigs} {output}/unplaced_asm_contigs_
-        #split -a 2 -d -l 50 --additional-suffix=.chrm.fa {output}/{params.ur_tigs} {output}/unplaced_ref_contigs_
-        rm {output}/{params.headers} {output}/{params.chrm} {output}/{params.ua_tigs} {output}/{params.ur_tigs}
+        rm {params.headers} {params.chrm} {params.ua_tigs} {params.ur_tigs}
         '''
 
 rule repeat_masker:
@@ -151,7 +150,6 @@ rule repeat_masker:
     resources:
         mem_mb = 500,
         walltime =  '4:00'
-        #
     shell:
         '''
         RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} {input} #-species "Bos taurus"
@@ -169,10 +167,15 @@ rule merge_masked_chromosomes:
         aggregate_chrm_input
     output:
         masked = '{assembler}_{sample}/{haplotype}.scaffolds.fasta.masked',
-        csv = 'results/{haplotype}_{sample}_{assembler}.repeats.csv'
+        csv = 'results/{haplotype}_{sample}_{assembler}.repeats.csv',
+        tbl = 'results/{haplotype}_{sample}_{assembler}.repeats.tbl'
+    params:
+        out_list = lambda wildcards, input: [PurePath(fin).with_suffix('.out') for fin in input]
     shell:
         '''
         cat {input} > {output.masked}
+        export PERL5LIB={config[perl_lib]}
+        cat {params.out_list} | buildSummary.pl - > {output.tbl}
         python {workflow.basedir}/scripts/masker_table.py --haplotype {wildcards.haplotype} --sample {wildcards.sample} --assembler {wildcards.assembler}
         '''
 
@@ -192,7 +195,7 @@ rule TGS_gapcloser:
         '''
         mkdir -p {params.dir_}
         {config[tgs_root]}/TGS-GapCloser.sh --scaff {input.scaffolds} --reads {input.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads}
-        mv {params.out}.scaff_seq {output}
+        mv {params.out}.scaff_seqs {output}
         '''
 
 rule polish_scaffolds:

@@ -110,7 +110,7 @@ rule merqury_spectra_cn:
         '''
         cd {params.dir_}
         export MERQURY={config[merqury_root]}
-        ln -sfn ../{input.filt}
+        ln -sfn ../{input.filt} offspring.filt
         find ../data/ -name "*gt*" -exec ln -sfn ../data/{{}} . \;
         $MERQURY/eval/spectra-cn.sh ../{input.read_db} {params.asm} {params.out}
         '''
@@ -154,7 +154,7 @@ rule merqury_phase_block:
         asm = lambda wildcards, input: PurePath(input['asm']).name
     threads: 12
     resources:
-        mem_mb = 6000
+        mem_mb = 3500
     envmodules:
        'gcc/8.2.0',
        'r/4.0.2'

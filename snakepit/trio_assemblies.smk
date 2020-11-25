@@ -1,6 +1,6 @@
 localrules: trio_canu, prep_haplotype_canu, haplotype_canu
 
-rule yak_count:
+rule yak_count_SR:
     input:
         expand('data/{{individual}}.read_R{N}.SR.fq.gz', N = (1,2))
     output:

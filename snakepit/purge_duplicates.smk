@@ -52,7 +52,7 @@ rule purge_dups:
         contigs = '{assembler}_{sample}/{haplotype}_pd/contigs_raw.fa'
     output:
         contigs = '{assembler}_{sample}/{haplotype}_pd/purged.fa',
-        bed = '{assembler}_{sample}/{haplotype}_pd/dups.bed'#TEMP
+        bed = '{assembler}_{sample}/{haplotype}_pd/dups.bed'
     params:
         dir_ = lambda wildcards, output: PurePath(output['bed']).parent,
         bed = lambda wildcards, output: PurePath(output['bed']).name,

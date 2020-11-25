@@ -11,7 +11,7 @@ if config['animal'] != 'test':
 raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: all, analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign
+localrules: all, analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign, validation_yak_completeness
 
 for _dir in ['data','results']:
     Path(_dir).mkdir(exist_ok=True)
@@ -160,25 +160,43 @@ if 'IPA' in config['assemblers']:
             'snakemake --profile "lsf" -n --snakefile /cluster/work/pausch/alex/software/miniconda3/envs/pbipa/etc/ipa.snakefile --configfile config.yaml  -U finish -d {wildcards.haplotype}'
 
 ##Requires yak installed
-rule validation_yak:
+rule count_yak_asm:
     input:
-        yak = 'data/offspring.yak',
         contigs = '{assembler}_{sample}/{haplotype}.contigs.fasta'
     output:
-        asm_yak = temp('{assembler}_{sample}/{haplotype}.yak'),
-        qv = 'results/{haplotype}_{sample}_{assembler}.yak.qv.txt',
-        completeness = 'results/{haplotype}_{sample}_{assembler}.yak.completeness.txt'
+        yak = temp('{assembler}_{sample}/{haplotype}.yak')
     params:
         kmer = 31
     threads: 8
     resources:
+        mem_mb = 2000,
+        walltime = '0:30'
+    shell:
+        'yak count -k {params.kmer} -b 37 -t {threads} -K1.5g -o {output.yak} {input.contigs}'
+
+rule validation_yak_qv:
+    input:
+        yak = 'data/offspring.yak',
+        contigs = '{assembler}_{sample}/{haplotype}.contigs.fasta',
+
+    output:
+        'results/{haplotype}_{sample}_{assembler}.yak.qv.txt'
+    params:
+        kmer = 31
+    threads: 12
+    resources:
         mem_mb = 5000
     shell:
-        '''
-        yak count -k {params.kmer} -b 37 -t {threads} -K1.5g -o {output.asm_yak} {input.contigs}
-        yak qv -t {threads} -l100k -K2g {input.yak} {input.contigs} > {output.qv}
-        yak inspect {input.yak} {output.asm_yak} > {output.completeness}
-        '''
+        'yak qv -t {threads} -l100k -K2g {input.yak} {input.contigs} > {output}'
+
+rule validation_yak_completeness:
+    input:
+        yak = 'data/offspring.yak',
+        asm_yak = '{assembler}_{sample}/{haplotype}.yak'
+    output:
+        'results/{haplotype}_{sample}_{assembler}.yak.completeness.txt'
+    shell:
+        'yak inspect {input.yak} {output.asm_yak} > {output}'
 
 rule validation_yak_trio:
     input:

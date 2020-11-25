@@ -66,6 +66,7 @@ kmc_root: ''
 merqury_root: ''
 tgs_root: ''
 r_lib: ''
+perl_lib: ''
 
 ##filtering run_parameters
 filtering:

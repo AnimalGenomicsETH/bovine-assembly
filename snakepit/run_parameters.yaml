@@ -1,15 +1,6 @@
 workdir: '../'
 animal: 'BSWCHEF120152514636'
 data:
-  test:
-    long_reads:
-      offspring: '.test/offspring/'
-      dam: '.test/dam/'
-      sire: '.test/sire/'
-    short_reads:
-      sire: '.test/ssire'
-      dam: '.test/sdam'
-      offspring: '.test/soffspring'
   BSWCHEF120152514636:
     long_reads:
       offspring: '/nfs/nas12.ethz.ch/fs1201/green_groups_tg_public/data/long-read_data/PacBio_CCS/BSWCHEF120152514636/ccs/'
@@ -85,6 +76,7 @@ kmc_root: '/cluster/work/pausch/alex/software/KMC'
 merqury_root: '/cluster/work/pausch/alex/software/merqury'
 tgs_root: '/cluster/work/pausch/alex/software/TGS-GapCloser'
 r_lib: '/cluster/work/pausch/alex/software/R_packages'
+perl_lib: '/cluster/home/alleonard/.cpan/lib/perl5/x86_64-linux:/cluster/work/pausch/danang/pangenome_nonref/bin2/repeatmask2/RepeatMasker'
 
 ##filtering run_parameters
 filtering:
