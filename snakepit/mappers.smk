@@ -18,7 +18,7 @@ rule generate_winnow_meryl:
 
 rule map_asm_ref:
     input:
-        asm = lambda wildcards: '{assembler}_{sample}/{haplotype}.{seq_type}.fasta' if wildcards.haplotype != 'ref' else [],
+        asm = lambda wildcards: '{assembler}_{sample}/{haplotype}.{seq_type}.fasta' if wildcards.haplotype != 'ref' else f'{config["ref_genome"]}',
         rep = lambda wildcards: '{assembler}_{sample}/{haplotype}_repetitive_k19.txt' if wildcards.mapper == 'wm2' else [],
         ref = lambda wildcards: '{assembler}_{sample}/{reference}.{seq_type}.fasta' if wildcards.reference != 'ref' else f'{config["ref_genome"]}'
     output:

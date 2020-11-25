@@ -5,7 +5,7 @@ def have_parental_data(read_t):
     return True
 
 def capture_logic(wildcards):
-    required_files = [f'data/offspring.{wildcards.sample}.QC.txt','hifiasm_100/dam.p_ctg.gfa']
+    required_files = [f'data/offspring.{wildcards.sample}.QC.txt']
     for assembler in config['assemblers']:
         a_path = PurePath(f'{assembler}_{wildcards.sample}')
         r_path = PurePath('results')

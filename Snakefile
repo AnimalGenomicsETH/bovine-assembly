@@ -172,7 +172,7 @@ rule validation_yak:
         kmer = 31
     threads: 8
     resources:
-        mem_mb = 4000
+        mem_mb = 5000
     shell:
         '''
         yak count -k {params.kmer} -b 37 -t {threads} -K1.5g -o {output.asm_yak} {input.contigs}
