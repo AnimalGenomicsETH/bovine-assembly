@@ -59,6 +59,12 @@ target_metrics:
     - 'merqury.stats.txt'
   parents:
     - 'merqury.stats.txt'
+  sampling:
+    - 'BUSCO.txt'
+    - 'contigs.auN.txt'
+    - 'scaffolds.auN.txt'
+    - 'NGA50.txt'
+    - 'gaps.txt'
 
 ##sources of non-bin programs
 pd_root: ''

@@ -56,19 +56,25 @@ target_metrics:
     - 'ref.mumSV.txt'
     - 'mm2.vcf'
     - 'wm2.vcf'
+    - 'repeats.csv'
   primary:
     - 'windows.hifi.coverage.txt'
     - 'chrm.hifi.coverage.txt'
     - 'windows.SR.coverage.txt'
     - 'chrm.SR.coverage.txt'
     - 'telo.txt'
-    - 'repeats.csv'
     - 'merqury.stats.txt'
   trio:
     - 'yak.trio.txt'
     - 'merqury.stats.txt'
   parents:
     - 'merqury.stats.txt'
+  sampling:
+    - 'BUSCO.txt'
+    - 'contigs.auN.txt'
+    - 'scaffolds.auN.txt'
+    - 'NGA50.txt'
+    - 'gaps.txt'
 
 ##sources of non-bin programs
 pd_root: '/cluster/work/pausch/alex/software/purge_dups'

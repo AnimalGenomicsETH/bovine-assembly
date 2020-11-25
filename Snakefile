@@ -177,8 +177,7 @@ rule count_yak_asm:
 rule validation_yak_qv:
     input:
         yak = 'data/offspring.yak',
-        contigs = '{assembler}_{sample}/{haplotype}.contigs.fasta',
-
+        contigs = '{assembler}_{sample}/{haplotype}.contigs.fasta'
     output:
         'results/{haplotype}_{sample}_{assembler}.yak.qv.txt'
     params:

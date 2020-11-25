@@ -187,14 +187,17 @@ rule TGS_gapcloser:
         '{assembler}_{sample}/{haplotype}.filled.fasta'
     params:
         dir_ = directory('{assembler}_{sample}/{haplotype}_TGS'),
-        out = '{assembler}_{sample}/{haplotype}_TGS/{haplotype}'
-    threads: 24
+        out = '{assembler}_{sample}/{haplotype}_TGS/{haplotype}',
+        scaffolds = lambda wildcards, input: '../' + PurePath(input['scaffolds']).name,
+        reads = lambda wildcards, input: '../../' + input['reads']
+    threads: 12
     resources:
-        mem_mb = 3000
+        mem_mb = 5000,
+        walltime = '24:00'
     shell:
         '''
         mkdir -p {params.dir_}
-        {config[tgs_root]}/TGS-GapCloser.sh --scaff {input.scaffolds} --reads {input.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads}
+        (cd {params.dir_} && {config[tgs_root]}/TGS-GapCloser.sh --scaff {params.scaffolds} --reads {params.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads})
         mv {params.out}.scaff_seqs {output}
         '''
 
