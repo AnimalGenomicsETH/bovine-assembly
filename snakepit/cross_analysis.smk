@@ -63,7 +63,7 @@ rule ragtag_scaffold:
     shell:
         '''
         ragtag.py scaffold {config[ref_genome]} {input} -o {params} -t {threads} --mm2-params "-c -x asm5" -r -m 1000000
-        mv {params}/ragtag.scaffolds.fasta {output}
+        cp {params}/ragtag.scaffolds.fasta {output}
         '''
 
 rule prep_window:
@@ -146,13 +146,13 @@ rule repeat_masker:
     output:
         #NOTE repeatmasker doesn't output .masked if no masking, so just wrap the plain sequence via seqtk
         '{assembler}_{sample}/{haplotype}_split_chrm/{chunk}.chrm.fa.masked'
-    threads: 16
+    threads: lambda wildcards, input: 18 if input.size_mb < 100 else 24
     resources:
-        mem_mb = 500,
-        walltime =  '4:00'
+        mem_mb = 250,
+        walltime = '4:00'
     shell:
         '''
-        RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} {input} #-species "Bos taurus"
+        RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} -q -no_is {input} #-species "Bos taurus"
         if [ ! -f {output} ]; then
           seqtk seq -l60 {input} > {output}
         fi
@@ -198,7 +198,7 @@ rule TGS_gapcloser:
         '''
         mkdir -p {params.dir_}
         (cd {params.dir_} && {config[tgs_root]}/TGS-GapCloser.sh --scaff {params.scaffolds} --reads {params.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads})
-        mv {params.out}.scaff_seqs {output}
+        cp {params.out}.scaff_seqs {output}
         '''
 
 rule polish_scaffolds:

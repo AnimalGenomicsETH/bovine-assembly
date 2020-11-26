@@ -44,7 +44,7 @@ assemblers:
 
 target_metrics:
   general:
-    - 'yak.qv.txt'
+    #- 'yak.qv.txt'
     - 'NGA50.txt'
     - 'contigs.auN.txt'
     - 'scaffolds.auN.txt'
@@ -65,7 +65,7 @@ target_metrics:
     - 'telo.txt'
     - 'merqury.stats.txt'
   trio:
-    - 'yak.trio.txt'
+    #- 'yak.trio.txt'
     - 'merqury.stats.txt'
   parents:
     - 'merqury.stats.txt'

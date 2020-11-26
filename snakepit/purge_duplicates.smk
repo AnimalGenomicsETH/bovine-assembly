@@ -71,7 +71,7 @@ rule assess_purging:
     output:
         'canu_{sample}/{haplotype}.contigs.fasta'
     shell:
-        'mv {input.purged} {output}'
+        'cp {input.purged} {output}'
 
 rule KMC_reads:
     input:
