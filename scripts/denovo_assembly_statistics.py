@@ -4,6 +4,7 @@ import pandas
 import seaborn
 from itertools import cycle
 from numpy import linspace, cumsum
+from pathlib import PurePath
 
 animal, haplotype, sample, assembler = '', '', '', ''
 
@@ -95,15 +96,20 @@ def load_NGA():
                 data[key] = value
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
+def load_key_pair_file(fname):
+    return {key:value for (key,*value) in (line.rstrip().split() for line in open_results(fname))}
+
 def kmer_QV():
+    return {k:v[0] for (k,v) in load_key_pair_file('merqury.stats.txt').items()}
     #data = dict()
     #with open_results('merqury.stats.txt') as file_in:
     #    data.update({key:value for (key,value) in line.rstrip().split()})
     #return data
-    return {key:value for line in open_results('merqury.stats.txt') for (key,value) in line.rstrip().split()}
+    #return {key:value for line in open_results('merqury.stats.txt') for (key,value) in line.rstrip().split()}
 
-def load_mumSV(reference='ref'):
-    return {key:value for line in open_results(f'{reference}.mumSV.txt') for (key,*value) in line.rstrip().split()}
+def load_mumSV(reference='ref',key='chrm'):
+    return {v[0]:v[1:] for (k,v) in load_key_pair_file(f'{reference}.mumSV.txt').items() if k == key}
+    #return {key:value for line in open_results(f'{reference}.mumSV.txt') for (key,*value) in line.rstrip().split()}
 
 def load_asmgene():
     table = [[],[],[]]
@@ -177,6 +183,12 @@ def generate_markdown_reads():
     build_str += IMAGE(f'figures/offspring.{sample}.QC.png',.6) + '\n\n'
     return build_str
 
+def emph_haplotype(haplotype):
+    if haplotype == 'asm':
+        return f'<span style="color:blue"> **asm** </span>'
+    else:
+        return haplotype
+
 def generate_markdown_string(build_str,summary_str):
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*, haplotype: {haplotype} \n'
@@ -223,20 +235,21 @@ def generate_markdown_string(build_str,summary_str):
     build_str += '### merqury k-mers\n' \
                  f'Coverage: {float(kmer_stats["completeness"])/100:.1%}\n\n' \
                  f'QV: {kmer_stats["QV"]}\n\n' + \
-    build_str += IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
+                 IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
 
     build_str += f'Switch error: {kmer_stats["switches"]}\n\n' \
                  f'dam: {kmer_stats["dam"]}\n\n' \
                  f'sire: {kmer_stats["sire"]}\n\n' + \
-    build_str += IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'
+                 IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'
 
     lineage, busco_string = busco_report()
     build_str += '### BUSCO \n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
 
     mumsv = load_mumSV('ref')
+    print(mumsv)
     build_str += '### structural variants\n' + \
-                 '\n\n'.join(f'variant: {variant}, count: {count}, total size: {size/1e6} mB' for variant, (count, size) in mumsv.items()) + '\n\n'
+                 '\n\n'.join(f'variant: {variant}, count: {count}, total size: {int(size)/1e6} mB' for (variant, (count, size)) in mumsv.items()) + '\n\n'
 
     build_str += '### repeat content\n' \
                  'work coming soon\n\n'
@@ -252,7 +265,7 @@ def generate_markdown_string(build_str,summary_str):
 
     scaff_metrics = load_auNCurves('scaffolds')[1]
 
-    summary_str += f'| *{assembler}* | {haplotype} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
+    summary_str += f'| {assembler} | {emph_haplotype(haplotype)} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
 
 
@@ -283,8 +296,7 @@ def main(direct_input=None):
     parser = argparse.ArgumentParser(description='Produce assembly report.')
     parser.add_argument('--animal', type=str, required=True)
     parser.add_argument('--sample', type=str, required=True)
-    parser.add_argument('--assemblers', nargs='+', required=True)
-    parser.add_argument('--haplotypes', nargs='+', required=True)
+    parser.add_argument('--input', nargs='+', required=True)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
     parser.add_argument('--keepfig', action='store_true')
     parser.add_argument('--css', default='report.css', type=str)
@@ -301,17 +313,21 @@ def main(direct_input=None):
 
     md_string = ''
     summary_string = '# summary \n' \
-                     '| assembler | haplotype | size | contigs | N50 | L50 | N50\' | BUSCO | QV |\n' \
-                     '| :-------- | :-------: | :--: | :-----: | :-: | :-: | :---: | :---: | :: |\n'
+                     '| assembler | haplotype | size | contigs | N50 | L50 | S50 | BUSCO | QV |\n' \
+                     '| --------- | --------- | ---- | ------- | --- | --- | --- | ----- | -- |\n'
 
-    for haplotype_t,assembler_t in product(args.haplotypes,args.assemblers):
+    contig_files = [PurePath(f).name.split('.')[0] for f in args.input if '.contigs.auN.txt' in f]
+    haplotypes = list({ctg.split('_')[0] for ctg in contig_files})
+    assemblers = list({ctg.split('_')[-1] for ctg in contig_files})
+    
+    for haplotype_t,assembler_t in product(haplotypes,assemblers):
         global haplotype
         haplotype = haplotype_t
         global assembler
         assembler = assembler_t
 
         md_string, summary_string = generate_markdown_string(md_string,summary_string)
-
+    
     md_string = summary_string + md_string
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:

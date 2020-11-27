@@ -288,4 +288,4 @@ rule analysis_report:
     log:
         'logs/analysis_report/sample-{sample}.out'
     shell:
-        'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {config[animal]} --sample {wildcards.sample} --haplotypes {config[haplotypes]} --assemblers {config[assemblers]} --css {workflow.basedir}/scripts/report.css --outfile {output} > {log}'
+        'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {config[animal]} --sample {wildcards.sample} --input {input} --css {workflow.basedir}/scripts/report.css --outfile {output} > {log}'

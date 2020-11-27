@@ -146,13 +146,13 @@ rule repeat_masker:
     output:
         #NOTE repeatmasker doesn't output .masked if no masking, so just wrap the plain sequence via seqtk
         '{assembler}_{sample}/{haplotype}_split_chrm/{chunk}.chrm.fa.masked'
-    threads: lambda wildcards, input: 18 if input.size_mb < 100 else 24
+    threads: 24#lambda wildcards, input: 18 if input.size_mb < 100 else 24
     resources:
-        mem_mb = 250,
+        mem_mb = 400,
         walltime = '4:00'
     shell:
         '''
-        RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} -q -no_is {input} #-species "Bos taurus"
+        RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} -qq -no_is {input} #-species "Bos taurus"
         if [ ! -f {output} ]; then
           seqtk seq -l60 {input} > {output}
         fi
@@ -186,8 +186,8 @@ rule TGS_gapcloser:
     output:
         '{assembler}_{sample}/{haplotype}.filled.fasta'
     params:
-        dir_ = directory('{assembler}_{sample}/{haplotype}_TGS'),
-        out = '{assembler}_{sample}/{haplotype}_TGS/{haplotype}',
+        dir_ = '{assembler}_{sample}/{haplotype}_TGS',
+        out = '{haplotype}',
         scaffolds = lambda wildcards, input: '../' + PurePath(input['scaffolds']).name,
         reads = lambda wildcards, input: '../../' + input['reads']
     threads: 12
@@ -198,7 +198,7 @@ rule TGS_gapcloser:
         '''
         mkdir -p {params.dir_}
         (cd {params.dir_} && {config[tgs_root]}/TGS-GapCloser.sh --scaff {params.scaffolds} --reads {params.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads})
-        cp {params.out}.scaff_seqs {output}
+        cp {params.dir_}/{params.out}.scaff_seqs {output}
         '''
 
 rule polish_scaffolds:
