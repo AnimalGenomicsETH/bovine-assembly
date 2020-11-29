@@ -34,5 +34,11 @@ def main(direct_input=None):
     df = build_repeat_dataframe(f'{args.assembler}_{args.sample}/{args.haplotype}_split_chrm')
     df.to_csv(f'results/{args.haplotype}_{args.sample}_{args.assembler}.repeats.csv',index=False)
 
+def centromere_locations():
+    rows = [line.rstrip().split() for line in open('centr_locs.txt')]
+    df = pd.DataFrame(rows,columns=['SW','Dv','db','q','name','start','stop','rem','com','repeat','rep_class','rom','rim','nom','ids'])
+    g = df.groupby('name')
+    print(g.mean()[g.count()['SW']>10][:30])
+
 if __name__ == '__main__':
     main()
