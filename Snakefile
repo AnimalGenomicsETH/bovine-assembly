@@ -11,7 +11,7 @@ if config['animal'] != 'test':
 raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: all, analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign, validation_yak_completeness
+localrules: all, analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign, validation_yak_completeness, validation_asmgene
 
 for _dir in ['data','results']:
     Path(_dir).mkdir(exist_ok=True)
@@ -39,7 +39,8 @@ wildcard_constraints:
     sample = r'\d+',
     data = r'[^\W_]+',
     modifier = r'\w+',
-    read_t  = r'hifi|SR'
+    read_t  = r'hifi|SR',
+    mapper = r'mm2|wm2'
 
 #------------#
 #DEFINE RULES#
@@ -219,32 +220,51 @@ rule validation_auN:
         'calN50.js -s 0.01 {input} > {output}'
 
 ##Requires minigraph and paftools.js installed
+rule map_minigraph:
+    input:
+        '{assembler}_{sample}/{haplotype}.contigs.fasta'
+    output:
+        temp('{assembler}_{sample}/{haplotype}_contigs_ref.mg.paf')
+    threads: 24
+    resources:
+        mem_mb = 3000
+    shell:
+        'minigraph -xasm -K2g --show-unmap=yes -t {threads} {config[ref_genome]} {input} > {output}'
+
 rule validation_refalign:
     input:
         fai = f'{config["ref_genome"]}.fai',
-        paf = '{assembler}_{sample}/{haplotype}_contigs_ref.mm2.paf'
+        paf = '{assembler}_{sample}/{haplotype}_contigs_ref.mg.paf'
     output:
         'results/{haplotype}_{sample}_{assembler}.NGA50.txt'
     shell:
         'paftools.js asmstat {input.fai} {input.paf} > {output}'
 
-rule validation_asmgene:
+rule map_splice_reads:
     input:
-        asm = '{assembler}_{sample}/{haplotype}.contigs.fasta',
-        reads = 'data/offspring.{sample}.hifi.fq.gz'
+        lambda wildcards: '{assembler}_{sample}/{haplotype}.contigs.fasta' if wildcards.reference == 'asm' else f'{config["ref_genome"]}'
     output:
-        asm_paf = temp('{assembler}_{sample}/{haplotype}_asm_aln.paf'),
-        ref_paf = temp('{assembler}_{sample}/{haplotype}_ref_aln.paf'),
-        asmgene = 'results/{haplotype}_{sample}_{assembler}.asmgene.txt'
+        temp('{assembler}_{sample}/{haplotype}_{reference}_splices.paf')
     threads: 24
     resources:
         mem_mb = 2500
     shell:
-        '''
-        minimap2 -cxsplice:hq -t {threads} {input.asm} {config[cDNAs]} > {output.asm_paf}
-        minimap2 -cxsplice:hq -t {threads} {input.reads} {config[cDNAs]} > {output.ref_paf}
-        paftools.js asmgene -i.97 {output.ref_paf} {output.asm_paf} > {output.asmgene}
-        '''
+        'minimap2 -cxsplice:hq -t {threads} {input} {config[cDNAs]} > {output}'
+
+rule validation_asmgene:
+    input:
+        asm = '{assembler}_{sample}/{haplotype}_asm_splices.paf',
+        ref = '{assembler}_{sample}/{haplotype}_ref_splices.paf'
+    output:
+        'results/{haplotype}_{sample}_{assembler}.asmgene.{opt}.txt'
+    params:
+        thresh = lambda wildcards: '-i.97' if wildcards.opt == '97' else '-i.99',
+        hap_opt = lambda wildcards: '' if wildcards.haplotype == 'asm' else '-a'
+    threads: 24
+    resources:
+        mem_mb = 2500
+    shell:
+        'paftools.js asmgene {params.thresh} {params.hap_opt} {input.ref} {input.asm} > {output}'
 
 ##Requires busco (and metaeuk) installed
 rule validation_busco:

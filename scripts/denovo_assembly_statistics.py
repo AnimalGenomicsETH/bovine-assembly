@@ -111,9 +111,9 @@ def load_mumSV(reference='ref',key='chrm'):
     return {v[0]:v[1:] for (k,v) in load_key_pair_file(f'{reference}.mumSV.txt').items() if k == key}
     #return {key:value for line in open_results(f'{reference}.mumSV.txt') for (key,*value) in line.rstrip().split()}
 
-def load_asmgene():
+def load_asmgene(threshold=97):
     table = [[],[],[]]
-    with open_results('asmgene.txt') as file_in:
+    with open_results(f'asmgene.{threshold}.txt') as file_in:
         for line in file_in:
             if line[0] != 'X':
                 continue
@@ -319,7 +319,7 @@ def main(direct_input=None):
     contig_files = [PurePath(f).name.split('.')[0] for f in args.input if '.contigs.auN.txt' in f]
     haplotypes = list({ctg.split('_')[0] for ctg in contig_files})
     assemblers = list({ctg.split('_')[-1] for ctg in contig_files})
-    
+
     for haplotype_t,assembler_t in product(haplotypes,assemblers):
         global haplotype
         haplotype = haplotype_t
@@ -327,7 +327,7 @@ def main(direct_input=None):
         assembler = assembler_t
 
         md_string, summary_string = generate_markdown_string(md_string,summary_string)
-    
+
     md_string = summary_string + md_string
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:

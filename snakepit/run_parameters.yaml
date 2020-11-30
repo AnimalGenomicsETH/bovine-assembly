@@ -48,7 +48,7 @@ target_metrics:
     - 'NGA50.txt'
     - 'contigs.auN.txt'
     - 'scaffolds.auN.txt'
-    - 'asmgene.txt'
+    - 'asmgene.97.txt'
     - 'BUSCO.txt'
     - 'ref.mm2.dot.png'
     - 'ref.wm2.dot.png'
@@ -68,7 +68,7 @@ target_metrics:
     #- 'yak.trio.txt'
     - 'merqury.stats.txt'
   parents:
-    - 'merqury.stats.txt'
+    - 'completeness.stats'
   sampling:
     - 'BUSCO.txt'
     - 'contigs.auN.txt'

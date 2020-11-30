@@ -1,4 +1,4 @@
-localrules: merqury_formatting
+localrules: merqury_formatting, merqury_formatting_parental
 
 rule count_asm_kmers:
     input:
@@ -222,4 +222,16 @@ rule merqury_formatting:
         awk '/{wildcards.haplotype}/ && /sire/ {{print "sire "$5}}' {input.hap_stats} >> {output}
         awk '/{wildcards.haplotype}/ && /dam/ {{print "dam "$5}}' {input.hap_stats} >> {output}
         awk '{{print "switches "$14+0}}' {input.switches} >> {output}
+        '''
+
+rule merqury_formatting_parental:
+    input:
+        stats = '{assembler}_{sample}/{parent}.completeness.stats',
+        qv = '{assembler}_{sample}/{parent}.qv',
+    output:
+        'results/{parent}_{sample}_{assembler}.merqury.stats.simple'
+    shell:
+        '''
+        awk '/{wildcards.parent}/ {{print "QV "$4}}' {input.qv} > {output}
+        awk '/{wildcards.parent}/ {{print "completeness "$5}}' {input.stats} >> {output}
         '''
