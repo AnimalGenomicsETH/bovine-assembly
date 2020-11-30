@@ -89,10 +89,10 @@ rule hap_blob:
 
 rule merqury_spectra_cn:
     input:
-        read_db = 'data/offspring.meryl',
-        asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
-        asm_dbs = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.meryl', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
-        filt = 'data/offspring.filt'
+        read_db = lambda wildcards: 'data/offspring.meryl' if wildcards.hap in ('asm','trio') else 'data/{hap}.meryl',
+        filt =  lambda wildcards: 'data/offspring.filt' if wildcards.hap in ('asm','trio') else 'data/{hap}.filt',
+        asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = ('hap1','hap2') if wildcards.hap == 'trio' else wildcards.hap),
+        asm_dbs = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.meryl', X = ('hap1','hap2') if wildcards.hap == 'trio' else wildcards.hap)
     output:
         multiext('{assembler}_{sample}/{hap}', '.qv', '.completeness.stats')
     params:
@@ -191,10 +191,10 @@ rule merqury_block_n_stats:
 
 rule merqury_prep:
     input:
-        'data/offspring.meryl'
+        'data/{individual}.meryl'
     output:
-        hist = 'data/offspring.hist',
-        filt = 'data/offspring.filt',
+        hist = 'data/{individual}.hist',
+        filt = 'data/{individual}.filt',
     threads: 12
     resources:
         mem_mb = 2000
@@ -204,7 +204,7 @@ rule merqury_prep:
         java -jar -Xmx1g {config[merqury_root]}/eval/kmerHistToPloidyDepth.jar {output.hist} > {output.hist}.ploidy
         filt=`sed -n 2p {output.hist}.ploidy | awk '{{print $NF}}'`
         echo $filt > {output.filt}
-        meryl greater-than $filt output data/offspring.gt$filt.meryl {input}
+        meryl greater-than $filt output data/{wildcards.individual}.gt$filt.meryl {input}
         '''
 
 rule merqury_formatting:

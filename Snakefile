@@ -245,9 +245,9 @@ rule map_splice_reads:
         lambda wildcards: '{assembler}_{sample}/{haplotype}.contigs.fasta' if wildcards.reference == 'asm' else f'{config["ref_genome"]}'
     output:
         temp('{assembler}_{sample}/{haplotype}_{reference}_splices.paf')
-    threads: 24
+    threads: 8
     resources:
-        mem_mb = 2500
+        mem_mb = 7000
     shell:
         'minimap2 -cxsplice:hq -t {threads} {input} {config[cDNAs]} > {output}'
 
