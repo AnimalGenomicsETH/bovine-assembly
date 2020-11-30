@@ -97,8 +97,9 @@ rule merqury_spectra_cn:
         multiext('{assembler}_{sample}/{hap}', '.qv', '.completeness.stats')
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
+        base = lambda wildcards, input: PurePath(input['read_db']).stem,
         out = '{hap}',
-        read_db = lambda wildcards, input: '..' / PurePath(input['read_db']),
+        read_db = lambda wildcards, input: PurePath(input['read_db']).name,
         asm = lambda wildcards, input: tuple(PurePath(fname).name for fname in input['asm'])
     threads: 8
     resources:
@@ -110,9 +111,10 @@ rule merqury_spectra_cn:
         '''
         cd {params.dir_}
         export MERQURY={config[merqury_root]}
-        ln -sfn ../{input.filt} offspring.filt
-        find ../data/ -name "*gt*" -exec ln -sfn ../data/{{}} . \;
-        $MERQURY/eval/spectra-cn.sh ../{input.read_db} {params.asm} {params.out}
+        ln -sfn  ../{input.filt}
+        ln -sfn ../{input.read_db}
+        find ../data/ -name "{params.base}.gt*.meryl" -exec ln -sfn ../data/{{}} . \;
+        $MERQURY/eval/spectra-cn.sh {params.read_db} {params.asm} {params.out}
         '''
 
 rule merqury_spectra_hap:

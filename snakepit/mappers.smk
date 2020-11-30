@@ -28,7 +28,7 @@ rule map_asm_ref:
        out_t = lambda wildcards: '-c' if wildcards.ext == 'paf' else '-a'
     threads: 24
     resources:
-        mem_mb = lambda wildcards: 2000 if wildcards.mapper == 'mm2' else 3000
+        mem_mb = lambda wildcards: 2000 if wildcards.mapper == 'mm2' else 3500
     shell:
         '{params.mapper} {params.out_t} -x asm5 --cs -t {threads} {input.ref} {input.asm} -o {output}'
 

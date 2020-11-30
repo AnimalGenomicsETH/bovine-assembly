@@ -192,7 +192,7 @@ rule TGS_gapcloser:
         reads = lambda wildcards, input: '../../' + input['reads']
     threads: 12
     resources:
-        mem_mb = 5000,
+        mem_mb = 6000,
         walltime = '24:00'
     shell:
         '''

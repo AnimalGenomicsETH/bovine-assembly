@@ -68,7 +68,7 @@ target_metrics:
     #- 'yak.trio.txt'
     - 'merqury.stats.txt'
   parents:
-    - 'completeness.stats'
+    - 'merqury.stats.simple'
   sampling:
     - 'BUSCO.txt'
     - 'contigs.auN.txt'
