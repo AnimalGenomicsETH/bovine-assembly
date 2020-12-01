@@ -53,13 +53,14 @@ target_metrics:
     - 'chrm.SR.coverage.txt'
     - 'telo.txt'
     - 'repeats.csv'
-    - 'merqury.stats.txt'
+    - 'merqury.full.stats'
   trio:
     - 'yak.trio.txt'
-    - 'merqury.stats.txt'
+    - 'merqury.full.stats'
   parents:
-    - 'merqury.stats.simple'
+    - 'merqury.simple.stats'
   sampling:
+    - 'merqury.full.stats'
     - 'BUSCO.txt'
     - 'contigs.auN.txt'
     - 'scaffolds.auN.txt'

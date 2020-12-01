@@ -99,17 +99,11 @@ def load_NGA():
 def load_key_pair_file(fname):
     return {key:value for (key,*value) in (line.rstrip().split() for line in open_results(fname))}
 
-def kmer_QV():
-    return {k:v[0] for (k,v) in load_key_pair_file('merqury.stats.txt').items()}
-    #data = dict()
-    #with open_results('merqury.stats.txt') as file_in:
-    #    data.update({key:value for (key,value) in line.rstrip().split()})
-    #return data
-    #return {key:value for line in open_results('merqury.stats.txt') for (key,value) in line.rstrip().split()}
+def kmer_QV(run_type='txt'):
+    return {k:v[0] for (k,v) in load_key_pair_file(f'merqury.{run_type}.stats').items()}
 
 def load_mumSV(reference='ref',key='chrm'):
     return {v[0]:v[1:] for (k,v) in load_key_pair_file(f'{reference}.mumSV.txt').items() if k == key}
-    #return {key:value for line in open_results(f'{reference}.mumSV.txt') for (key,*value) in line.rstrip().split()}
 
 def load_asmgene(threshold=97):
     table = [[],[],[]]
@@ -189,20 +183,22 @@ def emph_haplotype(haplotype):
     else:
         return haplotype
 
-def generate_markdown_string(build_str,summary_str):
+def generate_markdown_string(summary_str,build_str=None):
+    asm_metrics = load_auNCurves('contigs')[1]
+    scaff_metrics = load_auNCurves('scaffolds')[1]
+    lineage, busco_string = busco_report()
+    kmer_stats = kmer_QV('full' if haplotype in ('asm','hap1','hap2') else 'simple')
+
+    summary_str += f'| {assembler} | {emph_haplotype(haplotype) if build_str else sample} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
+                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
+    if not build_str:
+        return summary_str
+
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*, haplotype: {haplotype} \n'
 
-    #resource_stats = load_resource_benchmark(animal,assembler,sample)
-
-    #build_str += '## resource details\n' \
-    #             f'Runtime (wall/cpu): {resource_stats["walltime"]} s / {resource_stats["cputime"]} s\n\n' \
-    #             f'>*average threading* = {resource_stats["cputime"]/resource_stats["walltime"]:.1f}\n\n' \
-    #             f'Memory (mean/max): {resource_stats["mean_mem"]} mb / {resource_stats["max_mem"]} mb\n\n'
-
     build_str += '## assembly metrics\n'
 
-    asm_metrics, aln_metrics, auN_plot = plot_auNCurves()
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
                  f'Total contigs: {asm_metrics["NN"]:,}\n\n'
 
@@ -219,6 +215,7 @@ def generate_markdown_string(build_str,summary_str):
                      IMAGE(f'{assembler}_{sample}/{haplotype}.contigs_raw.spectra.png',.4) + \
                      IMAGE(f'{assembler}_{sample}/{haplotype}.purged.spectra.png',.4) + '\n\n'
 
+    asm_metrics, aln_metrics, auN_plot = plot_auNCurves()
     build_str += '### reference metrics\n' \
                  '* Coverage\n' \
                  f'  * Rcov: {aln_metrics["Rcov"]}\n' \
@@ -231,23 +228,22 @@ def generate_markdown_string(build_str,summary_str):
 
     build_str += '## validation results\n\n'
 
-    kmer_stats = kmer_QV()
     build_str += '### merqury k-mers\n' \
                  f'Coverage: {float(kmer_stats["completeness"])/100:.1%}\n\n' \
                  f'QV: {kmer_stats["QV"]}\n\n' + \
                  IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
 
-    build_str += f'Switch error: {kmer_stats["switches"]}\n\n' \
-                 f'dam: {kmer_stats["dam"]}\n\n' \
-                 f'sire: {kmer_stats["sire"]}\n\n' + \
-                 IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'
+    if haplotype not in ('dam','sire'):
+        build_str += f'Switch error: {kmer_stats["switches"]}\n\n' \
+                     f'dam: {kmer_stats["dam"]}\n\n' \
+                     f'sire: {kmer_stats["sire"]}\n\n' + \
+                     IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'
 
-    lineage, busco_string = busco_report()
     build_str += '### BUSCO \n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
 
     mumsv = load_mumSV('ref')
-    print(mumsv)
+
     build_str += '### structural variants\n' + \
                  '\n\n'.join(f'variant: {variant}, count: {count}, total size: {int(size)/1e6} mB' for (variant, (count, size)) in mumsv.items()) + '\n\n'
 
@@ -263,12 +259,6 @@ def generate_markdown_string(build_str,summary_str):
     for row, values in zip(('ref','asm'),gene_map[1:]):
         build_str += f'| {row} | {" | ".join(values)} |\n'
 
-    scaff_metrics = load_auNCurves('scaffolds')[1]
-
-    summary_str += f'| {assembler} | {emph_haplotype(haplotype)} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
-                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
-
-
     return build_str, summary_str
 
 import argparse
@@ -282,8 +272,6 @@ def custom_PDF_writer(output,prepend_str,md_content,css):
     header = markdown(prepend_str,extras=['tables'])
     raw_html = markdown(md_content, extras={'tables':{},'header_ids':{},'toc':{'depth':2},'code-friendly':{},'cuddled-lists':{}})
     full_html = header + raw_html.toc_html + raw_html
-    print(full_html)
-    print(css)
     html = HTML(string=full_html,base_url=str(Path().cwd()))
     if css:
         html.write_pdf(output,stylesheets=[CSS(filename=css)])
@@ -295,7 +283,7 @@ def main(direct_input=None):
 
     parser = argparse.ArgumentParser(description='Produce assembly report.')
     parser.add_argument('--animal', type=str, required=True)
-    parser.add_argument('--sample', type=str, required=True)
+    parser.add_argument('--samples', nargs='+', required=True)
     parser.add_argument('--input', nargs='+', required=True)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
     parser.add_argument('--keepfig', action='store_true')
@@ -304,8 +292,6 @@ def main(direct_input=None):
     args = parser.parse_args(direct_input)
     global animal
     animal = args.animal
-    global sample
-    sample = args.sample
     css_path = args.css if Path(args.css).is_file() else None
 
     prepend_str = generate_markdown_reads() + \
@@ -316,19 +302,29 @@ def main(direct_input=None):
                      '| assembler | haplotype | size | contigs | N50 | L50 | S50 | BUSCO | QV |\n' \
                      '| --------- | --------- | ---- | ------- | --- | --- | --- | ----- | -- |\n'
 
+    sample_string = summary_string.replace('# summary ','# downsampling ').replace('haplotype','sample rate')
+
     contig_files = [PurePath(f).name.split('.')[0] for f in args.input if '.contigs.auN.txt' in f]
     haplotypes = list({ctg.split('_')[0] for ctg in contig_files})
     assemblers = list({ctg.split('_')[-1] for ctg in contig_files})
 
+    global haplotype
+    global assembler
     for haplotype_t,assembler_t in product(haplotypes,assemblers):
-        global haplotype
         haplotype = haplotype_t
-        global assembler
         assembler = assembler_t
 
         md_string, summary_string = generate_markdown_string(md_string,summary_string)
 
     md_string = summary_string + md_string
+
+    global sample
+    if len(args.samples) > 1:
+        haplotype = 'asm'
+        for sample in args.samples:
+            summary_string = generate_markdown_string(summary_string)
+        md_string += summary_string
+
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:
         rmtree('figures')

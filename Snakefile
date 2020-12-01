@@ -47,7 +47,7 @@ wildcard_constraints:
 #------------#
 rule all:
     input:
-        expand('{animal}_{sample}_analysis_report.pdf',animal=config['animal'],sample=config['sampling']),
+        f'{config["animal"]}_analysis_report.pdf'
 
 if 'hifiasm' in config['assemblers']:
     rule assembler_hifiasm:
@@ -304,8 +304,8 @@ rule analysis_report:
     input:
         capture_logic
     output:
-        f'{config["animal"]}_{{sample}}_analysis_report.pdf'
+        f'{config["animal"]}_analysis_report.pdf'
     log:
-        'logs/analysis_report/sample-{sample}.out'
+        'logs/analysis_report/unique.out'
     shell:
-        'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {config[animal]} --sample {wildcards.sample} --input {input} --css {workflow.basedir}/scripts/report.css --outfile {output} > {log}'
+        'python {workflow.basedir}/scripts/denovo_assembly_statistics.py --animal {config[animal]} --samples {config[sampling]} --input {input} --css {workflow.basedir}/scripts/report.css --outfile {output} > {log}'

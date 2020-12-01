@@ -1,4 +1,4 @@
-localrules: merqury_formatting, merqury_formatting_parental
+localrules: merqury_formatting, merqury_formatting_simple
 
 rule count_asm_kmers:
     input:
@@ -210,13 +210,13 @@ rule merqury_prep:
 rule merqury_formatting:
     input:
         '{assembler}_{sample}/{haplotype}.{haplotype}.contigs.continuity.NG.png',
+        lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hapmers.blob.png', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         stats = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         hap_stats = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hap.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         qv = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.qv', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
-        blob = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hapmers.blob.png', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         switches = '{assembler}_{sample}/{haplotype}.100_20000.switches.txt'
     output:
-        'results/{haplotype}_{sample}_{assembler}.merqury.stats.txt'
+        'results/{haplotype}_{sample}_{assembler}.merqury.full.stats'
     shell:
         '''
         awk '/{wildcards.haplotype}/ {{print "QV "$4}}' {input.qv} > {output}
@@ -226,14 +226,14 @@ rule merqury_formatting:
         awk '{{print "switches "$14+0}}' {input.switches} >> {output}
         '''
 
-rule merqury_formatting_parental:
+rule merqury_formatting_simple:
     input:
-        stats = '{assembler}_{sample}/{parent}.completeness.stats',
-        qv = '{assembler}_{sample}/{parent}.qv',
+        stats = '{assembler}_{sample}/{haplotype}.completeness.stats',
+        qv = '{assembler}_{sample}/{haplotype}.qv',
     output:
-        'results/{parent}_{sample}_{assembler}.merqury.stats.simple'
+        'results/{haplotype}_{sample}_{assembler}.merqury.simple.stats'
     shell:
         '''
-        awk '/{wildcards.parent}/ {{print "QV "$4}}' {input.qv} > {output}
-        awk '/{wildcards.parent}/ {{print "completeness "$5}}' {input.stats} >> {output}
+        awk '/{wildcards.haplotype}/ {{print "QV "$4}}' {input.qv} > {output}
+        awk '/{wildcards.haplotype}/ {{print "completeness "$5}}' {input.stats} >> {output}
         '''
