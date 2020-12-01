@@ -57,13 +57,14 @@ target_metrics:
     - 'mm2.vcf'
     - 'wm2.vcf'
     - 'repeats.csv'
+    - 'repeats.tbl'
   primary:
     - 'windows.hifi.coverage.txt'
     - 'chrm.hifi.coverage.txt'
     - 'windows.SR.coverage.txt'
     - 'chrm.SR.coverage.txt'
     - 'telo.txt'
-    - 'merqury.stats.txt'
+    - 'merqury.full.stats'
   trio:
     #- 'yak.trio.txt'
     - 'merqury.full.stats'

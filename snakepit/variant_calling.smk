@@ -1,4 +1,4 @@
-localrules: mumandco, dnadiff, paf_variants, sam2delta_conversion
+localrules: mumandco, mumandco_summarise, dnadiff, paf_variants, sam2delta_conversion
 
 rule sam2delta_conversion:
     input:
@@ -16,7 +16,6 @@ rule mumandco:
     output:
         dir_ = directory('{assembler}_{sample}/{haplotype}_{reference}_SV_output'),
         results = multiext('{assembler}_{sample}/{haplotype}_{reference}_SV_output/{haplotype}_{reference}_SV','.summary.txt','.SVs_all.tsv'),
-        summary = 'results/{haplotype}_{sample}_{assembler}.{reference}.mumSV.txt'
     params:
         dir_ = lambda wildcards, input: PurePath(input['asm']).parent,
         out = '{haplotype}_{reference}_SV',
@@ -27,10 +26,20 @@ rule mumandco:
     shell:
         '''
         cp {input.ref} {params.ref_delta} && cp {input.qur} {params.qur_delta}
-        (cd {params.dir_} && mumandco -r {params.ref} -q {params.asm} -g $( echo "({config[genome_est]}*1000000000)/1" | bc) -o {params.out})
+        cd {params.dir_}
+        mumandco -r {params.ref} -q {params.asm} -g $( echo "({config[genome_est]}*1000000000)/1" | bc) -o {params.out}
+        '''
+rule mumandco_summarise:
+    input:
+        '{assembler}_{sample}/{haplotype}_{reference}_SV_output/{haplotype}_{reference}_SV.SVs_all.tsv'
+    output:
+        'results/{haplotype}_{sample}_{assembler}.{reference}.mumSV.txt'
+    shell:
+        '''
+        > {output}
         for SV_type in insertion deletion inversion transloc; do
-            awk -v var=$SV_type '$6 ~ var {{sum += $5; count++}} END {{print "all "var" "count" "sum}}' {output.results[1]} >> {output.summary}
-            awk -v var=$SV_type '$1 ~ /{config[ref_chrm]}/ && $2 ~ /{config[ref_chrm]}/ && $6 ~ var {{sum += $5; count++}} END {{print "chrm "var" "count" "sum}}' {output.results[1]} >> {output.summary}
+            awk -v var=$SV_type '$6 ~ var {{sum += $5; count++}} END {{print "all "var" "count" "sum}}' {input} >> {output}
+            awk -v var=$SV_type '$1 ~ /{config[ref_chrm]}/ && $2 ~ /{config[ref_chrm]}/ && $6 ~ var {{sum += $5; count++}} END {{print "chrm "var" "count" "sum}}' {input} >> {output}
         done
         '''
 

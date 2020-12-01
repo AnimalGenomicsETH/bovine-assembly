@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import datetime
 import pandas
@@ -6,13 +8,17 @@ from itertools import cycle
 from numpy import linspace, cumsum
 from pathlib import PurePath
 
-animal, haplotype, sample, assembler = '', '', '', ''
+animal, haplotype, sample, assembler = '', '', '100', ''
 
 def get_basename():
     return f'{haplotype}_{sample}_{assembler}'
 
 def open_results(extension):
     return open(f'results/{get_basename()}.{extension}','r')
+
+def save_figure(figure,path):
+    figure.savefig(path)
+    plt.close(figure)
 
 def plot_chromosome_scaffolds():
     chromosome = 0
@@ -32,7 +38,7 @@ def plot_chromosome_scaffolds():
                 ax.bar(chromosome,height,bottom=bottom,width=0.5,color=next(colours))
 
     f_name = f'figures/{get_basename()}.chromosomes.png'
-    fig.savefig(f_name)
+    save_figure(fig,f_name)
     return f_name
 
 def load_auNCurves(d_type):
@@ -77,8 +83,7 @@ def plot_auNCurves():
 
     plt.tight_layout()
     save_path = f'figures/{get_basename()}_auN_curves.png'
-    fig.savefig(save_path)
-
+    save_figure(fig,save_path)
     return metrics, aln_metrics, save_path
 
 def load_NGA():
@@ -103,7 +108,7 @@ def kmer_QV(run_type='txt'):
     return {k:v[0] for (k,v) in load_key_pair_file(f'merqury.{run_type}.stats').items()}
 
 def load_mumSV(reference='ref',key='chrm'):
-    return {v[0]:v[1:] for (k,v) in load_key_pair_file(f'{reference}.mumSV.txt').items() if k == key}
+    return {v[0]:v[1:] for (k,*v) in [line.rstrip().split() for line in open_results(f'{reference}.mumSV.txt')] if k == key}
 
 def load_asmgene(threshold=97):
     table = [[],[],[]]
@@ -189,14 +194,16 @@ def generate_markdown_string(summary_str,build_str=None):
     lineage, busco_string = busco_report()
     kmer_stats = kmer_QV('full' if haplotype in ('asm','hap1','hap2') else 'simple')
 
-    summary_str += f'| {assembler} | {emph_haplotype(haplotype) if build_str else sample} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
+    summary_str += f'| {assembler} | {emph_haplotype(haplotype) if build_str is not None else sample} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
-    if not build_str:
+    
+    if build_str is None:
         return summary_str
 
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*, haplotype: {haplotype} \n'
 
+    asm_metrics, aln_metrics, auN_plot = plot_auNCurves()    
     build_str += '## assembly metrics\n'
 
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
@@ -215,7 +222,6 @@ def generate_markdown_string(summary_str,build_str=None):
                      IMAGE(f'{assembler}_{sample}/{haplotype}.contigs_raw.spectra.png',.4) + \
                      IMAGE(f'{assembler}_{sample}/{haplotype}.purged.spectra.png',.4) + '\n\n'
 
-    asm_metrics, aln_metrics, auN_plot = plot_auNCurves()
     build_str += '### reference metrics\n' \
                  '* Coverage\n' \
                  f'  * Rcov: {aln_metrics["Rcov"]}\n' \
@@ -231,21 +237,22 @@ def generate_markdown_string(summary_str,build_str=None):
     build_str += '### merqury k-mers\n' \
                  f'Coverage: {float(kmer_stats["completeness"])/100:.1%}\n\n' \
                  f'QV: {kmer_stats["QV"]}\n\n' + \
-                 IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.45) + '\n\n'
+                 IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-cn.ln.png',.4) + \
+                 IMAGE(f'{assembler}_{sample}/{haplotype}.spectra-asm.ln.png',.4) + '\n\n'
 
     if haplotype not in ('dam','sire'):
         build_str += f'Switch error: {kmer_stats["switches"]}\n\n' \
                      f'dam: {kmer_stats["dam"]}\n\n' \
                      f'sire: {kmer_stats["sire"]}\n\n' + \
-                     IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + '\n\n'
+                     IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.block.NG.png',.45) + \
+                     IMAGE(f'{assembler}_{sample}/{haplotype}.{haplotype}.contigs.continuity.NG.png',.45) + '\n\n'
 
     build_str += '### BUSCO \n' \
                  f'Lineage: **{lineage}**\n\nAnalysis: {busco_string}\n\n'
 
     mumsv = load_mumSV('ref')
-
     build_str += '### structural variants\n' + \
-                 '\n\n'.join(f'variant: {variant}, count: {count}, total size: {int(size)/1e6} mB' for (variant, (count, size)) in mumsv.items()) + '\n\n'
+                 '\n\n'.join(f'variant: {variant}, count: {count}, total size: {int(size)/1e6:.1f} mB' for (variant, (count, size)) in mumsv.items()) + '\n\n'
 
     build_str += '### repeat content\n' \
                  'work coming soon\n\n'
@@ -259,7 +266,7 @@ def generate_markdown_string(summary_str,build_str=None):
     for row, values in zip(('ref','asm'),gene_map[1:]):
         build_str += f'| {row} | {" | ".join(values)} |\n'
 
-    return build_str, summary_str
+    return summary_str, build_str
 
 import argparse
 from pathlib import Path
@@ -305,8 +312,8 @@ def main(direct_input=None):
     sample_string = summary_string.replace('# summary ','# downsampling ').replace('haplotype','sample rate')
 
     contig_files = [PurePath(f).name.split('.')[0] for f in args.input if '.contigs.auN.txt' in f]
-    haplotypes = list({ctg.split('_')[0] for ctg in contig_files})
-    assemblers = list({ctg.split('_')[-1] for ctg in contig_files})
+    haplotypes = sorted({ctg.split('_')[0] for ctg in contig_files})
+    assemblers = sorted({ctg.split('_')[-1] for ctg in contig_files})
 
     global haplotype
     global assembler
@@ -314,7 +321,7 @@ def main(direct_input=None):
         haplotype = haplotype_t
         assembler = assembler_t
 
-        md_string, summary_string = generate_markdown_string(md_string,summary_string)
+        summary_string, md_string = generate_markdown_string(summary_string,md_string)
 
     md_string = summary_string + md_string
 
