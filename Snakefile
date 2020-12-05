@@ -56,7 +56,7 @@ if 'hifiasm' in config['assemblers']:
         output:
             'hifiasm_{sample}/asm.p_ctg.gfa'
         params:
-            out = lambda wildcards, output: PurePath(output[0]).parent,
+            out = lambda wildcards, output: PurePath(output[0]).stem,
             settings = '-r 4 -a 5 -n 5'
         threads: 36
         resources:

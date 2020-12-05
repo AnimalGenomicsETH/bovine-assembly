@@ -101,6 +101,10 @@ def load_NGA():
                 data[key] = value
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
+def plot_sampling_curves(df):
+    pass
+
+
 def load_key_pair_file(fname):
     return {key:value for (key,*value) in (line.rstrip().split() for line in open_results(fname))}
 
@@ -196,14 +200,14 @@ def generate_markdown_string(summary_str,build_str=None):
 
     summary_str += f'| {assembler} | {emph_haplotype(haplotype) if build_str is not None else sample} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
-    
+
     if build_str is None:
-        return summary_str
+        return summary_str, {'S50':scaff_metrics["N50"],'N50':asm_metrics["N50"],'QV':kmer_stats["QV"],'completness':kmer_stats['completness'],'BUSCO_C':busco_string[2:6],'BUSCO_S':busco_string[10:14]}
 
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*, haplotype: {haplotype} \n'
 
-    asm_metrics, aln_metrics, auN_plot = plot_auNCurves()    
+    asm_metrics, aln_metrics, auN_plot = plot_auNCurves()
     build_str += '## assembly metrics\n'
 
     build_str += f'Genome length: {asm_metrics["SZ"]/1e9:.4f} gb\n\n' \
@@ -317,7 +321,7 @@ def main(direct_input=None):
 
     global haplotype
     global assembler
-    for haplotype_t,assembler_t in product(haplotypes,assemblers):
+    for haplotype_t, assembler_t in product(haplotypes,assemblers):
         haplotype = haplotype_t
         assembler = assembler_t
 
@@ -326,11 +330,18 @@ def main(direct_input=None):
     md_string = summary_string + md_string
 
     global sample
+    row_data = []
     if len(args.samples) > 1:
         haplotype = 'asm'
-        for sample in args.samples:
-            summary_string = generate_markdown_string(summary_string)
+        for sample_t, assembler_t in product(args.samples,assemblers):
+            sample = sample_rate
+            assembler = assembler_t
+            summary_string, new_row = generate_markdown_string(summary_string)
+            new_row.update({'sample':sample_t,'assembler':assembler_t})
+            row_data.append(new_row)
+
         md_string += summary_string
+        md_string += 'figure'
 
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:

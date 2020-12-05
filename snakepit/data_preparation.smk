@@ -21,15 +21,19 @@ rule raw_merge_files:
 rule filter_hifi_data:
     input:
         'data/{individual}.raw.hifi.fq.gz'
+        #'data/{individual}.raw.{read_tech}.fq.gz'
     output:
         'data/{individual}.cleaned.hifi.fq.gz'
+        #'data/{individual}.cleaned.{read_tech}.fq.gz'
     params:
         html = 'data/{individual}.hifi.html'
+        ##'data/{individual}.{read_tech}.html'
     threads: 12
     resources:
         mem_mb = 4000
     shell:
         'fastp -i {input} -o {output} --average_qual {config[filtering][avg_qual]} --length_required {config[filtering][min_length]} --length_limit {config[filtering][max_length]} --thread {threads} --html {params.html} --json /dev/null'
+        #can filter sepearately for hifi and pion reads
 
 rule fastq_to_fasta:
     input:
