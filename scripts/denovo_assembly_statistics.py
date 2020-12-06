@@ -102,7 +102,19 @@ def load_NGA():
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
 def plot_sampling_curves(df):
-    pass
+    fig, axes = plt.subplots(1,3,sharex=True)
+
+    sns.lineplot(data=df,x='sample',y='N50',ax=axes[0],hue='assembler')
+    sns.lineplot(data=df,x='sample',y='S50',ax=axes[0],hue='assembler',kwargs={'ls':'--'})
+
+    sns.lineplot(data=df,x='sample',y='QV',ax=axes[1],hue='assembler')
+    ax1_twin = axes[1].twiny()
+    sns.lineplot(data=df,x='sample',y='completeness',ax=ax1_twin,hue='assembler')
+
+    sns.lineplot(data=df,x='sample',y='BUSCO_C',ax=axes[2],hue='assembler')
+    sns.lineplot(data=df,x='sample',y='BUSCO_S',ax=axes[2],hue='assembler',kwargs={'ls':'--'})
+
+    save_figure(fig,'figures/sampling_curves.png')
 
 
 def load_key_pair_file(fname):
@@ -202,7 +214,7 @@ def generate_markdown_string(summary_str,build_str=None):
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
 
     if build_str is None:
-        return summary_str, {'S50':scaff_metrics["N50"],'N50':asm_metrics["N50"],'QV':kmer_stats["QV"],'completness':kmer_stats['completness'],'BUSCO_C':busco_string[2:6],'BUSCO_S':busco_string[10:14]}
+        return summary_str, {'S50':scaff_metrics["N50"],'N50':asm_metrics["N50"],'QV':kmer_stats["QV"],'completeness':kmer_stats['completeness'],'BUSCO_C':busco_string[2:6],'BUSCO_S':busco_string[10:14]}
 
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*, haplotype: {haplotype} \n'
@@ -341,7 +353,9 @@ def main(direct_input=None):
             row_data.append(new_row)
 
         md_string += summary_string
-        md_string += 'figure'
+        sample_dataframe = pd.DataFrame(row_data)
+
+        md_string += '\n' + IMAGE(plot_sampling_curves(sample_dataframe),.8) + '\n\n'
 
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:
