@@ -168,12 +168,12 @@ rule count_yak_asm:
         yak = temp('{assembler}_{sample}/{haplotype}.yak')
     params:
         kmer = 31
-    threads: 8
+    threads: 4
     resources:
-        mem_mb = 2000,
+        mem_mb = 6000,
         walltime = '0:30'
     shell:
-        'yak count -k {params.kmer} -b 37 -t {threads} -K1.5g -o {output.yak} {input.contigs}'
+        'yak count -k {params.kmer} -b 37 -t {threads} -o {output.yak} {input.contigs}'
 
 rule validation_yak_qv:
     input:
@@ -213,11 +213,12 @@ rule validation_yak_trio:
 ##Requires k8 and calN50.js installed
 rule validation_auN:
     input:
-        '{assembler}_{sample}/{haplotype}.{sequence}.fasta'
+        asm = '{assembler}_{sample}/{haplotype}.{sequence}.fasta',
+        ref_fai = f'{config[ref_genome]}.fai'
     output:
         'results/{haplotype}_{sample}_{assembler}.{sequence}.auN.txt'
     shell:
-        'calN50.js -s 0.01 {input} > {output}'
+        'calN50.js -s 0.01 -f {input.ref_fai} {input.asm} > {output}'
 
 ##Requires minigraph and paftools.js installed
 rule map_minigraph:

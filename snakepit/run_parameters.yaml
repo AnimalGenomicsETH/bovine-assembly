@@ -95,4 +95,9 @@ filtering:
 ##sample levels
 sampling:
   - 100
-  #- 75
+  - 91
+  - 83
+  - 75
+  - 67
+  - 58
+  - 50

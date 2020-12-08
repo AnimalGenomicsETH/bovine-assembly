@@ -102,18 +102,21 @@ def load_NGA():
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
 def plot_sampling_curves(df):
-    fig, axes = plt.subplots(1,3,sharex=True)
+    fig, axes = plt.subplots(1,3,sharex=True,figsize=(12,5))
 
-    sns.lineplot(data=df,x='sample',y='N50',ax=axes[0],hue='assembler')
-    sns.lineplot(data=df,x='sample',y='S50',ax=axes[0],hue='assembler',kwargs={'ls':'--'})
+    df_N50 = df[['sample','assembler','contig','scaffold']].melt(id_vars=['sample','assembler'],var_name='type',value_name='N50')
 
-    sns.lineplot(data=df,x='sample',y='QV',ax=axes[1],hue='assembler')
-    ax1_twin = axes[1].twiny()
-    sns.lineplot(data=df,x='sample',y='completeness',ax=ax1_twin,hue='assembler')
+    seaborn.lineplot(data=df_N50,x='sample',y='N50',ax=axes[0],hue='assembler',style='type',**{'marker':'o'})
+    axes[0].set_yscale('log')
 
-    sns.lineplot(data=df,x='sample',y='BUSCO_C',ax=axes[2],hue='assembler')
-    sns.lineplot(data=df,x='sample',y='BUSCO_S',ax=axes[2],hue='assembler',kwargs={'ls':'--'})
+    seaborn.lineplot(data=df,x='sample',y='QV',ax=axes[1],hue='assembler',**{'marker':'o'})
+    ax1_twin = axes[1].twinx()
+    seaborn.lineplot(data=df,x='sample',y='completeness',ax=ax1_twin,hue='assembler',**{'marker':'o','ls':'--'})
 
+    df_busco = df[['sample','assembler','single','total']].melt(id_vars=['sample','assembler'],var_name='copy',value_name='complete')
+    seaborn.lineplot(data=df_busco,x='sample',y='complete',ax=axes[2],hue='assembler',style='copy',**{'marker':'o'})
+    
+    fig.tight_layout()
     save_figure(fig,'figures/sampling_curves.png')
 
 
@@ -214,7 +217,7 @@ def generate_markdown_string(summary_str,build_str=None):
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
 
     if build_str is None:
-        return summary_str, {'S50':scaff_metrics["N50"],'N50':asm_metrics["N50"],'QV':kmer_stats["QV"],'completeness':kmer_stats['completeness'],'BUSCO_C':busco_string[2:6],'BUSCO_S':busco_string[10:14]}
+        return summary_str, {'scaffold':scaff_metrics["N50"],'contig':asm_metrics["N50"],'QV':kmer_stats["QV"],'completeness':kmer_stats['completeness'],'total':busco_string[2:6],'single':busco_string[10:14]}
 
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*, haplotype: {haplotype} \n'
@@ -346,14 +349,15 @@ def main(direct_input=None):
     if len(args.samples) > 1:
         haplotype = 'asm'
         for sample_t, assembler_t in product(args.samples,assemblers):
-            sample = sample_rate
+            sample = sample_t
             assembler = assembler_t
             summary_string, new_row = generate_markdown_string(summary_string)
+            new_row = {k:float(v) for k,v in new_row.items()}
             new_row.update({'sample':sample_t,'assembler':assembler_t})
             row_data.append(new_row)
 
         md_string += summary_string
-        sample_dataframe = pd.DataFrame(row_data)
+        sample_dataframe = pandas.DataFrame(row_data)
 
         md_string += '\n' + IMAGE(plot_sampling_curves(sample_dataframe),.8) + '\n\n'
 
