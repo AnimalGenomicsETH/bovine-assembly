@@ -2,27 +2,27 @@ localrules: mumandco, mumandco_summarise, dnadiff, paf_variants, sam2delta_conve
 
 rule sam2delta_conversion:
     input:
-        '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam'
+        WORK_PATH + '{haplotype}_scaffolds_{reference}.wm2.sam'
     output:
-        temp('{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam.delta')
+        temp(WORK_PATH + '{haplotype}_scaffolds_{reference}.wm2.sam.delta')
     shell:
         'python {workflow.basedir}/scripts/sam2delta.py {input}'
 
 rule mumandco:
     input:
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
-        ref = '{assembler}_{sample}/{haplotype}_scaffolds_{reference}.wm2.sam.delta',
-        qur = '{assembler}_{sample}/{reference}_scaffolds_{haplotype}.wm2.sam.delta'
+        asm = WORK_PATH + '{haplotype}.scaffolds.fasta',
+        ref = WORK_PATH + '{haplotype}_scaffolds_{reference}.wm2.sam.delta',
+        qur = WORK_PATH + '{reference}_scaffolds_{haplotype}.wm2.sam.delta'
     output:
-        dir_ = directory('{assembler}_{sample}/{haplotype}_{reference}_SV_output'),
-        results = multiext('{assembler}_{sample}/{haplotype}_{reference}_SV_output/{haplotype}_{reference}_SV','.summary.txt','.SVs_all.tsv'),
+        dir_ = directory(WORK_PATH + '{haplotype}_{reference}_SV_output'),
+        results = multiext(WORK_PATH + '{haplotype}_{reference}_SV_output/{haplotype}_{reference}_SV','.summary.txt','.SVs_all.tsv'),
     params:
         dir_ = lambda wildcards, input: PurePath(input['asm']).parent,
         out = '{haplotype}_{reference}_SV',
         asm = lambda wildcards, input: PurePath(input['asm']).name,
         ref = lambda wildcards: config['ref_genome'] if wildcards.reference == 'ref' else '{reference}.scaffolds.fasta',
-        ref_delta = '{assembler}_{sample}/{haplotype}_{reference}_SV_ref.delta',
-        qur_delta = '{assembler}_{sample}/{haplotype}_{reference}_SV_query.delta'
+        ref_delta = WORK_PATH + '{haplotype}_{reference}_SV_ref.delta',
+        qur_delta = WORK_PATH + '{haplotype}_{reference}_SV_query.delta'
     shell:
         '''
         cp {input.ref} {params.ref_delta} && cp {input.qur} {params.qur_delta}
@@ -31,9 +31,9 @@ rule mumandco:
         '''
 rule mumandco_summarise:
     input:
-        '{assembler}_{sample}/{haplotype}_{reference}_SV_output/{haplotype}_{reference}_SV.SVs_all.tsv'
+        WORK_PATH + '{haplotype}_{reference}_SV_output/{haplotype}_{reference}_SV.SVs_all.tsv'
     output:
-        'results/{haplotype}_{sample}_{assembler}.{reference}.mumSV.txt'
+        RESULT_PATH + '.{reference}.mumSV.txt'
     shell:
         '''
         > {output}
@@ -45,19 +45,19 @@ rule mumandco_summarise:
 
 rule paf_variants:
     input:
-        '{assembler}_{sample}/{haplotype}_scaffolds_ref.{mapper}.paf'
+        WORK_PATH + '{haplotype}_scaffolds_ref.{mapper}.paf'
     output:
-        'results/{haplotype}_{sample}_{assembler}.{mapper}.vcf'
+        RESULT_PATH + '.{mapper}.vcf'
     shell:
         'sort {input} -k6,6 -k8,8n | paftools.js call -f {config[ref_genome]} - > {output}'
 
 rule dipcall_variants:
     input:
-        hapA = '{assembler}_{sample}/{hapA}.contigs.fasta',
-        hapB = '{assembler}_{sample}/{hapB}.contigs.fasta'
+        hapA = WORK_PATH + '{hapA}.contigs.fasta',
+        hapB = WORK_PATH + '{hapB}.contigs.fasta'
     output:
-        mak = temp('{assembler}_{sample}/{hapA}_{hapB}.mak'),
-        vcf = '{assembler}_{sample}/{hapA}_{hapB}.dip.vcf.gz'
+        mak = temp(WORK_PATH + '{hapA}_{hapB}.mak'),
+        vcf = WORK_PATH + '{hapA}_{hapB}.dip.vcf.gz'
     params:
         '{hapA}_{hapB}'
     threads: 16
@@ -71,9 +71,9 @@ rule dipcall_variants:
 
 rule nucmer:
     input:
-        '{assembler}_{sample}/{haplotype}.contigs.fasta'
+        WORK_PATH + '{haplotype}.contigs.fasta'
     output:
-        '{assembler}_{sample}/{haplotype}.delta'
+        WORK_PATH + '{haplotype}.delta'
     threads: 24
     resources:
         mem_mb = 5500
@@ -82,8 +82,8 @@ rule nucmer:
 
 rule dnadiff:
     input:
-        '{assembler}_{sample}/{haplotype}.delta'
+        WORK_PATH + '{haplotype}.delta'
     output:
-        '{assembler}_{sample}/{haplotype}.dnadiff.report'
+        WORK_PATH + '{haplotype}.dnadiff.report'
     shell:
         'dnadiff -d {input} -p {wildcards.assembler}_{wildcards.sample}/.{wildcards.haplotype}.dnadiff'

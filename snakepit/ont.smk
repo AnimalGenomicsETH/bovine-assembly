@@ -1,0 +1,1 @@
+canu -p asm -d canu_fast genomeSize=2.7g -nanopore raw_data.pion.fq.gz executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' -correctedErrorRate=0.134 -corFilter=quick -corPartitions=1000

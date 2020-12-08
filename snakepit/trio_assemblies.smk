@@ -11,14 +11,14 @@ rule yak_count_SR:
     params:
         kmer = 31
     shell:
-        'set +o pipefail; yak count -k {params.kmer} -b 37 -t {threads} -o {output} <(zcat {input}) <(zcat {input})'
+        'yak count -k {params.kmer} -b 37 -t {threads} -o {output} <(zcat {input}) <(zcat {input})'
 
 rule trio_hifiasm:
     input:
         reads = 'data/offspring.{sample}.hifi.fq.gz',
         mat = 'data/dam.yak',
         pat = 'data/sire.yak',
-        asm = 'hifiasm_{sample}/asm.contigs.fasta'
+        asm = WORK_PATH.format_map(Default({'assembler':'hifiasm'})) + 'asm.contigs.fasta'
     output:
         expand('hifiasm_{{sample}}/hap{N}.p_ctg.gfa', N = (1,2))
     params:

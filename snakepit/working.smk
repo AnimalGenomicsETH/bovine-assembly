@@ -19,10 +19,10 @@ rule resolve_haplotype_reads:
 
 rule pbsv_align:
     input:
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
+        asm = WORK_PATH + '{haplotype}.scaffolds.fasta',
         reads = 'data/haplotype_N{N}.hifi.fq.gz'
     output:
-        '{assembler}_{sample}/{haplotype}_hap{N}.pbmm2.bam'
+        WORK_PATH + '{haplotype}_hap{N}.pbmm2.bam'
     threads: 16
     resources:
         mem_mb = 3000
@@ -31,18 +31,18 @@ rule pbsv_align:
 
 rule pbsv_discover:
     input:
-        '{assembler}_{sample}/{haplotype}_hap{N}.pbmm2.bam'
+        WORK_PATH + '{haplotype}_hap{N}.pbmm2.bam'
     output:
-        '{assembler}_{sample}/{haplotype}_hap{N}.svsig.gz'
+        WORK_PATH + '{haplotype}_hap{N}.svsig.gz'
     shell:
         'pbsv discover {input} {output}'
 
 rule pbsv_call:
     input:
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
-        sig = '{assembler}_{sample}/{haplotype}_hap{N}.svsig.gz'
+        asm = WORK_PATH + '{haplotype}.scaffolds.fasta',
+        sig = WORK_PATH + '{haplotype}_hap{N}.svsig.gz'
     output:
-        '{assembler}_{sample}/{haplotype}_hap{N}.pbsv.vcf'
+        WORK_PATH + '{haplotype}_hap{N}.pbsv.vcf'
     threads: 8
     resources:
         mem_mb = 4000

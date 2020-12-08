@@ -2,10 +2,10 @@ localrules: cut_and_split, purge_dups, assess_purging
 
 rule map_reads:
     input:
-        asm = '{assembler}_{sample}/{haplotype}.contigs_raw.fa',
+        asm = WORK_PATH + '{haplotype}.contigs_raw.fa',
         reads = 'data/offspring.{sample}.hifi.fq.gz'
     output:
-        '{assembler}_{sample}/{haplotype}_pd/read_aln.paf'
+        WORK_PATH + '{haplotype}_pd/read_aln.paf'
     params:
         lambda wildcards, output: PurePath(output[0]).parent
     threads: 24
@@ -19,11 +19,11 @@ rule map_reads:
 
 rule cut_and_split:
     input:
-        paf = '{assembler}_{sample}/{haplotype}_pd/read_aln.paf',
-        asm = '{assembler}_{sample}/{haplotype}.contigs_raw.fa'
+        paf = WORK_PATH + '{haplotype}_pd/read_aln.paf',
+        asm = WORK_PATH + '{haplotype}.contigs_raw.fa'
     output:
-        splits = '{assembler}_{sample}/{haplotype}_pd/split.fasta',
-        asm = '{assembler}_{sample}/{haplotype}_pd/contigs_raw.fa'
+        splits = WORK_PATH + '{haplotype}_pd/split.fasta',
+        asm = WORK_PATH + '{haplotype}_pd/contigs_raw.fa'
     params:
         lambda wildcards, output: PurePath(output[0]).parent
     shell:
@@ -37,9 +37,9 @@ rule cut_and_split:
 
 rule map_splits:
     input:
-        '{assembler}_{sample}/{haplotype}_pd/split.fasta'
+        WORK_PATH + '{haplotype}_pd/split.fasta'
     output:
-        '{assembler}_{sample}/{haplotype}_pd/ctg-aln.paf'
+        WORK_PATH + '{haplotype}_pd/ctg-aln.paf'
     threads: 24
     resources:
         mem_mb = 2500
@@ -48,11 +48,11 @@ rule map_splits:
 
 rule purge_dups:
     input:
-        paf = '{assembler}_{sample}/{haplotype}_pd/ctg-aln.paf',
-        contigs = '{assembler}_{sample}/{haplotype}_pd/contigs_raw.fa'
+        paf = WORK_PATH + '{haplotype}_pd/ctg-aln.paf',
+        contigs = WORK_PATH + '{haplotype}_pd/contigs_raw.fa'
     output:
-        contigs = '{assembler}_{sample}/{haplotype}_pd/purged.fa',
-        bed = '{assembler}_{sample}/{haplotype}_pd/dups.bed'
+        contigs = WORK_PATH + '{haplotype}_pd/purged.fa',
+        bed = WORK_PATH + '{haplotype}_pd/dups.bed'
     params:
         dir_ = lambda wildcards, output: PurePath(output['bed']).parent,
         bed = lambda wildcards, output: PurePath(output['bed']).name,
@@ -93,10 +93,10 @@ rule KMC_reads:
 
 rule KMC_ref:
     input:
-        '{assembler}_{sample}/{haplotype}_pd/{progress}.fa'
+        WORK_PATH + '{haplotype}_pd/{progress}.fa'
     output:
-        base = '{assembler}_{sample}/{haplotype}_pd/{haplotype}_kmer_{progress}',
-        raw = multiext('{assembler}_{sample}/{haplotype}_pd/{haplotype}_kmer_{progress}','.kmc_pre','.kmc_suf')
+        base = WORK_PATH + '{haplotype}_pd/{haplotype}_kmer_{progress}',
+        raw = multiext(WORK_PATH + '{haplotype}_pd/{haplotype}_kmer_{progress}','.kmc_pre','.kmc_suf')
     threads: 12
     resources:
         mem_mb = 3000,
@@ -113,12 +113,12 @@ rule KMC_ref:
 rule KMC_analysis:
     input:
         reads = 'data/offspring.{sample}.kmer_reads',
-        asm = '{assembler}_{sample}/{haplotype}_pd/{haplotype}_kmer_{progress}'
+        asm = WORK_PATH + '{haplotype}_pd/{haplotype}_kmer_{progress}'
     output:
-        matrix = '{assembler}_{sample}/{haplotype}_pd/{progress}.matrix',
-        plot = '{assembler}_{sample}/{haplotype}_pd/{progress}.spectra.png'
+        matrix = WORK_PATH + '{haplotype}_pd/{progress}.matrix',
+        plot = WORK_PATH + '{haplotype}_pd/{progress}.spectra.png'
     params:
-        reads = '{assembler}_{sample}/{haplotype}_pd/{haplotype}_kmer_reads'
+        reads = WORK_PATH + '{haplotype}_pd/{haplotype}_kmer_reads'
     threads: 2
     resources:
         mem_mb = 20000

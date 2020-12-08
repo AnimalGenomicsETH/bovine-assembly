@@ -2,9 +2,9 @@ localrules: merqury_formatting, merqury_formatting_simple
 
 rule count_asm_kmers:
     input:
-        '{assembler}_{sample}/{haplotype}.contigs.fasta'
+        WORK_PATH + '{haplotype}.contigs.fasta'
     output:
-        directory('{assembler}_{sample}/{haplotype}.contigs.meryl')
+        directory(WORK_PATH + '{haplotype}.contigs.meryl')
     threads: 8
     resources:
         mem_mb = 2500
@@ -68,7 +68,7 @@ rule hap_blob:
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
     output:
-        '{assembler}_{sample}/{hap}.hapmers.blob.png'
+        WORK_PATH + '{hap}.hapmers.blob.png'
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         out = '{hap}',
@@ -94,7 +94,7 @@ rule merqury_spectra_cn:
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = ('hap1','hap2') if wildcards.hap == 'trio' else wildcards.hap),
         asm_dbs = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.meryl', X = ('hap1','hap2') if wildcards.hap == 'trio' else wildcards.hap)
     output:
-        multiext('{assembler}_{sample}/{hap}', '.qv', '.completeness.stats')
+        multiext(WORK_PATH + '{hap}', '.qv', '.completeness.stats')
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         base = lambda wildcards, input: PurePath(input['read_db']).stem,
@@ -122,9 +122,9 @@ rule merqury_spectra_hap:
         reads = 'data/offspring.meryl',
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
         asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
-        stats = '{assembler}_{sample}/{hap}.completeness.stats'
+        stats = WORK_PATH + '{hap}.completeness.stats'
     output:
-        '{assembler}_{sample}/{hap}.hap.completeness.stats'
+        WORK_PATH + '{hap}.hap.completeness.stats'
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         out = '{hap}.hap',
@@ -145,10 +145,10 @@ rule merqury_spectra_hap:
 
 rule merqury_phase_block:
     input:
-        asm = '{assembler}_{sample}/{haplotype}.contigs.fasta',
+        asm = WORK_PATH + '{haplotype}.contigs.fasta',
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam'))
     output:
-        multiext('{assembler}_{sample}/{haplotype}.100_20000.','phased_block.bed','switch.bed', 'switches.txt')
+        multiext(WORK_PATH + '{haplotype}.100_20000.','phased_block.bed','switch.bed', 'switches.txt')
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         out = '{haplotype}',
@@ -169,9 +169,9 @@ rule merqury_phase_block:
 
 rule merqury_block_n_stats:
     input:
-        asm_block = multiext('{assembler}_{sample}/{haplotype}','.contigs.fasta','.100_20000.phased_block.bed')
+        asm_block = multiext(WORK_PATH + '{haplotype}','.contigs.fasta','.100_20000.phased_block.bed')
     output:
-        multiext('{assembler}_{sample}/{haplotype}.{haplotype}.contigs','.continuity.NG.png','.block.NG.png')
+        multiext(WORK_PATH + '{haplotype}.{haplotype}.contigs','.continuity.NG.png','.block.NG.png')
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         out = '{haplotype}',
@@ -209,14 +209,14 @@ rule merqury_prep:
 
 rule merqury_formatting:
     input:
-        '{assembler}_{sample}/{haplotype}.{haplotype}.contigs.continuity.NG.png',
+        WORK_PATH + '{haplotype}.{haplotype}.contigs.continuity.NG.png',
         lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hapmers.blob.png', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         stats = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         hap_stats = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hap.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         qv = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.qv', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
-        switches = '{assembler}_{sample}/{haplotype}.100_20000.switches.txt'
+        switches = WORK_PATH + '{haplotype}.100_20000.switches.txt'
     output:
-        'results/{haplotype}_{sample}_{assembler}.merqury.full.stats'
+        RESULT_PATH + '.merqury.full.stats'
     shell:
         '''
         awk '/{wildcards.haplotype}/ {{print "QV "$4}}' {input.qv} > {output}
@@ -228,10 +228,10 @@ rule merqury_formatting:
 
 rule merqury_formatting_simple:
     input:
-        stats = '{assembler}_{sample}/{haplotype}.completeness.stats',
-        qv = '{assembler}_{sample}/{haplotype}.qv',
+        stats = WORK_PATH + '{haplotype}.completeness.stats',
+        qv = WORK_PATH + '{haplotype}.qv',
     output:
-        'results/{haplotype}_{sample}_{assembler}.merqury.simple.stats'
+        RESULT_PATH + '.merqury.simple.stats'
     shell:
         '''
         awk '/{wildcards.haplotype}/ {{print "QV "$4}}' {input.qv} > {output}

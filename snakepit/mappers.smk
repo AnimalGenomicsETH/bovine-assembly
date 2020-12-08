@@ -2,10 +2,10 @@ ruleorder: convert_sam_to_paf > map_asm_ref
 
 rule generate_winnow_meryl:
     input:
-        asm = lambda wildcards: '{assembler}_{sample}/{haplotype}.scaffolds.fasta' if wildcards.haplotype !='ref' else f'{config["ref_genome"]}'
+        asm = lambda wildcards: WORK_PATH + '{haplotype}.scaffolds.fasta' if wildcards.haplotype !='ref' else f'{config["ref_genome"]}'
     output:
-        db = temp(directory('{assembler}_{sample}/{haplotype}_winnow_k{K,\d+}.meryl')),
-        rep = temp('{assembler}_{sample}/{haplotype}_repetitive_k{K,\d+}.txt')
+        db = temp(directory(WORK_PATH + '{haplotype}_winnow_k{K,\d+}.meryl')),
+        rep = temp(WORK_PATH + '{haplotype}_repetitive_k{K,\d+}.txt')
     threads: 6
     resources:
         mem_mb = 3000,
@@ -18,11 +18,11 @@ rule generate_winnow_meryl:
 
 rule map_asm_ref:
     input:
-        asm = lambda wildcards: '{assembler}_{sample}/{haplotype}.{seq_type}.fasta' if wildcards.haplotype != 'ref' else f'{config["ref_genome"]}',
-        rep = lambda wildcards: '{assembler}_{sample}/{haplotype}_repetitive_k19.txt' if wildcards.mapper == 'wm2' else [],
-        ref = lambda wildcards: '{assembler}_{sample}/{reference}.{seq_type}.fasta' if wildcards.reference != 'ref' else f'{config["ref_genome"]}'
+        asm = lambda wildcards: WORK_PATH + '{haplotype}.{seq_type}.fasta' if wildcards.haplotype != 'ref' else f'{config["ref_genome"]}',
+        rep = lambda wildcards: WORK_PATH + '{haplotype}_repetitive_k19.txt' if wildcards.mapper == 'wm2' else [],
+        ref = lambda wildcards: WORK_PATH + '{reference}.{seq_type}.fasta' if wildcards.reference != 'ref' else f'{config["ref_genome"]}'
     output:
-        '{assembler}_{sample}/{haplotype}_{seq_type}_{reference}.{mapper}.{ext,sam|paf}'
+        WORK_PATH + '{haplotype}_{seq_type}_{reference}.{mapper}.{ext,sam|paf}'
     params:
        mapper = lambda wildcards, input: f'winnowmap -W {input.rep}' if wildcards.mapper == 'wm2' else 'minimap2',
        out_t = lambda wildcards: '-c' if wildcards.ext == 'paf' else '-a'
@@ -34,19 +34,19 @@ rule map_asm_ref:
 
 rule convert_sam_to_paf:
     input:
-        '{assembler}_{sample}/{haplotype}_{seq_type}_{reference}.{mapper}.sam'
+        WORK_PATH + '{haplotype}_{seq_type}_{reference}.{mapper}.sam'
     output:
-        '{assembler}_{sample}/{haplotype}_{seq_type}_{reference}.{mapper}.paf'
+        WORK_PATH + '{haplotype}_{seq_type}_{reference}.{mapper}.paf'
     shell:
         'paftools.js sam2paf {input} > {output}'
 
 rule map_hifi_cell:
     input:
         reads = lambda wildcards: f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz',
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta',
-        rep = '{assembler}_{sample}/{haplotype}_repetitive_k15.txt'
+        asm = WORK_PATH + '{haplotype}.scaffolds.fasta',
+        rep = WORK_PATH + '{haplotype}_repetitive_k15.txt'
     output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads_{read_name}.bam'
+        WORK_PATH + '{haplotype}_scaffolds_hifi_reads_{read_name}.bam'
     threads: 24
     resources:
         mem_mb = 4000,
@@ -58,7 +58,7 @@ rule merge_sort_map_cells:
     input:
         lambda wildcards: expand('{{assembler}}_{{sample}}/{{haplotype}}_scaffolds_hifi_reads_{read_name}.bam',read_name=glob_wildcards(f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz').read_name)
     output:
-        sam = '{assembler}_{sample}/{haplotype}_scaffolds_hifi_reads.bam'
+        sam = WORK_PATH + '{haplotype}_scaffolds_hifi_reads.bam'
     threads: 16
     resources:
         mem_mb = 6000,
@@ -69,9 +69,9 @@ rule merge_sort_map_cells:
 rule map_SR_reads:
     input:
         reads = expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
-        asm = '{assembler}_{sample}/{haplotype}.scaffolds.fasta'
+        asm = WORK_PATH + '{haplotype}.scaffolds.fasta'
     output:
-        '{assembler}_{sample}/{haplotype}_scaffolds_SR_reads.bam'
+        WORK_PATH + '{haplotype}_scaffolds_SR_reads.bam'
     threads: 24
     resources:
         mem_mb = 6000,
