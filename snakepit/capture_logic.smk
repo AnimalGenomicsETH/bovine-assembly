@@ -9,8 +9,9 @@ def capture_logic(wildcards):
     required_files = [f'data/offspring.{sample}.QC.txt']
 
     for assembler in config['assemblers']:
-        a_path = PurePath(f'{assembler}_{sample}')
-        r_path = PurePath('results')
+        a_path = PurePath(WORK_PATH.format(assembler=assembler,sample=sample))
+        r_path = PurePath(RESULT_PATH).parent
+
         if 'asm' in config['haplotypes']:
             for extension in config['target_metrics']['general'] + config['target_metrics']['primary']:
                 required_files.append(r_path / f'asm_{sample}_{assembler}.{extension}')

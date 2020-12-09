@@ -56,10 +56,10 @@ rule dipcall_variants:
         hapA = WORK_PATH + '{hapA}.contigs.fasta',
         hapB = WORK_PATH + '{hapB}.contigs.fasta'
     output:
-        mak = temp(WORK_PATH + '{hapA}_{hapB}.mak'),
-        vcf = WORK_PATH + '{hapA}_{hapB}.dip.vcf.gz'
+        mak = temp(WORK_PATH + '{hapA}_{hapB}_dipcall.mak'),
+        vcf = WORK_PATH + '{hapA}_{hapB}_dipcall.dip.vcf.gz'
     params:
-        '{hapA}_{hapB}'
+        lambda wildcards, output: PurePath(output['mak']).stem
     threads: 16
     resources:
         mem_mb = 3000

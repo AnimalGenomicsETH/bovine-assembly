@@ -105,14 +105,15 @@ if 'canu' in config['assemblers']:
             WORK_PATH.format_map(Default({'assembler':'canu'})) + 'asm.contigs_all.fa'
         log: 'logs/assembler_canu/sample-{sample}.asm.out'
         params:
+            dir_ = lambda wildcards, output: PurePath(output[0]).parent,
             temp = 'asm.complete'
         shell:
             '''
-            canu -p asm -d canu_{wildcards.sample} genomeSize={config[genome_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" onFailure="touch {params.temp}" > {log}
-            while [ ! -e canu_{wildcards.sample}/{params.temp} ]; do sleep 60; done
+            canu -p asm -d {params.dir_} genomeSize={config[genome_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" onFailure="touch {params.temp}" > {log}
+            while [ ! -e {params.dir_}/{params.temp} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
-            rm canu_{wildcards.sample}/{params.temp}
-            mv canu_{wildcards.sample}/asm.contigs.fasta {output}
+            rm {params.dir_}/{params.temp}
+            mv {params.dir_}/asm.contigs.fasta {output}
             '''
 
     rule assembler_canu_parents:
@@ -135,11 +136,9 @@ if 'canu' in config['assemblers']:
 
     rule strip_canu_bubbles:
         input:
-            #lambda wildcards, input, output: output.replace('contigs_raw','contigs_all')
             WORK_PATH.format_map(Default({'assembler':'canu'})) + '{haplotype}.contigs_all.fa'
         output:
             WORK_PATH.format_map(Default({'assembler':'canu'})) + '{haplotype}.contigs_raw.fa'
-            #lambda input: input[0].replace('contigs_all','contigs_raw')
         shell:
             'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 --no-group-separator > {output}'
 
