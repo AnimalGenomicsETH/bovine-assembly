@@ -15,7 +15,8 @@ rule assembler_shasta:
         'asm'
     threads: 36
     resources:
-        mem_mb = 40000
+        mem_mb = 40000,
+        walltime = '24:00'
     shell:
         'shasta --input {input} --threads {threads} --assemblyDirectory={params.out}'
 
@@ -26,6 +27,7 @@ rule assembler_raven:
         'asm'
     threads: 36
     resources:
-        mem_mb = lambda wildcards, input, threads: int(input.size_mb*2.5/threads),
+        mem_mb = lambda wildcards, input, threads: int(input.size_mb*3.5/threads),
+        walltime = '24:00'
     shell:
         'raven --graphical-fragment-assembly -t {threads} {input}'

@@ -115,7 +115,7 @@ def plot_sampling_curves(df):
 
     df_busco = df[['sample','assembler','single','total']].melt(id_vars=['sample','assembler'],var_name='copy',value_name='complete')
     seaborn.lineplot(data=df_busco,x='sample',y='complete',ax=axes[2],hue='assembler',style='copy',**{'marker':'o'})
-    
+
     fig.tight_layout()
     save_figure(fig,'figures/sampling_curves.png')
 

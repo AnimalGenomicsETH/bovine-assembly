@@ -17,7 +17,7 @@ rule count_SR_reads:
     input:
         'data/{individual}.read_R{N}.SR.fq.gz'
     output:
-        directory('data/{individual}.read_R{N}.meryl')
+        temp(directory('data/{individual}.read_R{N}.meryl'))
     threads: 24
     resources:
         mem_mb = 4000
