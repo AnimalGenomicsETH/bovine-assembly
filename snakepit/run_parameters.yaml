@@ -44,7 +44,7 @@ assemblers:
 
 target_metrics:
   general:
-    #- 'yak.qv.txt'
+    - 'yak.qv.txt'
     - 'NGA50.txt'
     - 'contigs.auN.txt'
     - 'scaffolds.auN.txt'
@@ -101,3 +101,5 @@ sampling:
   - 67
   - 58
   - 50
+  - 42
+  - 32

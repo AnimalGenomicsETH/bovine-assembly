@@ -228,18 +228,6 @@ rule validation_auN:
     shell:
         'calN50.js -s 0.01 -f {input.ref_fai} {input.asm} > {output}'
 
-##Requires minigraph and paftools.js installed
-rule map_minigraph:
-    input:
-        WORK_PATH + '{haplotype}.contigs.fasta'
-    output:
-        temp(WORK_PATH + '{haplotype}_contigs_ref.mg.paf')
-    threads: 24
-    resources:
-        mem_mb = 3000
-    shell:
-        'minigraph -xasm -K2g --show-unmap=yes -t {threads} {config[ref_genome]} {input} > {output}'
-
 rule validation_refalign:
     input:
         fai = f'{config["ref_genome"]}.fai',

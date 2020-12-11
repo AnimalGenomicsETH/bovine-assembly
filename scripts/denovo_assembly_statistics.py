@@ -118,6 +118,7 @@ def plot_sampling_curves(df):
 
     fig.tight_layout()
     save_figure(fig,'figures/sampling_curves.png')
+    return 'figures/sampling_curves.png'
 
 
 def load_key_pair_file(fname):

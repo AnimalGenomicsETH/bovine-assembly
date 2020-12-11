@@ -40,6 +40,18 @@ rule convert_sam_to_paf:
     shell:
         'paftools.js sam2paf {input} > {output}'
 
+##Requires minigraph and paftools.js installed
+rule map_minigraph:
+    input:
+        WORK_PATH + '{haplotype}.contigs.fasta'
+    output:
+        temp(WORK_PATH + '{haplotype}_contigs_ref.mg.paf')
+    threads: 6
+    resources:
+        mem_mb = 12000
+    shell:
+        'minigraph -xasm -K2g --show-unmap=yes -t {threads} {config[ref_genome]} {input} > {output}'
+
 rule map_hifi_cell:
     input:
         reads = lambda wildcards: f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz',
