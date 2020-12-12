@@ -93,6 +93,10 @@ def load_NGA():
             if line[:2] == 'NG':
                 try:
                     auN_data.append(int(line.split()[1]))
+                    if line[:4] == 'NG50':
+                        data['NG50'] = int(line.split()[1])
+                    elif line[:5] == 'NGA50':
+                        data['NGA50'] = int(line.split()[1])
                 except ValueError:
                     auN_data.append(0)
                     print(f'Undefined result for {line.split()[0][2:]}')
@@ -104,7 +108,7 @@ def load_NGA():
 def plot_sampling_curves(df):
     fig, axes = plt.subplots(1,3,sharex=True,figsize=(12,5))
 
-    df_N50 = df[['sample','assembler','contig','scaffold']].melt(id_vars=['sample','assembler'],var_name='type',value_name='N50')
+    df_N50 = df[['sample','assembler','NG50','NGA50','P50']].melt(id_vars=['sample','assembler'],var_name='type',value_name='N50')
 
     seaborn.lineplot(data=df_N50,x='sample',y='N50',ax=axes[0],hue='assembler',style='type',**{'marker':'o'})
     axes[0].set_yscale('log')
@@ -210,6 +214,7 @@ def emph_haplotype(haplotype):
 
 def generate_markdown_string(summary_str,build_str=None):
     asm_metrics = load_auNCurves('contigs')[1]
+    aln_metrics = load_NGA()[1]
     scaff_metrics = load_auNCurves('scaffolds')[1]
     lineage, busco_string = busco_report()
     kmer_stats = kmer_QV('full' if haplotype in ('asm','hap1','hap2') else 'simple')
@@ -218,7 +223,7 @@ def generate_markdown_string(summary_str,build_str=None):
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
 
     if build_str is None:
-        return summary_str, {'scaffold':scaff_metrics["N50"],'contig':asm_metrics["N50"],'QV':kmer_stats["QV"],'completeness':kmer_stats['completeness'],'total':busco_string[2:6],'single':busco_string[10:14]}
+        return summary_str, {'NGA50':aln_metrics['NGA50'],'NG50':asm_metrics['N50'],'QV':kmer_stats['QV'],'P50':kmer_stats['phased'],'completeness':kmer_stats['completeness'],'total':busco_string[2:6],'single':busco_string[10:14]}
 
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*, haplotype: {haplotype} \n'

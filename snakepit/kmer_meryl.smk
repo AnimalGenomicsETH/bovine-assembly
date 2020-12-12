@@ -214,7 +214,8 @@ rule merqury_formatting:
         stats = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         hap_stats = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.hap.completeness.stats', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
         qv = lambda wildcards: expand('{{assembler}}_{{sample}}/{hap}.qv', hap = 'asm' if wildcards.haplotype == 'asm' else 'trio'),
-        switches = WORK_PATH + '{haplotype}.100_20000.switches.txt'
+        switches = WORK_PATH + '{haplotype}.100_20000.switches.txt',
+        phase = WORK_PATH + '{haplotype}.100_20000.phased_block.stats',
     output:
         RESULT_PATH + '.merqury.full.stats'
     shell:
@@ -224,6 +225,7 @@ rule merqury_formatting:
         awk '/{wildcards.haplotype}/ && /sire/ {{print "sire "$5}}' {input.hap_stats} >> {output}
         awk '/{wildcards.haplotype}/ && /dam/ {{print "dam "$5}}' {input.hap_stats} >> {output}
         awk '{{print "switches "$14+0}}' {input.switches} >> {output}
+        awk '{{print "phased "$6}}' {input.phase} >> {output}
         '''
 
 rule merqury_formatting_simple:
