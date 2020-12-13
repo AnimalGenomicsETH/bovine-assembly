@@ -47,19 +47,20 @@ rule trio_canu:
         'logs/assembler_canu/sample-{sample}.partion.out'
     params:
         temp = 'asm.complete',
-        full = 'canu_{sample}/trio/asm.complete'
+        full = 'canu_{sample}/trio/asm.complete',
+        dir_ = lambda wildcards, output: PurePath(output[0]).parent
     shell:
         '''
-        canu -haplotype -p asm -d canu_{wildcards.sample}/trio genomesize={config[genome_est]}g -haplotype1 {input.sire} -haplotype2 {input.dam} -pacbio-raw {input.reads} -batMemory=60 executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' > {log}
+        canu -haplotype -p asm -d {params.dir_} genomesize={config[genome_est]}g -haplotype1 {input.sire} -haplotype2 {input.dam} -pacbio-raw {input.reads} -batMemory=60 executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' > {log}
         while [ ! -e {output[1]} ]; do sleep 60; done
         echo "complete file found, ending sleep loop"
         '''
 
 rule prep_haplotype_canu:
     input:
-        'canu_{sample}/trio/asm-haplotype{N}.sh'
+        WORK_PATH.format_map(Default({'assembler':'canu'})) + 'trio/asm-haplotype{N}.sh'
     output:
-        'canu_{sample}/trio/asm-haplotype{N}_edited.sh'
+        WORK_PATH.format_map(Default({'assembler':'canu'})) + 'trio/asm-haplotype{N}_edited.sh'
     params:
         temp = 'hap{N}.complete'
     shell:
@@ -72,18 +73,19 @@ rule prep_haplotype_canu:
 
 rule haplotype_canu:
     input:
-        'canu_{sample}/trio/asm-haplotype{N}_edited.sh'
+        WORK_PATH.format_map(Default({'assembler':'canu'})) + 'trio/asm-haplotype{N}_edited.sh'
     output:
-        'canu_{sample}/hap{N}.contigs_all.fa'
+        WORK_PATH.format_map(Default({'assembler':'canu'})) + 'hap{N}.contigs_all.fa'
     params:
         temp = 'hap{N}.complete',
-        dir_ = 'asm-haplotype{N}'
+        dir_ = 'asm-haplotype{N}',
+        dir_in = lambda wildcards, output: PurePath(input[0]).parent,
         #can wait for the haplotype.success file?
     log:
         'logs/assembler_canu_trio/sample-{sample}.haplotype-{N}.out'
     shell:
         '''
-        cd canu_{wildcards.sample}/trio
+        cd {params.dir_in}
         bash ../../{input} > ../../{log}
 
         while [ ! -e {params.dir_}/{params.temp} ]; do sleep 60; done

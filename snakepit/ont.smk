@@ -10,7 +10,7 @@ rule assembler_canu_ont:
 
 rule assembler_shasta:
     input:
-        'data/offspring.{sample}.pion.fq.gz'
+        'data/offspring.{sample}.pion.fastq'
     output:
         'asm'
     threads: 36
