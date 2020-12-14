@@ -148,7 +148,7 @@ rule merqury_phase_block:
         asm = WORK_PATH + '{haplotype}.contigs.fasta',
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam'))
     output:
-        multiext(WORK_PATH + '{haplotype}.100_20000.','phased_block.bed','switch.bed', 'switches.txt')
+        multiext(WORK_PATH + '{haplotype}.100_20000.','phased_block.bed','switch.bed', 'switches.txt','phased_block.stats')
     params:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         out = '{haplotype}',

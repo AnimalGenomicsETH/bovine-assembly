@@ -42,7 +42,7 @@ rule trio_canu:
         dam = expand('data/dam.read_R{N}.SR.fq.gz', N = (1,2)),
         sire =  expand('data/sire.read_R{N}.SR.fq.gz', N = (1,2))
     output:
-        expand('canu_{{sample}}/trio/asm-haplotype{N}.sh', N=(1,2))
+        expand(WORK_PATH.format_map(Default({'assembler':'canu','sample':'{{sample}}'})) + 'trio/asm-haplotype{N}.sh', N=(1,2))
     log:
         'logs/assembler_canu/sample-{sample}.partion.out'
     params:
@@ -79,7 +79,7 @@ rule haplotype_canu:
     params:
         temp = 'hap{N}.complete',
         dir_ = 'asm-haplotype{N}',
-        dir_in = lambda wildcards, output: PurePath(input[0]).parent,
+        dir_in = lambda wildcards, input: PurePath(input[0]).parent,
         #can wait for the haplotype.success file?
     log:
         'logs/assembler_canu_trio/sample-{sample}.haplotype-{N}.out'
