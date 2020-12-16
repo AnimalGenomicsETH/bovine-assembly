@@ -48,3 +48,13 @@ rule pbsv_call:
         mem_mb = 4000
     shell:
         'pbsv call --ccs -j {threads} {input.asm} {input.sig} {output}'
+
+rule deepvariant_prep:
+    input:
+        'asm.bam',
+        'dam.bam',
+        'sire.bam'
+    output:
+        'unknonw'
+    shell:
+        'as'
