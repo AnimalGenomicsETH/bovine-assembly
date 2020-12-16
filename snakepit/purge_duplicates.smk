@@ -78,7 +78,7 @@ rule KMC_reads:
         'data/offspring.{sample}.hifi.fq.gz'
     output:
         base = 'data/offspring.{sample}.kmer_reads',
-        raw = multiext('data/offspring.{sample}.kmer_reads','','.kmc_pre','.kmc_suf')
+        raw = temp(multiext('data/offspring.{sample}.kmer_reads','','.kmc_pre','.kmc_suf'))
     threads: 12
     resources:
         mem_mb = 4000,
@@ -96,7 +96,7 @@ rule KMC_ref:
         WORK_PATH + '{haplotype}_pd/{progress}.fa'
     output:
         base = WORK_PATH + '{haplotype}_pd/{haplotype}_kmer_{progress}',
-        raw = multiext(WORK_PATH + '{haplotype}_pd/{haplotype}_kmer_{progress}','.kmc_pre','.kmc_suf')
+        raw = temp(multiext(WORK_PATH + '{haplotype}_pd/{haplotype}_kmer_{progress}','.kmc_pre','.kmc_suf'))
     threads: 12
     resources:
         mem_mb = 3000,

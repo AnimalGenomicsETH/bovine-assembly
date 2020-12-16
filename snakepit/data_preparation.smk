@@ -39,7 +39,7 @@ rule fastq_to_fasta:
     input:
         'data/{parent}.cleaned.hifi.fq.gz'
     output:
-        'data/{parent}.hifi.fasta'
+        temp('data/{parent}.hifi.fasta')
     shell:
         'seqtk seq -a {input} > {output}'
 
@@ -60,7 +60,7 @@ rule sample_data:
     input:
         'data/offspring.cleaned.hifi.fq.gz'
     output:
-        'data/offspring.{sample}.hifi.fq.gz'
+        temporary('data/offspring.{sample}.hifi.fq.gz')
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'

@@ -39,7 +39,7 @@ def capture_logic(wildcards):
             if sample_rate == 100:
                 continue
             for extension in config['target_metrics']['sampling']:
-                for hap in ('asm',):#,'hap1','hap2'):
+                for hap in ('asm','hap1','hap2'):
                     required_files.append(r_path / f'{hap}_{sample_rate}_{assembler}.{extension}')
 
     return map(str,required_files)

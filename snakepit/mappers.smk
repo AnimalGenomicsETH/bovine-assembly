@@ -70,7 +70,7 @@ rule merge_sort_map_cells:
     input:
         lambda wildcards: expand('{{assembler}}_{{sample}}/{{haplotype}}_scaffolds_hifi_reads_{read_name}.bam',read_name=glob_wildcards(f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz').read_name)
     output:
-        sam = WORK_PATH + '{haplotype}_scaffolds_hifi_reads.bam'
+        temp(WORK_PATH + '{haplotype}_scaffolds_hifi_reads.bam')
     threads: 16
     resources:
         mem_mb = 6000,
