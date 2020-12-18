@@ -40,11 +40,16 @@ def capture_logic(wildcards):
                     required_files.extend([r_path / f'hap2_100_{assembler}.dam.mumSV.txt', r_path / f'hap1_100_{assembler}.sire.mumSV.txt'])
                     required_files.extend([r_path / f'hap2_100_{assembler}.dam.mm2.dot.png', r_path / f'hap1_100_{assembler}.sire.mm2.dot.png'])
 
+    sample_haplotypes = []
+    if 'asm' in config['haplotypes']:
+        sample_haplotypes.append('asm')
+    if 'trio' in config['haplotypes']:
+        sample_haplotypes.extend(['hap1','hap2'])
     for sample_rate, assembler in product(config['sampling'], config['assemblers']):
         if sample_rate == 100:
             continue
         for extension in config['target_metrics']['sampling']:
-            for hap in ('asm','hap1','hap2'):
+            for hap in sample_haplotypes:
                 required_files.append(r_path / f'{hap}_{sample_rate}_{assembler}.{extension}')
 
     return map(str,required_files)

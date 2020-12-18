@@ -149,7 +149,7 @@ if 'flye' in config['assemblers']:
         output:
             WORK_PATH.format_map(Default({'assembler':'flye'})) + 'asm.contigs.fasta'
         params:
-            out = lambda output: PurePath(output).parent
+            out = lambda output: PurePath(output[0]).parent
         threads: 36
         resources:
             mem_mb = 6500,
