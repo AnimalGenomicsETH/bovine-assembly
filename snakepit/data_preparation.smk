@@ -1,4 +1,4 @@
-localrules: raw_merge_files, sample_data, raw_QC, fastq_to_fasta
+localrules: raw_merge_files, raw_QC, fastq_to_fasta
 
 rule raw_read_conversion:
     input:
@@ -60,17 +60,20 @@ rule sample_data:
     input:
         'data/offspring.cleaned.hifi.fq.gz'
     output:
-        temporary('data/offspring.{sample}.hifi.fq.gz')
+        temp('data/offspring.{sample}.hifi.fq.gz')
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
+    threads: 4
+    resources:
+        mem_mb = 3000
     shell:
         '''
         if [ {wildcards.sample} -eq 100 ]
         then
             ln -s $(pwd)/{input} {output}
         else
-            seqtk sample {input} $(bc <<<"scale=2;{wildcards.sample}/100") | pigz -p 4 > {output}
+            seqtk sample {input} $(bc <<<"scale=2;{wildcards.sample}/100") | pigz -p {threads} > {output}
         fi
         '''
 
