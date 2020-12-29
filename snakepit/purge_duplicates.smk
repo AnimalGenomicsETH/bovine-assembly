@@ -5,7 +5,7 @@ rule map_reads:
         asm = WORK_PATH + '{haplotype}.contigs_raw.fa',
         reads = 'data/offspring.{sample}.hifi.fq.gz'
     output:
-        WORK_PATH + '{haplotype}_pd/read_aln.paf'
+        temp(WORK_PATH + '{haplotype}_pd/read_aln.paf')
     params:
         lambda wildcards, output: PurePath(output[0]).parent
     threads: 24
@@ -23,7 +23,7 @@ rule cut_and_split:
         asm = WORK_PATH + '{haplotype}.contigs_raw.fa'
     output:
         splits = WORK_PATH + '{haplotype}_pd/split.fasta',
-        asm = WORK_PATH + '{haplotype}_pd/contigs_raw.fa'
+        asm = temp(WORK_PATH + '{haplotype}_pd/contigs_raw.fa')
     params:
         lambda wildcards, output: PurePath(output[0]).parent
     shell:
@@ -39,7 +39,7 @@ rule map_splits:
     input:
         WORK_PATH + '{haplotype}_pd/split.fasta'
     output:
-        WORK_PATH + '{haplotype}_pd/ctg-aln.paf'
+        temp(WORK_PATH + '{haplotype}_pd/ctg-aln.paf')
     threads: 24
     resources:
         mem_mb = 2500
@@ -66,7 +66,7 @@ rule purge_dups:
 
 rule assess_purging:
     input:
-        matrix = expand('canu_{{sample}}/{{haplotype}}_pd/{progress}.matrix',progress=['purged','contigs_raw']),
+        #matrix = expand('canu_{{sample}}/{{haplotype}}_pd/{progress}.matrix',progress=['purged','contigs_raw']),
         purged = 'canu_{sample}/{haplotype}_pd/purged.fa'
     output:
         'canu_{sample}/{haplotype}.contigs.fasta'
