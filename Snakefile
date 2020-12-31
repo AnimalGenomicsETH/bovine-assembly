@@ -109,7 +109,7 @@ if 'canu' in config['assemblers']:
             temp = 'asm.complete'
         shell:
             '''
-            canu -p asm -d {params.dir_} genomeSize={config[genome_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" onFailure="touch {params.temp}" > {log}
+            canu -p asm -d {params.dir_} genomeSize={config[genome_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' -minInputCoverage=0 onSuccess="touch {params.temp}" onFailure="touch {params.temp}" > {log}
             while [ ! -e {params.dir_}/{params.temp} ]; do sleep 60; done
             echo "complete file found, ending sleep loop"
             rm {params.dir_}/{params.temp}

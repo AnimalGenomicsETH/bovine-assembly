@@ -51,7 +51,7 @@ rule trio_canu:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent
     shell:
         '''
-        canu -haplotype -p asm -d {params.dir_} genomesize={config[genome_est]}g -haplotype1 {input.sire} -haplotype2 {input.dam} -pacbio-raw {input.reads} -batMemory=60 executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' > {log}
+        canu -haplotype -p asm -d {params.dir_} genomesize={config[genome_est]}g -haplotype1 {input.sire} -haplotype2 {input.dam} -pacbio-raw {input.reads} -batMemory=60 executiveThreads=4 executiveMemory=8g -batMemory=50 -minInputCoverage=0 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' > {log}
         while [ ! -e {output[1]} ]; do sleep 60; done
         echo "complete file found, ending sleep loop"
         '''
