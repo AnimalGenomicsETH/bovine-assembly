@@ -65,7 +65,7 @@ if 'hifiasm' in config['assemblers']:
             settings = '-r 4 -a 5 -n 5'
         threads: 36
         resources:
-            mem_mb = lambda wildcards, input, threads: max(int(input.size_mb*1.75/threads),1500),
+            mem_mb = lambda wildcards, input, threads: max(int(input.size_mb*1.75/threads),2000),
             walltime = '24:00'
         shell:
             'hifiasm -o {params.out} -t {threads} {params.settings} {input}'
@@ -77,8 +77,8 @@ if 'hifiasm' in config['assemblers']:
         output:
             WORK_PATH.format_map(Default({'assembler':'hifiasm'})) + '{haplotype}.contigs.fasta'
         resources:
-            mem_mb = 6000,
-            walltime = '0:45'
+            mem_mb = 10000,
+            walltime = '60'
         shell: 'gfatools gfa2fa {input} > {output}'
 
     rule assembler_hifiasm_parental:
