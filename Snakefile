@@ -65,7 +65,7 @@ if 'hifiasm' in config['assemblers']:
             settings = '-r 4 -a 5 -n 5'
         threads: 36
         resources:
-            mem_mb = lambda wildcards, input, threads: max(int(input.size_mb*1.75/threads),2000),
+            mem_mb = lambda wildcards, input, threads: max(int(input.size_mb*1.75/threads),1500),
             walltime = '24:00'
         shell:
             'hifiasm -o {params.out} -t {threads} {params.settings} {input}'
@@ -237,21 +237,32 @@ rule validation_refalign:
     shell:
         'paftools.js asmstat {input.fai} {input.paf} > {output}'
 
-rule map_splice_reads:
+rule map_splice_asm:
     input:
         lambda wildcards: (WORK_PATH + '{haplotype}.contigs.fasta') if wildcards.reference == 'asm' else f'{config["ref_genome"]}'
     output:
         temp(WORK_PATH + '{haplotype}_{reference}_splices.paf')
-    threads: 8
+    threads: 4
     resources:
-        mem_mb = 7000
+        mem_mb = 10000,
+        walltime = '20'
     shell:
         'minimap2 -cxsplice:hq -t {threads} {input} {config[cDNAs]} > {output}'
+
+rule map_splice_ref:
+    output:
+        temp(str(PurePath(f'{config["ref_genome"]}').with_name('ref_cDNAs_splices.paf')))
+    threads: 4
+    resources:
+        mem_mb = 6000,
+        walltime = '15'
+    shell:
+        'minimap2 -cxsplice:hq -t {threads} {config[ref_genome]} {config[cDNAs]} > {output}'
 
 rule validation_asmgene:
     input:
         asm = WORK_PATH + '{haplotype}_asm_splices.paf',
-        ref = WORK_PATH + '{haplotype}_ref_splices.paf'
+        ref = str(PurePath(f'{config["ref_genome"]}').with_name('ref_cDNAs_splices.paf'))
     output:
         RESULT_PATH + '.asmgene.{opt}.txt'
     params:
