@@ -237,28 +237,6 @@ rule validation_refalign:
     shell:
         'paftools.js asmstat {input.fai} {input.paf} > {output}'
 
-rule map_splice_asm:
-    input:
-        lambda wildcards: (WORK_PATH + '{haplotype}.contigs.fasta') if wildcards.reference == 'asm' else f'{config["ref_genome"]}'
-    output:
-        temp(WORK_PATH + '{haplotype}_{reference}_splices.paf')
-    threads: 4
-    resources:
-        mem_mb = 10000,
-        walltime = '20'
-    shell:
-        'minimap2 -cxsplice:hq -t {threads} {input} {config[cDNAs]} > {output}'
-
-rule map_splice_ref:
-    output:
-        temp(str(PurePath(f'{config["ref_genome"]}').with_name('ref_cDNAs_splices.paf')))
-    threads: 4
-    resources:
-        mem_mb = 6000,
-        walltime = '15'
-    shell:
-        'minimap2 -cxsplice:hq -t {threads} {config[ref_genome]} {config[cDNAs]} > {output}'
-
 rule validation_asmgene:
     input:
         asm = WORK_PATH + '{haplotype}_asm_splices.paf',

@@ -91,3 +91,25 @@ rule map_SR_reads:
         disk_scratch = 250
     shell:
         'minimap2 -ax sr -t {threads} {input.asm} {input.reads} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'
+
+rule map_splice_asm:
+    input:
+        lambda wildcards: (WORK_PATH + '{haplotype}.contigs.fasta') if wildcards.reference == 'asm' else f'{config["ref_genome"]}'
+    output:
+        temp(WORK_PATH + '{haplotype}_{reference}_splices.paf')
+    threads: 4
+    resources:
+        mem_mb = 10000,
+        walltime = '20'
+    shell:
+        'minimap2 -cxsplice:hq -t {threads} {input} {config[cDNAs]} > {output}'
+
+rule map_splice_ref:
+    output:
+        temp(str(PurePath(f'{config["ref_genome"]}').with_name('ref_cDNAs_splices.paf')))
+    threads: 4
+    resources:
+        mem_mb = 6000,
+        walltime = '15'
+    shell:
+        'minimap2 -cxsplice:hq -t {threads} {config[ref_genome]} {config[cDNAs]} > {output}'
