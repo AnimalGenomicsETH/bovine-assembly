@@ -5,7 +5,7 @@ rule assembler_canu_ont:
         'asm'
     shell:
         '''
-        canu -p asm -d canu_OBV genomeSize=2.7g -nanopore-raw OBV.pion.fq.gz executiveThreads=4 executiveMemory=8g -batMemory=100 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' -correctedErrorRate=0.144 -corFilter=quick -corPartitions=1000 -minReadLength=10000 -mhapMemory=30 -mhapThreads=12 -MhapBlockSize=1000 -obtOverlapper=mhap -utgOverlapper=mhap
+        canu -p asm -d canu_OBV genomeSize=2.7g -nanopore-raw OBV.pion.fq.gz executiveThreads=4 executiveMemory=8g -batMemory=100 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' -correctedErrorRate=0.144 -corFilter=quick -corPartitions=1500 -minReadLength=10000 -mhapMemory=20 -mhapThreads=12 -MhapBlockSize=1000 -obtOverlapper=mhap -utgOverlapper=mhap
         '''
 
 rule assembler_shasta:

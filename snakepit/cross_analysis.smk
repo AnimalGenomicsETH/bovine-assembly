@@ -201,6 +201,17 @@ rule TGS_gapcloser:
         cp {params.dir_}/{params.out}.scaff_seqs {output}
         '''
 
+# prepare gapcloser for ONT reads
+
+
+# pepper polish \
+# --bam </path/to/reads_2_draft_assembly.bam> \
+# --fasta <path/to/draft_assembly.fasta> \
+# --model_path <path/to/pepper/models/XXX.pkl> \
+# --output_file <path/to/output_polished_sequence/output_file_prefix> \
+# --threads <total_threads> \
+# --batch_size 128
+
 rule polish_scaffolds:
     input:
         scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',

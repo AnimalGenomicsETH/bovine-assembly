@@ -99,7 +99,7 @@ def load_NGA():
                         data['NGA50'] = int(line.split()[1])
                 except ValueError:
                     auN_data.append(0)
-                    print(f'Undefined result for {line.split()[0][2:]}')
+                    print(f'Undefined result for {line.split()[0]}')
             else:
                 (key, value) = line.rstrip().split()
                 data[key] = value
@@ -218,6 +218,7 @@ def generate_markdown_string(summary_str,build_str=None):
     scaff_metrics = load_auNCurves('scaffolds')[1]
     lineage, busco_string = busco_report()
     kmer_stats = kmer_QV('full' if haplotype in ('asm','hap1','hap2') else 'simple')
+    print(kmer_stats,haplotype,sample)
 
     summary_str += f'| {assembler} | {emph_haplotype(haplotype) if build_str is not None else sample} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'

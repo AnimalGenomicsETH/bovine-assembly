@@ -84,3 +84,5 @@ rule raw_QC:
         'data/{individual}.{sample}.QC.txt'
     shell:
         '{workflow.basedir}/src/fasterqc {input} {output}'
+
+# ratatosk prep
