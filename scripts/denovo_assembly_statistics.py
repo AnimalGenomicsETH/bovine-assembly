@@ -122,7 +122,10 @@ def plot_sampling_curves(df_total):
 
         df_busco = df[['sample','assembler','single','total']].melt(id_vars=['sample','assembler'],var_name='copy',value_name='complete')
         seaborn.lineplot(data=df_busco,x='sample',y='complete',ax=axes[2],hue='assembler',style='copy',**{'marker':'o'})
-
+        
+        for ax in axes:
+            ax.get_legend().remove()
+        
     fig.tight_layout()
     save_figure(fig,'figures/sampling_curves.png')
     return 'figures/sampling_curves.png'
@@ -226,7 +229,7 @@ def generate_markdown_string(summary_str,build_str=None):
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
 
     if build_str is None:
-        return summary_str, {'NGA50':aln_metrics['NGA50'],'NG50':asm_metrics['N50'],'QV':kmer_stats['QV'],'P50':kmer_stats['phased'],'completeness':kmer_stats['completeness'],'total':busco_string[2:6],'single':busco_string[10:14]}
+        return summary_str, {'NGA50':aln_metrics['NGA50'],'NG50':asm_metrics['N50'],'QV':kmer_stats['QV'],'P50':kmer_stats['phased'].replace(',',''),'completeness':kmer_stats['completeness'],'total':busco_string[2:6],'single':busco_string[10:14]}
 
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*, haplotype: {haplotype} \n'
@@ -361,8 +364,12 @@ def main(direct_input=None):
             sample = sample_t
             assembler = assembler_t
             haplotype = haplotype_t
-            summary_string, new_row = generate_markdown_string(summary_string)
-            new_row = {k:float(v) for k,v in new_row.items()}
+            try:
+                summary_string, new_row = generate_markdown_string(summary_string)
+            except:
+                print(f'Error generating summary for {haplotype_t} @ {sample_t}% coverage with {assembler_t}.')
+                continue 
+            new_row = {k: float(v) for k,v in new_row.items()}
             new_row.update({'sample':sample_t,'assembler':assembler_t,'haplotype':haplotype_t})
             row_data.append(new_row)
 
