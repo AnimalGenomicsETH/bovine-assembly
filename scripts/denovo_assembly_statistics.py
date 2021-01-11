@@ -105,20 +105,23 @@ def load_NGA():
                 data[key] = value
     return (auN_data[:len(auN_data)//2],auN_data[len(auN_data)//2:]), data
 
-def plot_sampling_curves(df):
-    fig, axes = plt.subplots(1,3,sharex=True,figsize=(12,5))
+def plot_sampling_curves(df_total):
+    fig, axes_total = plt.subplots(3,3,sharex=True,figsize=(12,5))
 
-    df_N50 = df[['sample','assembler','NG50','NGA50','P50']].melt(id_vars=['sample','assembler'],var_name='type',value_name='N50')
+    for axes, hap in zip(axes_total,('asm','hap1','hap2')):
+        df = df_total[df_total['haplotype']==hap]
 
-    seaborn.lineplot(data=df_N50,x='sample',y='N50',ax=axes[0],hue='assembler',style='type',**{'marker':'o'})
-    axes[0].set_yscale('log')
+        df_N50 = df[['sample','assembler','NG50','NGA50','P50']].melt(id_vars=['sample','assembler'],var_name='type',value_name='N50')
 
-    seaborn.lineplot(data=df,x='sample',y='QV',ax=axes[1],hue='assembler',**{'marker':'o'})
-    ax1_twin = axes[1].twinx()
-    seaborn.lineplot(data=df,x='sample',y='completeness',ax=ax1_twin,hue='assembler',**{'marker':'o','ls':'--'})
+        seaborn.lineplot(data=df_N50,x='sample',y='N50',ax=axes[0],hue='assembler',style='type',**{'marker':'o'})
+        axes[0].set_yscale('log')
 
-    df_busco = df[['sample','assembler','single','total']].melt(id_vars=['sample','assembler'],var_name='copy',value_name='complete')
-    seaborn.lineplot(data=df_busco,x='sample',y='complete',ax=axes[2],hue='assembler',style='copy',**{'marker':'o'})
+        seaborn.lineplot(data=df,x='sample',y='QV',ax=axes[1],hue='assembler',**{'marker':'o'})
+        ax1_twin = axes[1].twinx()
+        seaborn.lineplot(data=df,x='sample',y='completeness',ax=ax1_twin,hue='assembler',**{'marker':'o','ls':'--'})
+
+        df_busco = df[['sample','assembler','single','total']].melt(id_vars=['sample','assembler'],var_name='copy',value_name='complete')
+        seaborn.lineplot(data=df_busco,x='sample',y='complete',ax=axes[2],hue='assembler',style='copy',**{'marker':'o'})
 
     fig.tight_layout()
     save_figure(fig,'figures/sampling_curves.png')
@@ -218,7 +221,6 @@ def generate_markdown_string(summary_str,build_str=None):
     scaff_metrics = load_auNCurves('scaffolds')[1]
     lineage, busco_string = busco_report()
     kmer_stats = kmer_QV('full' if haplotype in ('asm','hap1','hap2') else 'simple')
-    print(kmer_stats,haplotype,sample)
 
     summary_str += f'| {assembler} | {emph_haplotype(haplotype) if build_str is not None else sample} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
@@ -355,12 +357,13 @@ def main(direct_input=None):
     row_data = []
     if len(args.samples) > 1:
         haplotype = 'asm'
-        for sample_t, assembler_t in product(args.samples,assemblers):
+        for sample_t, assembler_t, haplotype_t in product(args.samples,assemblers,haplotypes):
             sample = sample_t
             assembler = assembler_t
+            haplotype = haplotype_t
             summary_string, new_row = generate_markdown_string(summary_string)
             new_row = {k:float(v) for k,v in new_row.items()}
-            new_row.update({'sample':sample_t,'assembler':assembler_t})
+            new_row.update({'sample':sample_t,'assembler':assembler_t,'haplotype':haplotype_t})
             row_data.append(new_row)
 
         md_string += summary_string
