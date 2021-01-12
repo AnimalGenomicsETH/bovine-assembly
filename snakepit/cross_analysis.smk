@@ -202,26 +202,3 @@ rule TGS_gapcloser:
         '''
 
 # prepare gapcloser for ONT reads
-
-
-# pepper polish \
-# --bam </path/to/reads_2_draft_assembly.bam> \
-# --fasta <path/to/draft_assembly.fasta> \
-# --model_path <path/to/pepper/models/XXX.pkl> \
-# --output_file <path/to/output_polished_sequence/output_file_prefix> \
-# --threads <total_threads> \
-# --batch_size 128
-
-rule polish_scaffolds:
-    input:
-        scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',
-        aln = WORK_PATH + '{haplotype}_scaffolds_reads.sam',
-        reads = 'data/offspring.{sample}.hifi.fq.gz'
-    output:
-        WORK_PATH + '{haplotype}.polished.fasta'
-    threads: 16
-    resources:
-        mem_mb = 28000,
-        walltime = '2:30'
-    shell:
-        'racon -t {threads} {input.reads} {input.aln} {input.scaffolds} > {output}'

@@ -40,6 +40,17 @@ rule map_SR_reads:
     shell:
         'minimap2 -ax sr -t {threads} {input.asm} {input.reads} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'
 
+rule index_bam:
+    input:
+        '{bam}.bam'
+    output:
+        '{bam}.bam.bai'
+    threads: 8
+    resources:
+        mem_mb = 4000
+    shell:
+        'samtools index -@ {threads} {input}'
+
 rule ratatosk_segment_bam:
     input:
         SR = 'SR.bam',
@@ -47,7 +58,7 @@ rule ratatosk_segment_bam:
         LR = 'LR.bam',
         LR_ind = 'LR.bam.bai'
     output:
-        'prefix/segments'
+        OUT_PREFIX+'/segments'
     threads: 12
     resources:
         mem_mb = 6000
