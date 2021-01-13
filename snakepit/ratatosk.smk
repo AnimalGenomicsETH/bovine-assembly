@@ -11,8 +11,10 @@ Path(OUT_PREFIX).mkdir(exist_ok=True)
 for _dir in ['segments','ratatosk']:
     Path(f'{OUT_PREFIX}/{_dir}').mkdir(exist_ok=True)
 
+correct1_threads = 16
 rule all:
     input:
+        #OUT_PREFIX+'/bin_split'
         OUT_PREFIX+'/ratatosk/sample_corrected.fastq'
 
 rule map_long_reads:
@@ -73,61 +75,50 @@ rule ratatosk_segment_bam:
         'python3 /cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py -t {threads} -s {input.SR} -l {input.LR} -o {params} > {output}'
 
 checkpoint ratatosk_make_bins:
+#rule ratatosk_make_bins:
     input:
         SR = 'SR.bam'
     output:
         script = directory(OUT_PREFIX+'/bin_split')
     params:
-        threads = 16,
+        threads = correct1_threads,
         seg_prefix = f'{OUT_PREFIX}/segments',
-        unmapped = f'{OUT_PREFIX}/segments/sample_sr_unmapped',
+        unmapped = f'{OUT_PREFIX}/segments/sample_sr_unmapped.fa',
         BIN_SIZE = 5000000
     run:
         bamf = pysam.AlignmentFile(input.SR, "rb")
-        file_count = 0
-        for chr_name, chr_length in zip(bamf.references,bam.lengths):
+        Path(output.script).mkdir(exist_ok=True)
+        for chr_name, chr_length in zip(bamf.references,bamf.lengths):
             for position in range(0,chr_length+1,params.BIN_SIZE):
                 NAME_LR_IN_FILE = params.seg_prefix + f'/sample_lr_{chr_name}_{position}'
-                NAME_SR_IN_FILE = params.seg_prefix + f'/sample_sr_{chr_name}_{position}'
+                NAME_SR_IN_FILE = params.seg_prefix + f'/sample_sr_{chr_name}_{position}.fa'
                 NAME_LR_OUT_FILE = f'{NAME_LR_IN_FILE}_corrected'
+                NAME_LR_IN_FILE += '.fq'
 
                 if Path(NAME_LR_IN_FILE).exists() and Path(NAME_LR_IN_FILE).stat().st_size > 0:
                     if Path(NAME_SR_IN_FILE).exists() and Path(NAME_SR_IN_FILE).stat().st_size > 0:
-                        with open(output.script+f'/bin{file_count}.sh','w') as fout:
-                            fout.write(f'Ratatosk -v -c {params.threads} -s {NAME_SR_IN_FILE}.fa -l {NAME_LR_IN_FILE}.fq -u {params.unmapped}.fa -o {NAME_LR_OUT_FILE}')
-                        file_count += 1
+                        with open(output.script+f'/bin_{chr_name}_{position}.sh','w') as fout:
+                            fout.write(f'Ratatosk -v -c {params.threads} -s {NAME_SR_IN_FILE} -l {NAME_LR_IN_FILE} -u {params.unmapped} -o {NAME_LR_OUT_FILE}')
                     else:
-                        shutil.copy(f'{NAME_LR_IN_FILE}.fq',f'{NAME_LR_IN_FILE}.fastq')
-
-checkpoint ratatosk_split_bins:
-    input:
-        OUT_PREFIX+'/bin.sh'
-    output:
-        directory(OUT_PREFIX+'/bin2_split')
-    params:
-        sharding = 100
-    '''
-    mkdir -p {output} && cd {output}
-    split --number=l/{params.sharding} --additional-suffix=.sh {input} {output}
-    '''
+                        shutil.copy(NAME_LR_IN_FILE,f'{NAME_LR_OUT_FILE}.fastq')
 
 rule ratatosk_correct_bin1:
     input:
-        OUT_PREFIX+'bin_split/bin{N}.sh'
+        OUT_PREFIX+'/bin_split/bin_{N}.sh'
     output:
-        OUT_PREFIX+'bin_split/bin{N}.out'
-    threads: 24
+        OUT_PREFIX+'/segments/sample_lr_{N}_corrected.fastq'
+    threads: 4 #correct1_threads
     resources:
-        mem_mb = 400,
-        walltime = '4:00'
-    group: 'correct1'
+        mem_mb = 2000,
+        walltime = '3:00'
+    #group: 'correct1'
     shell:
-        './{input} > {output}'
+        'bash {input}'
 
 
 def aggregate_corrected_bin1(wildcards):
     checkpoint_output = checkpoints.ratatosk_make_bins.get(**wildcards).output[0]
-    return expand('{fpath}/{chunk}.out',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.sh')).chunk)
+    return expand(OUT_PREFIX+'/segments/sample_lr_{chunk}_corrected.fastq',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('bin_{chunk}.sh')).chunk)
 
 rule ratatosk_merge_bin1:
     input:
@@ -137,7 +128,7 @@ rule ratatosk_merge_bin1:
     params:
         glob.glob(OUT_PREFIX+'/segments/sample_lr_*_corrected.fastq')
     shell:
-        'cat {params} > {output}'
+        'cat {input} > {output}'
 
 rule ratatosk_get_SR_fastq:
     input:
