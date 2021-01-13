@@ -1,6 +1,7 @@
 import pysam
 import glob
-from pathlib import PurePath
+from pathlib import Path,PurePath
+import shutil
 
 localrules: ratatosk_split_bins, ratatosk_merge_bin1, ratatosk_finish
 
@@ -61,44 +62,48 @@ rule ratatosk_segment_bam:
         LR = 'LR.bam',
         LR_ind = 'LR.bam.bai'
     output:
-        out = OUT_PREFIX+'/segments',
-        unknown = long_unknown = OUT_PREFIX+'/segments/sample_lr_unknown.fq'
+        out = OUT_PREFIX+'/segments/sample.bin',
+        long_unknown = OUT_PREFIX+'/segments/sample_lr_unknown.fq'
+    params:
+        lambda wildcards, output: PurePath(output['out']).with_suffix('')
     threads: 12
     resources:
         mem_mb = 6000
     shell:
-        'python3 /cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py -t {threads} -s {input.SR} -l {input.LR} -o {output.out}/sample > {output.out}/sample.bin'
+        'python3 /cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py -t {threads} -s {input.SR} -l {input.LR} -o {params} > {output}'
 
-rule ratatosk_make_bins:
+checkpoint ratatosk_make_bins:
     input:
         SR = 'SR.bam'
     output:
-        script = OUT_PREFIX+'/bin.sh'
+        script = directory(OUT_PREFIX+'/bin_split')
     params:
         threads = 16,
         seg_prefix = f'{OUT_PREFIX}/segments',
         unmapped = f'{OUT_PREFIX}/segments/sample_sr_unmapped',
         BIN_SIZE = 5000000
     run:
-        NAME_SR_UNMAPPED_IN_FILE = params.seg_prefix + '/sample_sr_unmapped'
-
         bamf = pysam.AlignmentFile(input.SR, "rb")
-        with open(output.script,'w') as fout:
-            for chr_name, chr_length in zip(bamf.references,bam.lengths):
-                for position in range(0,chr_length+1,params.BIN_SIZE):
-                    NAME_LR_IN_FILE = params.seg_prefix + f'/sample_lr_{chr_name}_{position}'
-                    NAME_SR_IN_FILE = params.seg_prefix + f'/sample_sr_{chr_name}_{position}'
-                    NAME_LR_OUT_FILE = f'{NAME_LR_IN_FILE}_corrected'
+        file_count = 0
+        for chr_name, chr_length in zip(bamf.references,bam.lengths):
+            for position in range(0,chr_length+1,params.BIN_SIZE):
+                NAME_LR_IN_FILE = params.seg_prefix + f'/sample_lr_{chr_name}_{position}'
+                NAME_SR_IN_FILE = params.seg_prefix + f'/sample_sr_{chr_name}_{position}'
+                NAME_LR_OUT_FILE = f'{NAME_LR_IN_FILE}_corrected'
 
-                    fout.write(f'if [ -f {NAME_LR_IN_FILE}.fq ] && [ -s {NAME_LR_IN_FILE}.fq ]; then if [ -f {NAME_SR_IN_FILE}.fa ] && [ -s {NAME_SR_IN_FILE}.fa ]; then')
-                    fout.write(f'Ratatosk -v -c {params.threads} -s {NAME_SR_IN_FILE}.fa -l {NAME_LR_IN_FILE}.fq -u {params.unmapped}.fa -o {NAME_LR_OUT_FILE}')
-                    fout.write(f'else cp {NAME_LR_IN_FILE}.fq {NAME_LR_OUT_FILE}.fastq; fi; fi;')
+                if Path(NAME_LR_IN_FILE).exists() and Path(NAME_LR_IN_FILE).stat().st_size > 0:
+                    if Path(NAME_SR_IN_FILE).exists() and Path(NAME_SR_IN_FILE).stat().st_size > 0:
+                        with open(output.script+f'/bin{file_count}.sh','w') as fout:
+                            fout.write(f'Ratatosk -v -c {params.threads} -s {NAME_SR_IN_FILE}.fa -l {NAME_LR_IN_FILE}.fq -u {params.unmapped}.fa -o {NAME_LR_OUT_FILE}')
+                        file_count += 1
+                    else:
+                        shutil.copy(f'{NAME_LR_IN_FILE}.fq',f'{NAME_LR_IN_FILE}.fastq')
 
 checkpoint ratatosk_split_bins:
     input:
         OUT_PREFIX+'/bin.sh'
     output:
-        directory(OUT_PREFIX+'/bin_split')
+        directory(OUT_PREFIX+'/bin2_split')
     params:
         sharding = 100
     '''
@@ -106,22 +111,22 @@ checkpoint ratatosk_split_bins:
     split --number=l/{params.sharding} --additional-suffix=.sh {input} {output}
     '''
 
-
 rule ratatosk_correct_bin1:
     input:
-        'bin_split/chunk{N}.sh'
+        OUT_PREFIX+'bin_split/bin{N}.sh'
     output:
-        'bin_split/chunk{N}.out'
+        OUT_PREFIX+'bin_split/bin{N}.out'
     threads: 24
     resources:
         mem_mb = 400,
         walltime = '4:00'
+    group: 'correct1'
     shell:
         './{input} > {output}'
 
 
 def aggregate_corrected_bin1(wildcards):
-    checkpoint_output = checkpoints.ratatosk_split_bins.get(**wildcards).output[0]
+    checkpoint_output = checkpoints.ratatosk_make_bins.get(**wildcards).output[0]
     return expand('{fpath}/{chunk}.out',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.sh')).chunk)
 
 rule ratatosk_merge_bin1:
