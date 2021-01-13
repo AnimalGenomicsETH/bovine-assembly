@@ -1,5 +1,8 @@
 import pysam
 import glob
+from pathlib import PurePath
+
+localrules: ratatosk_split_bins, ratatosk_merge_bin1, ratatosk_finish
 
 OUT_PREFIX = 'rata_test'
 Path(OUT_PREFIX).mkdir(exist_ok=True)
@@ -58,13 +61,13 @@ rule ratatosk_segment_bam:
         LR = 'LR.bam',
         LR_ind = 'LR.bam.bai'
     output:
-        OUT_PREFIX+'/segments'
+        out = OUT_PREFIX+'/segments',
+        unknown = long_unknown = OUT_PREFIX+'/segments/sample_lr_unknown.fq'
     threads: 12
     resources:
         mem_mb = 6000
     shell:
-        'python3 /cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py -t {threads} -s {input.SR} -l {input.LR} -o {output}/sample > {output}/sample.bin'
-
+        'python3 /cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py -t {threads} -s {input.SR} -l {input.LR} -o {output.out}/sample > {output.out}/sample.bin'
 
 rule ratatosk_make_bins:
     input:
@@ -127,9 +130,9 @@ rule ratatosk_merge_bin1:
     output:
         OUT_PREFIX+'/segments/sample_lr_map.fastq'
     params:
-        OUT_PREFIX+'/segments'
+        glob.glob(OUT_PREFIX+'/segments/sample_lr_*_corrected.fastq')
     shell:
-        'cat \$(ls -t {params}/sample_lr_*_corrected.fastq) > {output}'
+        'cat {params} > {output}'
 
 rule ratatosk_get_SR_fastq:
     input:
@@ -148,13 +151,15 @@ rule ratatosk_correct_bin2:
         long_unknown = OUT_PREFIX+'/segments/sample_lr_unknown.fq',
         long_mapped = OUT_PREFIX+'/segments/sample_lr_map.fastq'
     output:
-        OUT_PREFIX+'/segments/sample_lr_unknown_corrected'
+        OUT_PREFIX+'/segments/sample_lr_unknown_corrected.fastq'
+    params:
+        lambda wildcards, output: PurePath(output[0]).with_suffix(''),
     threads: 36
     resources:
         mem_mb = 8000,
         walltime = '24:00'
     shell:
-        'Ratatosk -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {output}'
+        'Ratatosk -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params}'
 
 rule ratatosk_finish:
     input:
