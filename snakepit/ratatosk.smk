@@ -1,21 +1,24 @@
 import pysam
-import glob
 from pathlib import Path,PurePath
 import shutil
 
 localrules: ratatosk_split_bins, ratatosk_merge_bin1, ratatosk_finish
 
+segmentBAM_path = '/cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py'
 OUT_PREFIX = 'rata_test'
-Path(OUT_PREFIX).mkdir(exist_ok=True)
+out_path = Path(OUT_PREFIX)
 
-for _dir in ['segments','ratatosk']:
-    Path(f'{OUT_PREFIX}/{_dir}').mkdir(exist_ok=True)
+seg_path = out_path / 'segments'
+res_path = out_path / 'ratatosk'
+
+for path in (out_path,seg_path,res_path):
+    path.mkdir(exist_ok=True)
 
 correct1_threads = 16
 rule all:
     input:
         #OUT_PREFIX+'/bin_split'
-        OUT_PREFIX+'/ratatosk/sample_corrected.fastq'
+        res_path / 'sample_corrected.fastq'
 
 rule map_long_reads:
     input:
@@ -64,49 +67,50 @@ rule ratatosk_segment_bam:
         LR = 'LR.bam',
         LR_ind = 'LR.bam.bai'
     output:
-        out = OUT_PREFIX+'/segments/sample.bin',
-        long_unknown = OUT_PREFIX+'/segments/sample_lr_unknown.fq'
+        long_unknown = seg_path / 'sample_lr_unknown.fq'
     params:
-        lambda wildcards, output: PurePath(output['out']).with_suffix('')
+        out = seg_path / 'sample',
+        seg_script = segmentBAM_path
     threads: 12
     resources:
         mem_mb = 6000
     shell:
-        'python3 /cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py -t {threads} -s {input.SR} -l {input.LR} -o {params} > {output}'
+        'python3 {parmas.seg_script} -t {threads} -s {input.SR} -l {input.LR} -o {params.out} > {params.out}.bin'
 
 checkpoint ratatosk_make_bins:
 #rule ratatosk_make_bins:
     input:
-        SR = 'SR.bam'
+        bam = 'SR.bam'
     output:
         script = directory(OUT_PREFIX+'/bin_split')
     params:
         threads = correct1_threads,
-        seg_prefix = f'{OUT_PREFIX}/segments',
-        unmapped = f'{OUT_PREFIX}/segments/sample_sr_unmapped.fa',
+        unmapped = seg_path / 'sample_sr_unmapped.fa',
         BIN_SIZE = 5000000
     run:
-        bamf = pysam.AlignmentFile(input.SR, "rb")
-        Path(output.script).mkdir(exist_ok=True)
+        bamf = pysam.AlignmentFile(input.bam "rb")
+        directory = Path(output.script)
+        directory.mkdir(exist_ok=True)
         for chr_name, chr_length in zip(bamf.references,bamf.lengths):
             for position in range(0,chr_length+1,params.BIN_SIZE):
-                NAME_LR_IN_FILE = params.seg_prefix + f'/sample_lr_{chr_name}_{position}'
-                NAME_SR_IN_FILE = params.seg_prefix + f'/sample_sr_{chr_name}_{position}.fa'
-                NAME_LR_OUT_FILE = f'{NAME_LR_IN_FILE}_corrected'
-                NAME_LR_IN_FILE += '.fq'
+                short_read_in = seg_path / f'sample_sr_{chr_name}_{position}.fa'
+                long_read_in = seg_path / f'sample_lr_{chr_name}_{position}'
+                long_read_out = str(long_read_in) + '_corrected'
+                long_read_in = long_read_in.with_suffix('.fq')
+                short_read_in, long_read_in, long_read_out = (seg_path / f'sample_{read}_{chr_name}_{position}{ext}' for read,ext in zip(('sr','fa'),('lr','fq'),'lr','_corrected.fastq'))
 
-                if Path(NAME_LR_IN_FILE).exists() and Path(NAME_LR_IN_FILE).stat().st_size > 0:
-                    if Path(NAME_SR_IN_FILE).exists() and Path(NAME_SR_IN_FILE).stat().st_size > 0:
-                        with open(output.script+f'/bin_{chr_name}_{position}.sh','w') as fout:
-                            fout.write(f'Ratatosk -v -c {params.threads} -s {NAME_SR_IN_FILE} -l {NAME_LR_IN_FILE} -u {params.unmapped} -o {NAME_LR_OUT_FILE}')
+                if long_read_in.exists() and long_read_in.stat().st_size > 0:
+                    if short_read_in.exists() and short_read_in.stat().st_size > 0:
+                        with open(directory / f'bin_{chr_name}_{position}.sh','w') as fout:
+                            fout.write(f'Ratatosk -v -c {params.threads} -s {short_read_in} -l {long_read_in} -u {params.unmapped} -o {long_read_out.with_suffix("")}')
                     else:
-                        shutil.copy(NAME_LR_IN_FILE,f'{NAME_LR_OUT_FILE}.fastq')
+                        shutil.copy(long_read_in,long_read_out)
 
 rule ratatosk_correct_bin1:
     input:
         OUT_PREFIX+'/bin_split/bin_{N}.sh'
     output:
-        OUT_PREFIX+'/segments/sample_lr_{N}_corrected.fastq'
+        seg_path / 'sample_lr_{N}_corrected.fastq'
     threads: 4 #correct1_threads
     resources:
         mem_mb = 2000,
@@ -118,15 +122,13 @@ rule ratatosk_correct_bin1:
 
 def aggregate_corrected_bin1(wildcards):
     checkpoint_output = checkpoints.ratatosk_make_bins.get(**wildcards).output[0]
-    return expand(OUT_PREFIX+'/segments/sample_lr_{chunk}_corrected.fastq',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('bin_{chunk}.sh')).chunk)
+    return expand(seg_path / 'sample_lr_{chunk}_corrected.fastq',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('bin_{chunk}.sh')).chunk)
 
 rule ratatosk_merge_bin1:
     input:
         aggregate_corrected_bin1
     output:
-        OUT_PREFIX+'/segments/sample_lr_map.fastq'
-    params:
-        glob.glob(OUT_PREFIX+'/segments/sample_lr_*_corrected.fastq')
+        seg_path / 'sample_lr_map.fastq'
     shell:
         'cat {input} > {output}'
 
@@ -134,7 +136,7 @@ rule ratatosk_get_SR_fastq:
     input:
         SR = 'SR.bam'
     output:
-        OUT_PREFIX+'/segments/sample_sr.fastq.gz'
+        seg_path / 'sample_sr.fastq.gz'
     threads: 12
     resources:
         mem_mb = 4000
@@ -143,11 +145,11 @@ rule ratatosk_get_SR_fastq:
 
 rule ratatosk_correct_bin2:
     input:
-        short_reads = OUT_PREFIX+'/segments/sample_sr.fastq.gz',
-        long_unknown = OUT_PREFIX+'/segments/sample_lr_unknown.fq',
-        long_mapped = OUT_PREFIX+'/segments/sample_lr_map.fastq'
+        short_reads = seg_path / 'sample_sr.fastq.gz',
+        long_unknown = seg_path / 'sample_lr_unknown.fq',
+        long_mapped = seg_path / 'sample_lr_map.fastq'
     output:
-        OUT_PREFIX+'/segments/sample_lr_unknown_corrected.fastq'
+        seg_path / 'sample_lr_unknown_corrected.fastq'
     params:
         lambda wildcards, output: PurePath(output[0]).with_suffix(''),
     threads: 36
@@ -159,9 +161,9 @@ rule ratatosk_correct_bin2:
 
 rule ratatosk_finish:
     input:
-        mapped = OUT_PREFIX+'/segments/sample_lr_map.fastq',
-        unknown = OUT_PREFIX+'/segments/sample_lr_unknown_corrected.fastq'
+        mapped = seg_path / 'sample_lr_map.fastq',
+        unknown = seg_path / 'sample_lr_unknown_corrected.fastq'
     output:
-        OUT_PREFIX+'/ratatosk/sample_corrected.fastq'
+        res_path / 'sample_corrected.fastq'
     shell:
         'cat {input} > {output}'

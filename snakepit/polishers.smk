@@ -37,7 +37,7 @@ rule pepper_call_consensus:
         workers = 4,
         model = '/cluster/work/pausch/alex/software/pepper/models/PEPPER_polish_haploid_guppy360.pkl'
     shell:
-        'pepper call_consensus -i {input.images} -bs {params.batch_size} -w {params.workers} -m {params.model}-t {threads} -o {output}'
+        'pepper call_consensus -i {input.images} -bs {params.batch_size} -w {params.workers} -m {params.model} -t {threads} -o {output}'
 
 rule pepper_stitch:
     input:
