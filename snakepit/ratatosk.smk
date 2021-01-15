@@ -2,7 +2,7 @@ import pysam
 from pathlib import Path,PurePath
 import shutil
 
-localrules: ratatosk_split_bins, ratatosk_merge_bin1, ratatosk_finish
+localrules: ratatosk_make_bins, ratatosk_merge_bin1, ratatosk_finish
 
 segmentBAM_path = '/cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py'
 OUT_PREFIX = 'rata_test'
@@ -108,7 +108,7 @@ checkpoint ratatosk_make_bins:
 
 rule ratatosk_correct_bin1:
     input:
-        OUT_PREFIX+'/bin_split/bin_{N}.sh'
+        out_path / 'bin_split/bin_{N}.sh'
     output:
         seg_path / 'sample_lr_{N}_corrected.fastq'
     threads: 4 #correct1_threads
@@ -137,9 +137,10 @@ rule ratatosk_get_SR_fastq:
         SR = 'SR.bam'
     output:
         seg_path / 'sample_sr.fastq.gz'
-    threads: 12
+    threads: 4
     resources:
-        mem_mb = 4000
+        mem_mb = 10000,
+        walltime = '1:00'
     shell:
         'samtools bam2fq -@ {threads} -n {input.SR} > {output}'
 
