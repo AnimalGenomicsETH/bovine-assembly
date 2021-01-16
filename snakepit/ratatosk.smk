@@ -144,11 +144,28 @@ rule ratatosk_get_SR_fastq:
     shell:
         'samtools bam2fq -@ {threads} -n {input.SR} > {output}'
 
-rule ratatosk_correct_bin2:
+rule ratatosk_correct_bin2_p1:
     input:
         short_reads = seg_path / 'sample_sr.fastq.gz',
         long_unknown = seg_path / 'sample_lr_unknown.fq',
         long_mapped = seg_path / 'sample_lr_map.fastq'
+    output:
+        seg_path / 'sample_lr_unknown_corrected2.fastq'
+    params:
+        seg_path / 'sample_lr_unknown_corrected'
+    threads: 36
+    resources:
+        mem_mb = 8000,
+        walltime = '24:00'
+    shell:
+        'Ratatosk -1 -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params}'
+
+rule ratatosk_correct_bin2_p2:
+    input:
+        short_reads = seg_path / 'sample_sr.fastq.gz',
+        long_unknown = seg_path / 'sample_lr_unknown.fq',
+        long_mapped = seg_path / 'sample_lr_map.fastq',
+        p1_correction = seg_path / 'sample_lr_unknown_corrected2.fastq'
     output:
         seg_path / 'sample_lr_unknown_corrected.fastq'
     params:
@@ -158,7 +175,7 @@ rule ratatosk_correct_bin2:
         mem_mb = 8000,
         walltime = '24:00'
     shell:
-        'Ratatosk -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params}'
+        'Ratatosk -2 -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params}'
 
 rule ratatosk_finish:
     input:
