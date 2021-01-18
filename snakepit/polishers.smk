@@ -1,56 +1,49 @@
-rule polish_pepper:
-    input:
-        fasta = '.fasta',
-        bam = '.bam'
-    output:
-        directory('out')
-    params:
-     'm'
-    threads: 24
-    resources:
-        mem_mb = 4000
-    shell:
-        '''
-        pepper polish --bam {input.bam} --fasta {input.fasta} --model_path --o {output} --threads {threads}
-        '''
+#minimap2 -ax map-ont -t 12 Assembly.fasta ../OBV.pion.fq.gz | samtools view -hb -F 0x904 > long_usrt.bam
+#samtools sort long_usrt.bam -@ 8 -m 3000M -T $TMPDIR -o sorted.bam; samtools index -@ 8 sorted.bam
+
+MODEL = '/cluster/work/pausch/alex/software/pepper/models/PEPPER_polish_haploid_guppy360.pkl'
 
 rule pepper_make_images:
     input:
-        bam = '.bam',
-        asm = '.fasta'
+        fasta = '{haplotype}.unpolished.fasta',
+        bam = '{haplotype}_ONT_reads.sorted.bam'
     output:
-        directory('pepper_images')
-    threads: 12
+        temp(directory('pepper_images_{haplotype}'))
+    threads: 10
     resources:
-        mem_mb = 3000,
+        mem_mb = 5000,
         walltime = '24:00'
     shell:
         'pepper make_images -b {input.bam} -f {input.asm} -o {output} -t {threads}'
 
 rule pepper_call_consensus:
     input:
-        images = 'pepper_images'
+        images = 'pepper_images_{haplotype}'
     output:
-        directory('predictions')
+        temp(directory('pepper_predictions_{haplotype}'))
     params:
         batch_size = 256,
         workers = 4,
-        model = '/cluster/work/pausch/alex/software/pepper/models/PEPPER_polish_haploid_guppy360.pkl'
+        model = MODEL
+    threads: 24
+    resources:
+        mem_mb = 3500
     shell:
         'pepper call_consensus -i {input.images} -bs {params.batch_size} -w {params.workers} -m {params.model} -t {threads} -o {output}'
 
 rule pepper_stitch:
     input:
-        'predictions'
+        'pepper_predictions_{haplotype}'
     output:
-        'polished_genome.fasta'
-    threads: 12
+        '{haplotype}.contigs.fasta'
+    threads: 6
     resources:
-        mem_mb = 3000
+        mem_mb = 12000,
+        walltime = '12:00'
     shell:
         'pepper stitch -i {input} -o {output} -t {threads}'
 
-rule polish_scaffolds:
+rule racon_polish:
     input:
         scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',
         aln = WORK_PATH + '{haplotype}_scaffolds_reads.sam',
