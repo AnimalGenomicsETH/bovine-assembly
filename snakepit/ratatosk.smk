@@ -110,7 +110,7 @@ rule ratatosk_correct_bin1:
     input:
         out_path / 'bin_split/bin_{N}.sh'
     output:
-        seg_path / 'sample_lr_{N}_corrected.fastq'
+        temp(seg_path / 'sample_lr_{N}_corrected.fastq')
     threads: 4 #correct1_threads
     resources:
         mem_mb = 2000,
@@ -136,7 +136,7 @@ rule ratatosk_get_SR_fastq:
     input:
         SR = 'SR.bam'
     output:
-        seg_path / 'sample_sr.fastq.gz'
+        temp(seg_path / 'sample_sr.fastq.gz')
     threads: 4
     resources:
         mem_mb = 10000,
@@ -160,22 +160,48 @@ rule ratatosk_correct_bin2_p1:
     shell:
         'Ratatosk -1 -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params}'
 
+checkpoint ratatosk_shard_bin2:
+    input:
+        long_unknown = seg_path / 'sample_lr_unknown.fq',
+    output:
+        temp(directory(seg_path / 'unknown_shards'))
+    params:
+    shell:
+        '''
+        mkdir -p {output}
+        split -a 2 -d -l {params} --additional_suffix=.fq {input} {output}/shard_
+        '''
+
 rule ratatosk_correct_bin2_p2:
     input:
         short_reads = seg_path / 'sample_sr.fastq.gz',
         long_unknown = seg_path / 'sample_lr_unknown.fq',
         long_mapped = seg_path / 'sample_lr_map.fastq',
-        p1_correction = seg_path / 'sample_lr_unknown_corrected2.fastq'
+        p1_correction = seg_path / 'sample_lr_unknown_corrected2.fastq',
+        lr_shard = seg_path / 'unknown_shards/shard_{N}.fq'
     output:
-        seg_path / 'sample_lr_unknown_corrected.fastq'
+        seg_path / 'shard_{N}_corrected.fastq'
     params:
-        lambda wildcards, output: PurePath(output[0]).with_suffix(''),
+        seg_path / 'sample_lr_unknown_corrected'
     threads: 36
     resources:
-        mem_mb = 8000,
+        mem_mb = 5750,
         walltime = '24:00'
     shell:
-        'Ratatosk -2 -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params}'
+        'Ratatosk -2 -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params} -L {input.lr_shard} -O {output}'
+
+
+def aggregate_corrected_bin2(wildcards):
+    checkpoint_output = checkpoints.ratatosk_shard_bin2.get(**wildcards).output[0]
+    return expand(seg_path / 'shard_{chunk}_corrected.fastq',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('shard_{chunk}.fq')).chunk)
+
+rule ratatosk_merge_bin2:
+    input:
+        aggregate_corrected_bin2
+    output:
+        seg_path / 'sample_lr_unknown_corrected.fastq'
+    shell:
+        'cat {input} > {output}'
 
 rule ratatosk_finish:
     input:
