@@ -3,6 +3,8 @@ from pathlib import Path,PurePath
 import shutil
 
 localrules: ratatosk_make_bins, ratatosk_merge_bin1, ratatosk_finish
+wildcard_constraints:
+    N = r'\d+'
 
 segmentBAM_path = '/cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py'
 OUT_PREFIX = 'rata_test'
@@ -15,9 +17,10 @@ for path in (out_path,seg_path,res_path):
     path.mkdir(exist_ok=True)
 
 correct1_threads = 16
+LINE_SHARDING=146000
+
 rule all:
     input:
-        #OUT_PREFIX+'/bin_split'
         res_path / 'sample_corrected.fastq'
 
 rule map_long_reads:
@@ -88,7 +91,7 @@ checkpoint ratatosk_make_bins:
         unmapped = seg_path / 'sample_sr_unmapped.fa',
         BIN_SIZE = 5000000
     run:
-        bamf = pysam.AlignmentFile(input.bam "rb")
+        bamf = pysam.AlignmentFile(input.bam, "rb")
         directory = Path(output.script)
         directory.mkdir(exist_ok=True)
         for chr_name, chr_length in zip(bamf.references,bamf.lengths):
@@ -166,10 +169,11 @@ checkpoint ratatosk_shard_bin2:
     output:
         temp(directory(seg_path / 'unknown_shards'))
     params:
+        num_lines = LINE_SHARDING
     shell:
         '''
         mkdir -p {output}
-        split -a 2 -d -l {params} --additional_suffix=.fq {input} {output}/shard_
+        split -a 2 -d -l {params.num_lines} --additional-suffix=.fq {input} {output}/shard_
         '''
 
 rule ratatosk_correct_bin2_p2:
