@@ -2,12 +2,17 @@ import pysam
 from pathlib import Path,PurePath
 import shutil
 
-localrules: ratatosk_make_bins, ratatosk_merge_bin1, ratatosk_finish
+localrules: ratatosk_make_bins, ratatosk_merge_bin1, ratatosk_merge_bin2, ratatosk_finish
+
 wildcard_constraints:
     N = r'\d+'
 
 segmentBAM_path = '/cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py'
-OUT_PREFIX = 'rata_test'
+
+OUT_PREFIX = 'rata_test' if 'OUT_PREFIX' not in config else config['OUT_PREFIX']
+CORRECT1_THREADS = 4 if 'CORRECT1_THREADS' not in config else config['CORRECT1_THREADS']
+LINE_SHARDING = 146000 'LINE_SHARDING' not in config else config['LINE_SHARDING']
+
 out_path = Path(OUT_PREFIX)
 
 seg_path = out_path / 'segments'
@@ -15,9 +20,6 @@ res_path = out_path / 'ratatosk'
 
 for path in (out_path,seg_path,res_path):
     path.mkdir(exist_ok=True)
-
-correct1_threads = 16
-LINE_SHARDING=146000
 
 rule all:
     input:
@@ -81,13 +83,11 @@ rule ratatosk_segment_bam:
         'python3 {parmas.seg_script} -t {threads} -s {input.SR} -l {input.LR} -o {params.out} > {params.out}.bin'
 
 checkpoint ratatosk_make_bins:
-#rule ratatosk_make_bins:
     input:
         bam = 'SR.bam'
     output:
         script = directory(OUT_PREFIX+'/bin_split')
     params:
-        threads = correct1_threads,
         unmapped = seg_path / 'sample_sr_unmapped.fa',
         BIN_SIZE = 5000000
     run:
@@ -96,16 +96,12 @@ checkpoint ratatosk_make_bins:
         directory.mkdir(exist_ok=True)
         for chr_name, chr_length in zip(bamf.references,bamf.lengths):
             for position in range(0,chr_length+1,params.BIN_SIZE):
-                short_read_in = seg_path / f'sample_sr_{chr_name}_{position}.fa'
-                long_read_in = seg_path / f'sample_lr_{chr_name}_{position}'
-                long_read_out = str(long_read_in) + '_corrected'
-                long_read_in = long_read_in.with_suffix('.fq')
                 short_read_in, long_read_in, long_read_out = (seg_path / f'sample_{read}_{chr_name}_{position}{ext}' for read,ext in zip(('sr','fa'),('lr','fq'),'lr','_corrected.fastq'))
 
                 if long_read_in.exists() and long_read_in.stat().st_size > 0:
                     if short_read_in.exists() and short_read_in.stat().st_size > 0:
                         with open(directory / f'bin_{chr_name}_{position}.sh','w') as fout:
-                            fout.write(f'Ratatosk -v -c {params.threads} -s {short_read_in} -l {long_read_in} -u {params.unmapped} -o {long_read_out.with_suffix("")}')
+                            fout.write(f'Ratatosk -v -c {CORRECT1_THREADS} -s {short_read_in} -l {long_read_in} -u {params.unmapped} -o {long_read_out.with_suffix("")}')
                     else:
                         shutil.copy(long_read_in,long_read_out)
 
@@ -114,14 +110,12 @@ rule ratatosk_correct_bin1:
         out_path / 'bin_split/bin_{N}.sh'
     output:
         temp(seg_path / 'sample_lr_{N}_corrected.fastq')
-    threads: 4 #correct1_threads
+    threads: CORRECT1_THREADS
     resources:
         mem_mb = 2000,
-        walltime = '3:00'
-    #group: 'correct1'
+        walltime = '4:00'
     shell:
         'bash {input}'
-
 
 def aggregate_corrected_bin1(wildcards):
     checkpoint_output = checkpoints.ratatosk_make_bins.get(**wildcards).output[0]
@@ -193,7 +187,6 @@ rule ratatosk_correct_bin2_p2:
         walltime = '24:00'
     shell:
         'Ratatosk -2 -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params} -L {input.lr_shard} -O {output}'
-
 
 def aggregate_corrected_bin2(wildcards):
     checkpoint_output = checkpoints.ratatosk_shard_bin2.get(**wildcards).output[0]
