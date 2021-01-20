@@ -4,7 +4,11 @@ rule whatshap_phase:
         bam = '',
         ref = ''
     output:
-        'phased.vcf'
+        'phased.vcf.gz'
+    threads: 1
+    resources:
+        mem_mb = 5000,
+        walltime = '24:00'
     shell:
         '''
         whatshap phase \
@@ -13,19 +17,26 @@ rule whatshap_phase:
         {inpu.vcf} \
         {input.bam}
         '''
+
 rule whatshap_tabix:
     input:
         'whatshap/deepvariant1.phased.vcf.gz'
     output:
-        ''
+        'whatshap/deepvariant1.phased.vcf.gz.tbi'
     shell:
         'tabix -p vcf {input}'
 
 rule whatshap_haplotag:
     input:
-        vcf = 'phased.vcf'
+        vcf = 'phased.vcf.gz',
+        bam = '',
+        ref = ''
     output:
-        'haplotagged'
+        'haplotagged.bam'
+    threads: 1
+    resources:
+        mem_mb = 5000,
+        walltime = '24:00'
     shell:
         '''
         whatshap haplotag \

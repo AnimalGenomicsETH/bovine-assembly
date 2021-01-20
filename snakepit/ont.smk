@@ -14,13 +14,15 @@ rule assembler_shasta:
     output:
         dir_ = directory('shasta_100'),
         asm = 'shasta_100/asm.contigs.fasta'
+    params:
+        Path('config/shasta_config.conf').resolve()
     threads: 36
     resources:
-        mem_mb = 40000,
-        walltime = '24:00'
+        mem_mb = 20000,
+        walltime = '4:00'
     shell:
         '''
-        shasta --input {input} --threads {threads} --assemblyDirectory={output.dir_}
+        shasta --input {input} --threads {threads} --assemblyDirectory={output.dir_} --config {params}
         mv shasta_100/Assembly.fasta {output.asm}
         '''
 

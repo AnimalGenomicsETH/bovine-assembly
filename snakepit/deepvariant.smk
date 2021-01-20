@@ -9,7 +9,7 @@ rule deepvariant_make_examples:
         ''
     shell:
         '''
-        time seq 0 23 | parallel -q --halt 2 --line-buffer /opt/deepvariant/bin/make_examples \
+        seq 0 23 | parallel -q --halt 2 --line-buffer /opt/deepvariant/bin/make_examples \
         --mode calling --ref "/input/asm.fasta" --reads "/input/hifi.bam" \
         --examples "/output/intermediate_results_dir/make_examples.tfrecord@24.gz" --add_hp_channel \
         --alt_aligned_pileup "diff_channels" --gvcf "/output/intermediate_results_dir/gvcf.tfrecord@24.gz" \
@@ -33,7 +33,21 @@ rule deepvariant_call_variants:
 
 rule deepvaraint_postprocess:
 
+    shell:
+        '''
+        /opt/deepvariant/bin/postprocess_variants \
+        --ref "/input/asm.fasta" \
+        --infile "/output/intermediate_results_dir/call_variants_output.tfrecord.gz" \
+        --outfile "/output/asm.output.vcf.gz"
+        --gvcf_outfile .. \
+        --nonvariant_site_tfrecord_path ..
+        '''
 
+
+
+
+#Round 2
+# --use_hp_information
 
 mkdir -p ${OUTPUT}
 mkdir -p ${OUTPUT}/intermediate_results_dir
