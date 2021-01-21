@@ -40,7 +40,6 @@ rule convert_sam_to_paf:
     shell:
         'paftools.js sam2paf {input} > {output}'
 
-##Requires minigraph and paftools.js installed
 rule map_minigraph:
     input:
         WORK_PATH + '{haplotype}.contigs.fasta'

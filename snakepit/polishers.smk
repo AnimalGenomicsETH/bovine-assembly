@@ -11,10 +11,10 @@ rule map_ONT_reads:
         asm = '{haplotype}.fasta'
     output:
         temp('{haplotype}_ONT_reads.unsorted.bam')
-    threads: 24
+    threads: 16
     resources:
-        mem_mb = 6000,
-        walltime = '4:00'
+        mem_mb = 4500,
+        walltime = '24:00'
     shell:
         'minimap2 -ax map-ont -t {threads} {input.asm} {input.reads} | samtools view -hb -F 0x904 -o {output}'
 
@@ -26,13 +26,13 @@ rule sort_bam:
     threads: 8
     resources:
         mem_mb = 6000,
-        scratch = 200
+        disk_scratch = 200
     shell:
         'samtools sort {input} -m 3000M -@ {threads} -T $TMPDIR -o {output}'
 
 rule index_bam:
     input:
-        lambda wildcards, output: PurePath(output[0]).with_suffix('')
+        '{haplotype}_ONT_reads.sorted.bam'
     output:
         temp('{haplotype}_ONT_reads.sorted.bam.bai')
     threads: 8
@@ -44,7 +44,8 @@ rule index_bam:
 rule pepper_make_images:
     input:
         fasta = '{haplotype}.fasta',
-        bam = '{haplotype}_ONT_reads.sorted.bam'
+        bam = '{haplotype}_ONT_reads.sorted.bam',
+        bai = '{haplotype}_ONT_reads.sorted.bam.bai'
     output:
         temp(directory('pepper_images_{haplotype}'))
     threads: 10

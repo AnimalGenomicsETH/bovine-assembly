@@ -23,6 +23,17 @@ class Default(dict):
     def __missing__(self, key):
         return '{'+key+'}'
 
+def get_dir(base='work', **kwargs):
+    if base == 'work':
+        base_dir = '{assembler}_{sample}'
+    elif base == 'result':
+        base_dir = 'results/{haplotype}_{sample}_{assembler}'
+    elif base == 'temp':
+        base_dir = 'tmp'
+    else:
+        raise('Base not found')
+    return Path(base_dir.format_map(Default(kwargs)))
+
 WORK_PATH = '{assembler}_{sample}/'
 RESULT_PATH = 'results/{haplotype}_{sample}_{assembler}'
 
