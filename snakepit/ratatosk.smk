@@ -1,4 +1,3 @@
-import pysam
 from pathlib import Path,PurePath
 import shutil
 
@@ -11,7 +10,7 @@ segmentBAM_path = '/cluster/work/pausch/alex/software/Ratatosk/script/reference_
 
 OUT_PREFIX = 'rata_test' if 'OUT_PREFIX' not in config else config['OUT_PREFIX']
 CORRECT1_THREADS = 4 if 'CORRECT1_THREADS' not in config else config['CORRECT1_THREADS']
-LINE_SHARDING = 146000 'LINE_SHARDING' not in config else config['LINE_SHARDING']
+LINE_SHARDING = 146000 if 'LINE_SHARDING' not in config else config['LINE_SHARDING']
 
 out_path = Path(OUT_PREFIX)
 
@@ -91,6 +90,7 @@ checkpoint ratatosk_make_bins:
         unmapped = seg_path / 'sample_sr_unmapped.fa',
         BIN_SIZE = 5000000
     run:
+        import pysam
         bamf = pysam.AlignmentFile(input.bam, "rb")
         directory = Path(output.script)
         directory.mkdir(exist_ok=True)

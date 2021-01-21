@@ -1,11 +1,49 @@
-#minimap2 -ax map-ont -t 12 Assembly.fasta ../OBV.pion.fq.gz | samtools view -hb -F 0x904 > long_usrt.bam
-#samtools sort long_usrt.bam -@ 8 -m 3000M -T $TMPDIR -o sorted.bam; samtools index -@ 8 sorted.bam
-
+READS = config['reads']
 MODEL = '/cluster/work/pausch/alex/software/pepper/models/PEPPER_polish_haploid_guppy360.pkl'
+
+rule all:
+    input:
+        'Assembly.contigs.fasta'
+
+rule map_ONT_reads:
+    input:
+        reads = READS,
+        asm = '{haplotype}.fasta'
+    output:
+        temp('{haplotype}_ONT_reads.unsorted.bam')
+    threads: 24
+    resources:
+        mem_mb = 6000,
+        walltime = '4:00'
+    shell:
+        'minimap2 -ax map-ont -t {threads} {input.asm} {input.reads} | samtools view -hb -F 0x904 -o {output}'
+
+rule sort_bam:
+    input:
+        '{haplotype}_ONT_reads.unsorted.bam'
+    output:
+        temp('{haplotype}_ONT_reads.sorted.bam')
+    threads: 8
+    resources:
+        mem_mb = 6000,
+        scratch = 200
+    shell:
+        'samtools sort {input} -m 3000M -@ {threads} -T $TMPDIR -o {output}'
+
+rule index_bam:
+    input:
+        lambda wildcards, output: PurePath(output[0]).with_suffix('')
+    output:
+        temp('{haplotype}_ONT_reads.sorted.bam.bai')
+    threads: 8
+    resources:
+        mem_mb = 4000
+    shell:
+        'samtools index -@ {threads} {input}'
 
 rule pepper_make_images:
     input:
-        fasta = '{haplotype}.unpolished.fasta',
+        fasta = '{haplotype}.fasta',
         bam = '{haplotype}_ONT_reads.sorted.bam'
     output:
         temp(directory('pepper_images_{haplotype}'))
@@ -43,16 +81,16 @@ rule pepper_stitch:
     shell:
         'pepper stitch -i {input} -o {output} -t {threads}'
 
-rule racon_polish:
-    input:
-        scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',
-        aln = WORK_PATH + '{haplotype}_scaffolds_reads.sam',
-        reads = 'data/offspring.{sample}.hifi.fq.gz'
-    output:
-        WORK_PATH + '{haplotype}.polished.fasta'
-    threads: 16
-    resources:
-        mem_mb = 28000,
-        walltime = '2:30'
-    shell:
-        'racon -t {threads} {input.reads} {input.aln} {input.scaffolds} > {output}'
+# rule racon_polish:
+#     input:
+#         scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',
+#         aln = WORK_PATH + '{haplotype}_scaffolds_reads.sam',
+#         reads = 'data/offspring.{sample}.hifi.fq.gz'
+#     output:
+#         WORK_PATH + '{haplotype}.polished.fasta'
+#     threads: 16
+#     resources:
+#         mem_mb = 28000,
+#         walltime = '2:30'
+#     shell:
+#         'racon -t {threads} {input.reads} {input.aln} {input.scaffolds} > {output}'
