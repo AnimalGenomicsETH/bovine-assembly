@@ -1,10 +1,10 @@
 rule whatshap_phase:
     input:
-        vcf = '',
-        bam = '',
-        ref = ''
+        vcf = get_dir('output','{haplotype}.unphased.vcf.gz'),
+        bam = get_dir('input','{haplotype}_hifi_reads.unphased.pbmm2.bam'),
+        ref = config['reference']
     output:
-        'phased.vcf.gz'
+        temp(get_dir('input','{haplotype}.phasing.vcf.gz'))
     threads: 1
     resources:
         mem_mb = 5000,
@@ -14,25 +14,26 @@ rule whatshap_phase:
         whatshap phase \
         --output {output} \
         --reference {input.ref} \
-        {inpu.vcf} \
+        {input.vcf} \
         {input.bam}
         '''
 
 rule whatshap_tabix:
     input:
-        'whatshap/deepvariant1.phased.vcf.gz'
+        get_dir('input','{haplotype}.phasing.vcf.gz')
     output:
-        'whatshap/deepvariant1.phased.vcf.gz.tbi'
+        temp(get_dir('input','{haplotype}.phasing.vcf.gz.tbi'))
     shell:
         'tabix -p vcf {input}'
 
 rule whatshap_haplotag:
     input:
-        vcf = 'phased.vcf.gz',
-        bam = '',
-        ref = ''
+        vcf = get_dir('input','{haplotype}.phasing.vcf.gz'),
+        tbi = get_dir('input','{haplotype}.phasing.vcf.gz.tbi'),
+        bam = get_dir('input','{haplotype}_hifi_reads.unphased.pbmm2.bam'),
+        ref = config['reference']
     output:
-        'haplotagged.bam'
+        temp(get_dir('input','{haplotype}_hifi_reads.phased.pbmm2.bam')),
     threads: 1
     resources:
         mem_mb = 5000,
@@ -45,11 +46,3 @@ rule whatshap_haplotag:
         {input.vcf} \
         {input.bam}
         '''
-
-rule whatshap_index:
-    input:
-        ''
-    output:
-        ''
-    shell:
-        'samtools index whatshap/HG003.GRCh38.chr20.haplotagged.bam'

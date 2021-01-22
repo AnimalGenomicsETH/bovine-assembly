@@ -1,63 +1,79 @@
-
-INPUT='input'
-OUTPUT='output'
-
-SHARDING = 16
+from pathlib import PurePath
 
 class Default(dict):
     def __missing__(self, key):
         return '{'+key+'}'
 
-def get_dir(base='work', **kwargs):
+def get_dir(base='work',ext='', **kwargs):
     if base == 'input':
         base_dir = 'input'
     elif base == 'output':
         base_dir = 'output'
     elif base == 'work':
-        base_dir = 'output/intermediate_results'
+        base_dir = get_dir('output','intermediate_results_{haplotype}_{phase}')
     else:
-        raise('Base not found')
-    return Path(base_dir.format_map(Default(kwargs)))
-
-input_dir = 'input'
-output_dir = 'output'
-work_dir = 'output/intermediate_results_dir'
+        raise Exception('Base not found')
+    return str(Path(base_dir.format_map(Default(kwargs))) / ext)
 
 configfile: 'config/deepvariant.yaml'
 
+include: 'whatshap.smk'
+
+def make_singularity_call(extra_args='',tmp_bind='tmp',input_bind=get_dir('input'),output_bind=get_dir('output')):
+    return f'singularity exec --no-home --cleanenv --containall {extra_args} -B {tmp_bind}:/tmp,{input_bind}:/input,{output_bind}:/output'
+
+for dir in ('input','output'):
+    Path(get_dir(dir)).mkdir(exist_ok=True)
+
 rule all:
     input:
-        'asm.output.vcf.gz'
+        get_dir('output','asm.phased.vcf.gz')
 
 rule pbmm2_align:
     input:
         ref = config['reference'],
         reads = config['reads']
     output:
-        temp(input_dir + '{haplotype}_hifi_reads.unphased.pbmm2.bam')
+        temp(get_dir('input','{haplotype}_hifi_reads.unphased.pbmm2.bam'))
     threads: 16
     resources:
         mem_mb = 3000
     shell:
         'pbmm2 align {input.ref} {input.reads} {output} --sort --preset CCS -j {threads}'
 
+rule samtools_index:
+    input:
+        '{bam}.bam'
+    output:
+        '{bam}.bam.bai'
+    threads: 8
+    resources:
+        mem_mb = 4000
+    shell:
+        'samtools index -@ {threads} {input}'
+
 rule deepvariant_make_examples:
     input:
-        ref = '',
-        bam = '{haplotype}_hifi_reads.{phase}.pbmm2.bam'
+        ref = config['reference'],
+        bam = get_dir('input','{haplotype}_hifi_reads.{phase}.pbmm2.bam'),
+        bai = get_dir('input','{haplotype}_hifi_reads.{phase}.pbmm2.bam.bai')
     output:
-        temp(work_dir / 'make_examples.tfrecord-{N}-of-{sharding}.gz')
+        example = temp(get_dir('work','make_examples.tfrecord-{N}-of-{sharding}.gz')),
+        gvcf = temp(get_dir('work','gvcf.tfrecord-{N}-of-{sharding}.gz'))
     params:
-        examples = '/output/intermediate_results_dir/make_examples.tfrecord@{config[shards]}.gz',
-        gvcf = '/output/intermediate_results_dir/gvcf.tfrecord@{config[shards]}.gz'
-        phase_args = lambda wildcards: '--{i}parse_same_aux_fields --{i}sort_by_haplotypes'.format(i='no' if wildards.phase == 'unphased' else '')
+        examples = lambda wildcards, output: PurePath(output[0]).with_name('make_examples.tfrecord@{config[shards]}.gz'),
+        gvcf = lambda wildcards, output: PurePath(output[0]).with_name('gvcf.tfrecord@{config[shards]}.gz'),
+        dir_ = lambda wildcards, output: PurePath(output[0]).parent,
+        phase_args = lambda wildcards: '--{i}parse_same_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
+        singularity_call = make_singularity_call()
     threads: 1
     resources:
         mem_mb = 4000
     shell:
         '''
-        singularity exec --no-home --cleanenv --containall -B tmp:/tmp,input:/input,output:/output \
-        deepvariant_1.1.0.sif \
+        mkdir -p {params.dir_}
+        {params.singularity_call} \
+        {config[container]} \
         /opt/deepvariant/bin/make_examples \
         --mode calling \
         --ref /{input.ref} \
@@ -74,18 +90,19 @@ rule deepvariant_make_examples:
 
 rule deepvariant_call_variants:
     input:
-        (work_dir / f'make_examples.tfrecord-{N:05}-of-{config["shards"]:05}.gz' for N in range(config['shards']))
+        (get_dir('work', f'make_examples.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
     output:
-        temp('output/intermediate_results_dir/call_variants_output.tfrecord.gz')
+        temp(get_dir('work','call_variants_output.tfrecord.gz'))
     params:
-        examples = '/output/intermediate_results_dir/make_examples.tfrecord@{config[shards]}.gz',
+        examples = get_dir('work','make_examples.tfrecord@{config[shards]}.gz'),
+        singularity_call = lambda wildcards, threads: make_singularity_call('--env OMP_NUM_THREADS={threads}')
     threads: 16
     resources:
         mem_mb = 4000
     shell:
         '''
-        singularity exec --no-home --cleanenv --containall --env OMP_NUM_THREADS={threads} -B tmp:/tmp,input:/input,output:/output \
-        deepvariant_1.1.0.sif \
+        {params.singularity_call} \
+        {config[container]} \
         /bin/bash -c "cd /output; ../opt/deepvariant/bin/call_variants \
         --outfile /{output} \
         --examples {params.examples} \
@@ -96,17 +113,18 @@ rule deepvariant_call_variants:
 rule deepvaraint_postprocess:
     input:
         ref = config['reference'],
-        variants = 'output/intermediate_results_dir/call_variants_output.tfrecord.gz',
-        gvcf = (work_dir / f'gvcf.tfrecord-{N:05}-of-{config["shards"]:05}.gz' for N in range(config['shards']))
+        variants = get_dir('work','call_variants_output.tfrecord.gz'),
+        gvcf = (get_dir('work', f'gvcf.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
     output:
-        vcf = 'output/asm.output.vcf.gz',
-        gvcf = 'test.output.g.vcf.gz'
+        vcf = get_dir('output','{haplotype}.{phase}.vcf.gz'),
+        gvcf = get_dir('output','{haplotype}.{phase}.g.vcf.gz')
     params:
-        lambda wildcards, input: ('/'+record for record in input['gvcf'])
+        lambda wildcards, input: ('/'+record for record in input['gvcf']),
+        singularity_call = make_singularity_call()
     shell:
         '''
-        singularity exec --no-home --cleanenv --containall -B tmp:/tmp,input:/input,output:/output \
-        deepvariant_1.1.0.sif \
+        {params.singularity_call} \
+        {config[container]} \
         /opt/deepvariant/bin/postprocess_variants \
         --ref /input/asm.fasta \
         --infile /{input.variants} \
