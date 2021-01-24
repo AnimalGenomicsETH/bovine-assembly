@@ -43,7 +43,7 @@ rule index_bam:
 
 rule pepper_make_images:
     input:
-        fasta = '{haplotype}.fasta',
+        asm = '{haplotype}.fasta',
         bam = '{haplotype}_ONT_reads.sorted.bam',
         bai = '{haplotype}_ONT_reads.sorted.bam.bai'
     output:
