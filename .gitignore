@@ -11,8 +11,10 @@ __pycache__/
 !snakepit
 snakepit/*
 !snakepit/*.smk
-!snakepit/*.yml
-!snakepit/*.yaml
+
+!config
+config/*
+!config/*.yaml
 
 !scripts
 scripts/*
@@ -28,7 +30,7 @@ src/*
 .github/*
 !.github/workflows
 .github/workflows/*
-!.github/workflows/*.yml
+!.github/workflows/*.yaml
 
 !.test
 !.test/*

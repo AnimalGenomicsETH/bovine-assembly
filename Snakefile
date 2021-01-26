@@ -2,7 +2,7 @@ from pathlib import Path, PurePath
 from glob import glob
 from itertools import product
 
-configfile: 'snakepit/run_parameters.yaml'
+configfile: 'config/run_parameters.yaml'
 
 if config['animal'] != 'test':
     workdir: PurePath(config['workdir']).joinpath(config['animal'])

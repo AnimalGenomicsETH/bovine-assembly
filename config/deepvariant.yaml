@@ -1,0 +1,7 @@
+shards: 24
+reference: 'asm.fasta'
+long_reads: 'hifi.fq.gz'
+short_reads: 'sr.fq.gz'
+model: 'hybrid'
+phased: 'unphased'
+container: 'deepvariant_1.1.0.sif'
