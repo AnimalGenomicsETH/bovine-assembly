@@ -1,10 +1,12 @@
+localrules: whatshap_tabix
+
 rule whatshap_phase:
     input:
         vcf = get_dir('output','{haplotype}.unphased.vcf.gz'),
-        bam = get_dir('input','{haplotype}_hifi_reads.unphased.pbmm2.bam'),
+        bam = get_dir('input','{haplotype}.unphased.{model}.bam'),
         ref = config['reference']
     output:
-        temp(get_dir('input','{haplotype}.phasing.vcf.gz'))
+        temp(get_dir('input','{haplotype}.phasing.{model}.vcf.gz'))
     threads: 1
     resources:
         mem_mb = 5000,
@@ -20,20 +22,20 @@ rule whatshap_phase:
 
 rule whatshap_tabix:
     input:
-        get_dir('input','{haplotype}.phasing.vcf.gz')
+        get_dir('input','{haplotype}.phasing.{model}.vcf.gz')
     output:
-        temp(get_dir('input','{haplotype}.phasing.vcf.gz.tbi'))
+        temp(get_dir('input','{haplotype}.phasing.{model}.vcf.gz.tbi'))
     shell:
         'tabix -p vcf {input}'
 
 rule whatshap_haplotag:
     input:
-        vcf = get_dir('input','{haplotype}.phasing.vcf.gz'),
-        tbi = get_dir('input','{haplotype}.phasing.vcf.gz.tbi'),
-        bam = get_dir('input','{haplotype}_hifi_reads.unphased.pbmm2.bam'),
+        vcf = get_dir('input','{haplotype}.phasing.{model}.vcf.gz'),
+        tbi = get_dir('input','{haplotype}.phasing.{model}.vcf.gz.tbi'),
+        bam = get_dir('input','{haplotype}.unphased.{model}.bam'),
         ref = config['reference']
     output:
-        temp(get_dir('input','{haplotype}_hifi_reads.phased.pbmm2.bam')),
+        temp(get_dir('input','{haplotype}.phased.{model}.bam')),
     threads: 1
     resources:
         mem_mb = 5000,
