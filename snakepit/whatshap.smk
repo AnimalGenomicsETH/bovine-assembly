@@ -30,8 +30,7 @@ rule whatshap_tabix:
 
 rule whatshap_haplotag:
     input:
-        vcf = get_dir('input','{haplotype}.phasing.{model}.vcf.gz'),
-        tbi = get_dir('input','{haplotype}.phasing.{model}.vcf.gz.tbi'),
+        vcf = multiext(get_dir('input','{haplotype}.phasing.{model}.vcf.gz'),'','.tbi'),
         bam = get_dir('input','{haplotype}.unphased.{model}.bam'),
         ref = config['reference']
     output:
@@ -45,6 +44,6 @@ rule whatshap_haplotag:
         whatshap haplotag \
         --output {output} \
         --reference {input.ref} \
-        {input.vcf} \
+        {input.vcf[0]} \
         {input.bam}
         '''
