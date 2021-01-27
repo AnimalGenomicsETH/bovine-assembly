@@ -97,8 +97,8 @@ rule deepvariant_make_examples:
         examples = lambda wildcards, output: PurePath(output[0]).with_name('make_examples.tfrecord@{config[shards]}.gz'),
         gvcf = lambda wildcards, output: PurePath(output[0]).with_name('gvcf.tfrecord@{config[shards]}.gz'),
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
-        phase_args = lambda wildcards: '--{i}parse_same_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
-        model_args = lambda wildcards: '--add_hp_channel --alt_aligned_pileup diff_channels --norealign_reads --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
+        phase_args = lambda wildcards: '--parse_same_aux_fields={i} --sort_by_haplotypes={i}'.format(i=('true' if wildcards.phase == 'phased' else 'false')),
+        model_args = lambda wildcards: '--add_hp_channel --alt_aligned_pileup diff_channels --realign_reads=false --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
         singularity_call = make_singularity_call()
     threads: 1
     resources:

@@ -35,7 +35,7 @@ rule index_bam:
         '{haplotype}_ONT_reads.sorted.bam'
     output:
         temp('{haplotype}_ONT_reads.sorted.bam.bai')
-    threads: 8
+    threads: 4
     resources:
         mem_mb = 4000
     shell:
@@ -48,9 +48,9 @@ rule pepper_make_images:
         bai = '{haplotype}_ONT_reads.sorted.bam.bai'
     output:
         temp(directory('pepper_images_{haplotype}'))
-    threads: 10
+    threads: 12
     resources:
-        mem_mb = 5000,
+        mem_mb = 6000,
         walltime = '24:00'
     shell:
         'pepper make_images -b {input.bam} -f {input.asm} -o {output} -t {threads}'
@@ -66,8 +66,8 @@ rule pepper_call_consensus:
         model = MODEL
     threads: 12
     resources:
-        mem_mb = 7000,
-        walltiem = '24:00'
+        mem_mb = 7500,
+        walltime = '24:00'
     shell:
         'pepper call_consensus -i {input.images} -bs {params.batch_size} -w {params.workers} -m {params.model} -t {threads} -o {output}'
 
