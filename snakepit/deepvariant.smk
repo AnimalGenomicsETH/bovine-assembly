@@ -22,8 +22,8 @@ include: 'whatshap.smk'
 
 localrules: samtools_faidx
 
-def make_singularity_call(extra_args='',tmp_bind='tmp',input_bind=get_dir('input'),output_bind=get_dir('output')):
-    return f'singularity exec --no-home --cleanenv --containall {extra_args} -B {tmp_bind}:/tmp,{input_bind}:/input,{output_bind}:/output'
+def make_singularity_call(wildcards,extra_args='',tmp_bind='tmp',input_bind=None, output_bind=None, work_bind=None):
+    return f'singularity exec {extra_args} -B $TMPDIR:/tmp,{input_bind or get_dir("input",**wildcards)}:/input,{output_bind or get_dir("output",**wildcards)}:/output,{work_bind or get_dir("work",**wildcards)}:/output/intermediate'
 
 for dir in ('input',):
     Path(get_dir(dir)).mkdir(exist_ok=True)
@@ -94,15 +94,16 @@ rule deepvariant_make_examples:
         example = temp(get_dir('work','make_examples.tfrecord-{N}-of-{sharding}.gz')),
         gvcf = temp(get_dir('work','gvcf.tfrecord-{N}-of-{sharding}.gz'))
     params:
-        examples = lambda wildcards, output: PurePath(output[0]).with_name('make_examples.tfrecord@{config[shards]}.gz'),
-        gvcf = lambda wildcards, output: PurePath(output[0]).with_name('gvcf.tfrecord@{config[shards]}.gz'),
+        examples = f'/output/intermediate/make_examples.tfrecord@{config["shards"]}.gz',
+        gvcf = f'/output/intermediate/gvcf.tfrecord@{config["shards"]}.gz',
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
-        phase_args = lambda wildcards: '--parse_same_aux_fields={i} --sort_by_haplotypes={i}'.format(i=('true' if wildcards.phase == 'phased' else 'false')),
+        phase_args = lambda wildcards: '--parse_sam_aux_fields={i} --sort_by_haplotypes={i}'.format(i=('true' if wildcards.phase == 'phased' else 'false')),
         model_args = lambda wildcards: '--add_hp_channel --alt_aligned_pileup diff_channels --realign_reads=false --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
-        singularity_call = make_singularity_call()
+        singularity_call = lambda wildcards: make_singularity_call(wildcards)
     threads: 1
     resources:
         mem_mb = 4000,
+        disk_scratch = 10,
         use_singularity = True
     shell:
         '''
@@ -111,7 +112,7 @@ rule deepvariant_make_examples:
         {config[container]} \
         /opt/deepvariant/bin/make_examples \
         --mode calling \
-        --ref /{input.ref} \
+        --ref /{input.ref[0]} \
         --reads /{input.bam[0]} \
         --examples {params.examples} \
         --gvcf {params.gvcf} \
@@ -126,19 +127,21 @@ rule deepvariant_call_variants:
     output:
         temp(get_dir('work','call_variants_output.tfrecord.gz'))
     params:
-        examples = get_dir('work','make_examples.tfrecord@{config[shards]}.gz'),
+        outfile = '/output/intermediate/call_variants_output.tfrecord.gz',
+        examples = f'/output/intermediate/make_examples.tfrecord@{config["shards"]}.gz',
         model = lambda wildcards: 'pacbio' if wildcards.model == 'pbmm2' else 'hybrid_pacbio_illumina',
-        singularity_call = lambda wildcards, threads: make_singularity_call('--env OMP_NUM_THREADS={threads}')
+        singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,'--env OMP_NUM_THREADS={threads}')
     threads: 16
     resources:
         mem_mb = 4000,
+        disk_scratch = 10,
         use_singularity = True
     shell:
         '''
         {params.singularity_call} \
         {config[container]} \
         /bin/bash -c "cd /output; ../opt/deepvariant/bin/call_variants \
-        --outfile /{output} \
+        --outfile {params.outfile} \
         --examples {params.examples} \
         --checkpoint /opt/models/{params.model}/model.ckpt \
         --use_openvino"
@@ -153,22 +156,26 @@ rule deepvaraint_postprocess:
         vcf = get_dir('output','{haplotype}.{phase}.vcf.gz'),
         gvcf = get_dir('output','{haplotype}.{phase}.g.vcf.gz')
     params:
-        lambda wildcards, input: ('/'+record for record in input['gvcf']),
-        singularity_call = make_singularity_call()
+        variants = '/output/intermediate/call_variants_output.tfrecord.gz',
+        gvcf = (f'/output/intermediate/gvcf.tfrecord-{N:05}-of-{config["shards"]:05}.gz' for N in range(config['shards'])),
+        vcf_out = lambda wildcards: '/output/{wildcards.haplotype}/{wildcards.phase}.vcf.gz}',
+        gvcf_out = lambda wildcards: '/output/{wildcards.haplotype}/{wildcards.phase}.g.vcf.gz}',
+        singularity_call = lambda wildcards: make_singularity_call(wildcards)
     threads: 1
     resources:
         mem_mb = 30000,
+        disk_scratch = 10,
         use_singularity = True
     shell:
         '''
         {params.singularity_call} \
         {config[container]} \
         /opt/deepvariant/bin/postprocess_variants \
-        --ref /input/asm.fasta \
-        --infile /{input.variants} \
-        --outfile /{output.vcf} \
-        --gvcf_outfile /{output.gvcf} \
-        --nonvariant_site_tfrecord_path {input.gvcf}
+        --ref /{input.ref} \
+        --infile {params.variants} \
+        --outfile {params.vcf_out} \
+        --gvcf_outfile {params.gvcf_out} \
+        --nonvariant_site_tfrecord_path {params.gvcf}
         '''
 
 
@@ -187,7 +194,7 @@ rule deeptrio_make_examples:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         phase_args = lambda wildcards: '--{i}parse_same_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
         model_args = lambda wildcards: '--add_hp_channel --alt_aligned_pileup diff_channels --norealign_reads --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
-        singularity_call = make_singularity_call()
+        singularity_call = lambda wildcards, output: make_singularity_call(PurePath(output[0]).parent)
     threads: 1
     resources:
         mem_mb = 4000,
