@@ -1,4 +1,4 @@
-READS = config['reads']
+
 MODEL = '/cluster/work/pausch/alex/software/pepper/models/PEPPER_polish_haploid_guppy360.pkl'
 
 rule all:
@@ -7,7 +7,7 @@ rule all:
 
 rule map_ONT_reads:
     input:
-        reads = READS,
+        reads = config['reads'],
         asm = '{haplotype}.fasta'
     output:
         temp('{haplotype}_ONT_reads.unsorted.bam')
@@ -64,9 +64,10 @@ rule pepper_call_consensus:
         batch_size = 256,
         workers = 4,
         model = MODEL
-    threads: 24
+    threads: 12
     resources:
-        mem_mb = 3500
+        mem_mb = 7000,
+        walltiem = '24:00'
     shell:
         'pepper call_consensus -i {input.images} -bs {params.batch_size} -w {params.workers} -m {params.model} -t {threads} -o {output}'
 
