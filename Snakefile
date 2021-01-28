@@ -23,16 +23,18 @@ class Default(dict):
     def __missing__(self, key):
         return '{'+key+'}'
 
-def get_dir(base='work', **kwargs):
+def get_dir(base,ext='',**kwargs):
     if base == 'work':
         base_dir = '{assembler}_{sample}'
     elif base == 'result':
         base_dir = 'results/{haplotype}_{sample}_{assembler}'
-    elif base == 'temp':
-        base_dir = 'tmp'
+    elif base == 'data':
+        base_dir = 'data'
     else:
-        raise('Base not found')
-    return Path(base_dir.format_map(Default(kwargs)))
+        raise Exception('Base not found')
+    if ext and ext[0] == '.':
+        return f'{base_dir}{ext}'.format_map(Default(kwargs))
+    return str(PurePath(base_dir.format_map(Default(kwargs))) / ext)
 
 WORK_PATH = '{assembler}_{sample}/'
 RESULT_PATH = 'results/{haplotype}_{sample}_{assembler}'
@@ -70,7 +72,7 @@ if 'hifiasm' in config['assemblers']:
         input:
             'data/offspring.{sample}.hifi.fq.gz'
         output:
-            WORK_PATH.format_map(Default({'assembler':'hifiasm'})) + 'asm.p_ctg.gfa'
+            get_dir('work','asm.p_ctg.gfa',assembler='hifiasm')
         params:
             out = lambda wildcards, output: PurePath(output[0]).with_name('asm'),
             settings = '-r 4 -a 5 -n 5'
@@ -84,9 +86,9 @@ if 'hifiasm' in config['assemblers']:
     ##Requires gfatools installed
     rule assembler_hifiasm_conversion:
         input:
-            WORK_PATH.format_map(Default({'assembler':'hifiasm'})) + '{haplotype}.p_ctg.gfa'
+            get_dir('work','{haplotype}.p_ctg.gfa',assembler='hifiasm')
         output:
-            WORK_PATH.format_map(Default({'assembler':'hifiasm'})) + '{haplotype}.contigs.fasta'
+            get_dir('work','{haplotype}.contigs.fasta',assembler='hifiasm')
         resources:
             mem_mb = 10000,
             walltime = '60'
@@ -96,7 +98,7 @@ if 'hifiasm' in config['assemblers']:
         input:
             'data/{parent}.cleaned.hifi.fq.gz'
         output:
-            WORK_PATH.format_map(Default({'assembler':'hifiasm','sample':100})) + '{parent}.p_ctg.gfa'
+            get_dir('work','{parent}.p_ctg.gfa',assembler='hifiasm',sample=100)
         params:
             out = lambda wildcards, output: PurePath(output[0]).with_name(wildcards.parent),
             settings = '-r 4 -a 5 -n 5'
@@ -113,7 +115,7 @@ if 'canu' in config['assemblers']:
         input:
             'data/offspring.{sample}.hifi.fq.gz'
         output:
-            WORK_PATH.format_map(Default({'assembler':'canu'})) + 'asm.contigs_all.fa'
+            get_dir('work','asm.contigs_all.fa',assembler='canu')
         log: 'logs/assembler_canu/sample-{sample}.asm.out'
         params:
             dir_ = lambda wildcards, output: PurePath(output[0]).parent,
@@ -131,11 +133,11 @@ if 'canu' in config['assemblers']:
         input:
             'data/{parent}.cleaned.hifi.fq.gz'
         output:
-            WORK_PATH.format_map(Default({'assembler':'canu','sample':100})) + '{parent}.contigs_all.fa'
+            get_dir('work','{parent}.contigs_all.fa',assembler='canu',sample=100)
         log: 'logs/assembler_canu_parents/parent-{parent}.out'
         params:
-            dir_ = WORK_PATH.format_map(Default({'assembler':'canu','sample':100})) + '{parent}_asm',
-            temp = '{parent}.complete'
+            dir_ = lambda wildcards, output: PurePath(output[0]).with_name(f'{wildcards.parent}_asm'),
+            temp = lambda wildcards: f'{wildcards.parent}.complete'
         shell:
             '''
             canu -p {wildcards.parent} -d {params.dir_} genomeSize={config[genome_est]}g -pacbio-hifi {input} executiveThreads=4 executiveMemory=8g -batMemory=50 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' onSuccess="touch {params.temp}" onFailure="touch {params.temp}" > {log}
@@ -147,9 +149,9 @@ if 'canu' in config['assemblers']:
 
     rule strip_canu_bubbles:
         input:
-            WORK_PATH.format_map(Default({'assembler':'canu'})) + '{haplotype}.contigs_all.fa'
+            get_dir('work','{haplotype}.contigs_all.fa',assembler='canu')
         output:
-            WORK_PATH.format_map(Default({'assembler':'canu'})) + '{haplotype}.contigs_raw.fa'
+            get_dir('work','{haplotype}.contigs_raw.fa',assembler='canu')
         shell:
             'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 --no-group-separator > {output}'
 
@@ -158,7 +160,7 @@ if 'flye' in config['assemblers']:
         input:
             'data/offspring.{sample}.hifi.fq.gz'
         output:
-            WORK_PATH.format_map(Default({'assembler':'flye'})) + 'asm.contigs.fasta'
+            get_dir('work','asm.contigs.fasta',assembler='flye')
         params:
             out = lambda output: PurePath(output[0]).parent
         threads: 36
@@ -175,16 +177,16 @@ if 'IPA' in config['assemblers']:
         input:
             'data/offspring.{sample}.hifi.fq.gz'
         output:
-            'IPA_{sample}/{haplotype}.contigs.fasta'
+            get_dir('work','{haplotype}.contigs.fasta',assembler='IPA')
         shell:
             'snakemake --profile "lsf" -n --snakefile /cluster/work/pausch/alex/software/miniconda3/envs/pbipa/etc/ipa.snakefile --configfile config.yaml  -U finish -d {wildcards.haplotype}'
 
 ##Requires yak installed
 rule count_yak_asm:
     input:
-        contigs = WORK_PATH + '{haplotype}.contigs.fasta'
+        contigs = get_dir('work','{haplotype}.contigs.fasta')
     output:
-        yak = temp(WORK_PATH + '{haplotype}.yak')
+        yak = temp(get_dir('work','{haplotype}.yak'))
     params:
         kmer = 31
     threads: 4
@@ -197,9 +199,9 @@ rule count_yak_asm:
 rule validation_yak_qv:
     input:
         yak = 'data/offspring.yak',
-        contigs = WORK_PATH + '{haplotype}.contigs.fasta'
+        contigs = get_dir('work','{haplotype}.contigs.fasta')
     output:
-        RESULT_PATH + '.yak.qv.txt'
+        get_dir('result','.yak.qv.txt')
     params:
         kmer = 31
     threads: 12
@@ -210,19 +212,19 @@ rule validation_yak_qv:
 
 rule validation_yak_completeness:
     input:
-        yak = 'data/offspring.yak',
-        asm_yak = WORK_PATH + '/{haplotype}.yak'
+        read_yak = 'data/offspring.yak',
+        asm_yak = get_dir('work','{haplotype}.yak')
     output:
-        RESULT_PATH + '.yak.completeness.txt'
+        get_dir('result','.yak.completeness.txt')
     shell:
-        'yak inspect {input.yak} {output.asm_yak} > {output}'
+        'yak inspect {input.read_yak} {output.asm_yak} > {output}'
 
 rule validation_yak_trio:
     input:
-        contigs = WORK_PATH + '{haplotype}.contigs.fasta',
+        contigs = get_dir('work','{haplotype}.contigs.fasta'),
         parents = expand('data/{parent}.yak', parent = ('sire','dam'))
     output:
-        RESULT_PATH + '.yak.trio.txt'
+        get_dir('result','.yak.trio.txt')
     threads: 16
     resources:
         mem_mb = 6000
@@ -232,28 +234,28 @@ rule validation_yak_trio:
 ##Requires k8 and calN50.js installed
 rule validation_auN:
     input:
-        asm = WORK_PATH + '{haplotype}.{sequence}.fasta',
+        asm = get_dir('work','{haplotype}.{sequence}.fasta'),
         ref_fai = f'{config["ref_genome"]}.fai'
     output:
-        RESULT_PATH + '.{sequence}.auN.txt'
+        get_dir('result','.{sequence}.auN.txt')
     shell:
         'calN50.js -s 0.01 -f {input.ref_fai} {input.asm} > {output}'
 
 rule validation_refalign:
     input:
         fai = f'{config["ref_genome"]}.fai',
-        paf = WORK_PATH + '{haplotype}_contigs_ref.mg.paf'
+        paf = get_dir('work','{haplotype}_contigs_ref.mg.paf')
     output:
-        RESULT_PATH + '.NGA50.txt'
+        get_dir('result','.NGA50.txt')
     shell:
         'paftools.js asmstat {input.fai} {input.paf} > {output}'
 
 rule validation_asmgene:
     input:
-        asm = WORK_PATH + '{haplotype}_asm_splices.paf',
+        asm = get_dir('work','{haplotype}_asm_splices.paf'),
         ref = str(PurePath(f'{config["ref_genome"]}').with_name('ref_cDNAs_splices.paf'))
     output:
-        RESULT_PATH + '.asmgene.{opt}.txt'
+        get_dir('result','.asmgene.{opt}.txt')
     params:
         thresh = lambda wildcards: '-i.97' if wildcards.opt == '97' else '-i.99',
         hap_opt = lambda wildcards: '' if wildcards.haplotype == 'asm' else '-a'
@@ -266,10 +268,10 @@ rule validation_asmgene:
 ##Requires busco (and metaeuk) installed
 rule validation_busco:
     input:
-        WORK_PATH + '{haplotype}.contigs.fasta'
+        get_dir('work','{haplotype}.contigs.fasta')
     output:
-        out_dir = directory(WORK_PATH + '{haplotype}_BUSCO'),
-        summary = RESULT_PATH + '.BUSCO.txt'
+        out_dir = directory(get_dir('work','{haplotype}_BUSCO')),
+        summary = get_dir('result','.BUSCO.txt')
     params:
         tmp_dir = '{haplotype}_{sample}_{assembler}_busco_results'
     threads: 12
@@ -285,9 +287,9 @@ rule validation_busco:
 
 rule plot_dot:
     input:
-        WORK_PATH + '{haplotype}_scaffolds_{reference}.{mapper}.paf'
+        get_dir('work','{haplotype}_scaffolds_{reference}.{mapper}.paf')
     output:
-        RESULT_PATH + '.{reference}.{mapper}.dot.png'
+        get_dir('result','.{reference}.{mapper}.dot.png')
     shell:
         'minidot -L {input} | convert -density 150 - {output}'
 

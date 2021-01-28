@@ -2,10 +2,10 @@ ruleorder: convert_sam_to_paf > map_asm_ref
 
 rule generate_winnow_meryl:
     input:
-        asm = lambda wildcards: WORK_PATH + '{haplotype}.scaffolds.fasta' if wildcards.haplotype !='ref' else f'{config["ref_genome"]}'
+        asm = lambda wildcards: get_dir('work','{haplotype}.scaffolds.fasta') if wildcards.haplotype !='ref' else f'{config["ref_genome"]}'
     output:
-        db = temp(directory(WORK_PATH + '{haplotype}_winnow_k{K,\d+}.meryl')),
-        rep = temp(WORK_PATH + '{haplotype}_repetitive_k{K,\d+}.txt')
+        db = temp(directory(get_dir('work','{haplotype}_winnow_k{K,\d+}.meryl'))),
+        rep = temp(get_dir('work','{haplotype}_repetitive_k{K,\d+}.txt'))
     threads: 6
     resources:
         mem_mb = 3000,
@@ -18,11 +18,11 @@ rule generate_winnow_meryl:
 
 rule map_asm_ref:
     input:
-        asm = lambda wildcards: WORK_PATH + '{haplotype}.{seq_type}.fasta' if wildcards.haplotype != 'ref' else f'{config["ref_genome"]}',
-        rep = lambda wildcards: WORK_PATH + '{haplotype}_repetitive_k19.txt' if wildcards.mapper == 'wm2' else [],
-        ref = lambda wildcards: WORK_PATH + '{reference}.{seq_type}.fasta' if wildcards.reference != 'ref' else f'{config["ref_genome"]}'
+        asm = lambda wildcards: get_dir('work','{haplotype}.{seq_type}.fasta') if wildcards.haplotype != 'ref' else f'{config["ref_genome"]}',
+        rep = lambda wildcards: get_dir('work','{haplotype}_repetitive_k19.txt') if wildcards.mapper == 'wm2' else [],
+        ref = lambda wildcards: get_dir('work','{reference}.{seq_type}.fasta') if wildcards.reference != 'ref' else f'{config["ref_genome"]}'
     output:
-        WORK_PATH + '{haplotype}_{seq_type}_{reference}.{mapper}.{ext,sam|paf}'
+        get_dir('work','{haplotype}_{seq_type}_{reference}.{mapper}.{ext,sam|paf}')
     params:
        mapper = lambda wildcards, input: f'winnowmap -W {input.rep}' if wildcards.mapper == 'wm2' else 'minimap2',
        out_t = lambda wildcards: '-c' if wildcards.ext == 'paf' else '-a'
@@ -34,17 +34,17 @@ rule map_asm_ref:
 
 rule convert_sam_to_paf:
     input:
-        WORK_PATH + '{haplotype}_{seq_type}_{reference}.{mapper}.sam'
+        get_dir('work','{haplotype}_{seq_type}_{reference}.{mapper}.sam')
     output:
-        WORK_PATH + '{haplotype}_{seq_type}_{reference}.{mapper}.paf'
+        get_dir('work','{haplotype}_{seq_type}_{reference}.{mapper}.paf')
     shell:
         'paftools.js sam2paf {input} > {output}'
 
 rule map_minigraph:
     input:
-        WORK_PATH + '{haplotype}.contigs.fasta'
+        get_dir('work','{haplotype}.contigs.fasta')
     output:
-        temp(WORK_PATH + '{haplotype}_contigs_ref.mg.paf')
+        temp(get_dir('work','{haplotype}_contigs_ref.mg.paf'))
     threads: 6
     resources:
         mem_mb = 12000
@@ -54,10 +54,10 @@ rule map_minigraph:
 rule map_hifi_cell:
     input:
         reads = lambda wildcards: f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz',
-        asm = WORK_PATH + '{haplotype}.scaffolds.fasta',
-        rep = WORK_PATH + '{haplotype}_repetitive_k15.txt'
+        asm = get_dir('work','{haplotype}.scaffolds.fasta'),
+        rep = get_dir('work','{haplotype}_repetitive_k15.txt')
     output:
-        WORK_PATH + '{haplotype}_scaffolds_hifi_reads_{read_name}.bam'
+        get_dir('work','{haplotype}_scaffolds_hifi_reads_{read_name}.bam')
     threads: 24
     resources:
         mem_mb = 4000,
@@ -67,9 +67,10 @@ rule map_hifi_cell:
 
 rule merge_sort_map_cells:
     input:
+    #TODO still fix double escaping
         lambda wildcards: expand('{{assembler}}_{{sample}}/{{haplotype}}_scaffolds_hifi_reads_{read_name}.bam',read_name=glob_wildcards(f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz').read_name)
     output:
-        temp(WORK_PATH + '{haplotype}_scaffolds_hifi_reads.bam')
+        temp(get_dir('work','{haplotype}_scaffolds_hifi_reads.bam'))
     threads: 16
     resources:
         mem_mb = 6000,
@@ -80,9 +81,9 @@ rule merge_sort_map_cells:
 rule map_SR_reads:
     input:
         reads = expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
-        asm = WORK_PATH + '{haplotype}.scaffolds.fasta'
+        asm = get_dir('work','{haplotype}.scaffolds.fasta')
     output:
-        WORK_PATH + '{haplotype}_scaffolds_SR_reads.bam'
+        get_dir('work','{haplotype}_scaffolds_SR_reads.bam')
     threads: 24
     resources:
         mem_mb = 6000,
@@ -93,9 +94,9 @@ rule map_SR_reads:
 
 rule map_splice_asm:
     input:
-        lambda wildcards: (WORK_PATH + '{haplotype}.contigs.fasta') if wildcards.reference == 'asm' else f'{config["ref_genome"]}'
+        lambda wildcards: (get_dir('work','{haplotype}.contigs.fasta')) if wildcards.reference == 'asm' else f'{config["ref_genome"]}'
     output:
-        temp(WORK_PATH + '{haplotype}_{reference}_splices.paf')
+        temp(get_dir('work','{haplotype}_{reference}_splices.paf'))
     threads: 4
     resources:
         mem_mb = 10000,

@@ -2,10 +2,10 @@ localrules: cut_and_split, purge_dups, assess_purging
 
 rule map_reads:
     input:
-        asm = WORK_PATH + '{haplotype}.contigs_raw.fa',
+        asm = get_dir('work','{haplotype}.contigs_raw.fa'),
         reads = 'data/offspring.{sample}.hifi.fq.gz'
     output:
-        temp(WORK_PATH + '{haplotype}_pd/read_aln.paf')
+        temp(get_dir('work','{haplotype}_pd/read_aln.paf'))
     params:
         lambda wildcards, output: PurePath(output[0]).parent
     threads: 24
@@ -19,11 +19,11 @@ rule map_reads:
 
 rule cut_and_split:
     input:
-        paf = WORK_PATH + '{haplotype}_pd/read_aln.paf',
-        asm = WORK_PATH + '{haplotype}.contigs_raw.fa'
+        paf = get_dir('work','{haplotype}_pd/read_aln.paf'),
+        asm = get_dir('work','{haplotype}.contigs_raw.fa')
     output:
-        splits = WORK_PATH + '{haplotype}_pd/split.fasta',
-        asm = temp(WORK_PATH + '{haplotype}_pd/contigs_raw.fa')
+        splits = get_dir('work','{haplotype}_pd/split.fasta'),
+        asm = temp(get_dir('work','{haplotype}_pd/contigs_raw.fa'))
     params:
         lambda wildcards, output: PurePath(output[0]).parent
     shell:
@@ -37,9 +37,9 @@ rule cut_and_split:
 
 rule map_splits:
     input:
-        WORK_PATH + '{haplotype}_pd/split.fasta'
+        get_dir('work','{haplotype}_pd/split.fasta')
     output:
-        temp(WORK_PATH + '{haplotype}_pd/ctg-aln.paf')
+        temp(get_dir('work','{haplotype}_pd/ctg-aln.paf'))
     threads: 24
     resources:
         mem_mb = 2500
@@ -48,11 +48,11 @@ rule map_splits:
 
 rule purge_dups:
     input:
-        paf = WORK_PATH + '{haplotype}_pd/ctg-aln.paf',
-        contigs = WORK_PATH + '{haplotype}_pd/contigs_raw.fa'
+        paf = get_dir('work','{haplotype}_pd/ctg-aln.paf'),
+        contigs = get_dir('work','{haplotype}_pd/contigs_raw.fa')
     output:
-        contigs = WORK_PATH + '{haplotype}_pd/purged.fa',
-        bed = WORK_PATH + '{haplotype}_pd/dups.bed'
+        contigs = get_dir('work','{haplotype}_pd/purged.fa'),
+        bed = get_dir('work','{haplotype}_pd/dups.bed')
     params:
         dir_ = lambda wildcards, output: PurePath(output['bed']).parent,
         bed = lambda wildcards, output: PurePath(output['bed']).name,

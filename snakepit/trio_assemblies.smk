@@ -18,11 +18,11 @@ rule trio_hifiasm:
         reads = 'data/offspring.{sample}.hifi.fq.gz',
         mat = 'data/dam.yak',
         pat = 'data/sire.yak',
-        asm = WORK_PATH.format_map(Default({'assembler':'hifiasm'})) + 'asm.contigs.fasta'
+        asm = get_dir('work','asm.contigs.fasta',assembler='hifiasm')
     output:
         expand('hifiasm_{{sample}}/hap{N}.p_ctg.gfa', N = (1,2))
     params:
-        out = 'hifiasm_{sample}/asm',
+        out = get_dir('work','asm',assembler='hifiasm'),
         old = expand('hifiasm_{{sample}}/asm.hap{N}.p_ctg.gfa', N = (1,2)),
         new = expand('hifiasm_{{sample}}/hap{N}.p_ctg.gfa', N = (1,2))
     threads: 32
@@ -42,7 +42,7 @@ rule trio_canu:
         dam = expand('data/dam.read_R{N}.SR.fq.gz', N = (1,2)),
         sire =  expand('data/sire.read_R{N}.SR.fq.gz', N = (1,2))
     output:
-        expand(WORK_PATH.format_map(Default({'assembler':'canu','sample':'{{sample}}'})) + 'trio/asm-haplotype{N}.sh', N=(1,2))
+         (get_dir('work',f'trio/asm-haplotype{N}.sh',assembler='canu') for N in (1,2))
     log:
         'logs/assembler_canu/sample-{sample}.partion.out'
     params:
@@ -58,9 +58,9 @@ rule trio_canu:
 
 rule prep_haplotype_canu:
     input:
-        WORK_PATH.format_map(Default({'assembler':'canu'})) + 'trio/asm-haplotype{N}.sh'
+        get_dir('work','trio/asm-haplotype{N}.sh',assembler='canu')
     output:
-        WORK_PATH.format_map(Default({'assembler':'canu'})) + 'trio/asm-haplotype{N}_edited.sh'
+        get_dir('work','trio/asm-haplotype{N}_edited.sh',assembler='canu')
     params:
         temp = 'hap{N}.complete'
     shell:
@@ -73,9 +73,9 @@ rule prep_haplotype_canu:
 
 rule haplotype_canu:
     input:
-        WORK_PATH.format_map(Default({'assembler':'canu'})) + 'trio/asm-haplotype{N}_edited.sh'
+        get_dir('work','trio/asm-haplotype{N}_edited.sh',assembler='canu')
     output:
-        WORK_PATH.format_map(Default({'assembler':'canu'})) + 'hap{N}.contigs_all.fa'
+        get_dir('work','hap{N}.contigs_all.fa',assembler='canu')
     params:
         temp = 'hap{N}.complete',
         dir_ = 'asm-haplotype{N}',
