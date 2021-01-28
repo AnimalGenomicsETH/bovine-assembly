@@ -33,12 +33,13 @@ src/*
 !.github/workflows/*.yaml
 
 !.test
-!.test/*
+.test/*
 !.test/sire
 !.test/sire/*
 !.test/dam
 !.test/dam/*
 !.test/offspring
 !.test/offspring/*
-!.test/snakepit
-!.test/snakepit/*
+!.test/config
+.test/config/*
+!.test/config/*.yaml
