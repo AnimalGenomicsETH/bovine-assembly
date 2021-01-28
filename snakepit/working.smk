@@ -1,20 +1,20 @@
-localrules: resolve_haplotype_reads
+from pathlib import PurePath
 
-rule resolve_haplotype_reads:
+rule resolve_haplotype_fastq:
     input:
-        data = 'data/offspring.raw.hifi.fq.gz',
-        asm = 'canu_100/hap{N}.contigs_all.fa'
+        fastq_data = config['fastq'],
+        fasta_reads = config['fasta']
     output:
-        'data/haplotype_N{N}.hifi.fq.gz'
-    params:
-        fasta = 'canu_100/trio/haplotype/haplotype-{N}.fasta.gz',
-        headers = 'data/haplotype_N{N}.headers'
+        PurePath(config['fasta']).with_suffix('').with_suffix('.fq.gz')
+    threads: 8
+    resources:
+        mem_mb = 1500
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
     shell:
         '''
-        grep ">" {params.fasta} | cut -c 2- | seqtk subseq {input.data} - | pigz -8 -p 4 > {output}
+        zcat {input.fasta_reads} | grep ">" | cut -c 2- | seqtk subseq {input.fastq_data} - | pigz -4 -p {threads} > {output}
         '''
 
 rule pbsv_align:
@@ -48,13 +48,3 @@ rule pbsv_call:
         mem_mb = 4000
     shell:
         'pbsv call --ccs -j {threads} {input.asm} {input.sig} {output}'
-
-rule deepvariant_prep:
-    input:
-        'asm.bam',
-        'dam.bam',
-        'sire.bam'
-    output:
-        'unknonw'
-    shell:
-        'as'
