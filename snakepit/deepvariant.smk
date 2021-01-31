@@ -147,7 +147,7 @@ rule deepvariant_call_variants:
         --use_openvino"
         '''
 
-rule deepvaraint_postprocess:
+rule deepvariant_post_postprocess:
     input:
         ref = config['reference'],
         variants = get_dir('work','call_variants_output.tfrecord.gz'),
@@ -158,8 +158,8 @@ rule deepvaraint_postprocess:
     params:
         variants = '/output/intermediate/call_variants_output.tfrecord.gz',
         gvcf = (f'/output/intermediate/gvcf.tfrecord-{N:05}-of-{config["shards"]:05}.gz' for N in range(config['shards'])),
-        vcf_out = lambda wildcards: '/output/{wildcards.haplotype}/{wildcards.phase}.vcf.gz}',
-        gvcf_out = lambda wildcards: '/output/{wildcards.haplotype}/{wildcards.phase}.g.vcf.gz}',
+        vcf_out = lambda wildcards: f'/output/{wildcards.haplotype}/{wildcards.phase}.vcf.gz',
+        gvcf_out = lambda wildcards: f'/output/{wildcards.haplotype}/{wildcards.phase}.g.vcf.gz',
         singularity_call = lambda wildcards: make_singularity_call(wildcards)
     threads: 1
     resources:
@@ -201,9 +201,10 @@ rule deeptrio_make_examples:
         use_singularity = True
     shell:
         '''
+        /opt/deepvariant/bin/deeptrio/make_examples
         mkdir -p {params.dir_}
         {params.singularity_call} \
-        {config[container]} \
+        {config[DT_container]} \
         /opt/deepvariant/bin/make_examples \
         --mode calling \
         --ref /{input.ref} \
