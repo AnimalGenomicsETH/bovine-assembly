@@ -94,9 +94,9 @@ rule map_SR_reads:
 
 rule map_splice_asm:
     input:
-        lambda wildcards: (get_dir('work','{haplotype}.contigs.fasta')) if wildcards.reference == 'asm' else f'{config["ref_genome"]}'
+        get_dir('work','{haplotype}.contigs.fasta')
     output:
-        temp(get_dir('work','{haplotype}_{reference}_splices.paf'))
+        temp(get_dir('work','{haplotype}_cDNAs_splices.paf'))
     threads: 4
     resources:
         mem_mb = 10000,

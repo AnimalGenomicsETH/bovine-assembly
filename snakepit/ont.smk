@@ -6,6 +6,7 @@ rule assembler_canu_ont:
     shell:
         '''
         canu -p asm -d canu_OBV genomeSize=2.7g -nanopore-raw OBV.pion.fq.gz executiveThreads=4 executiveMemory=8g -batMemory=100 stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"' -correctedErrorRate=0.144 -corFilter=quick -corPartitions=1500 -minReadLength=10000 -mhapMemory=20 -mhapThreads=12 -MhapBlockSize=1000 -obtOverlapper=mhap -utgOverlapper=mhap purgeOverlaps=aggressive
+        canu -p asm -d canu_OBV genomeSize=2.7g -fast -trimmed -nanopore canu_OBV/asm.trimmedReads.fasta.gz stageDirectory=\$TMPDIR gridEngineStageOption='-R "rusage[scratch=DISK_SPACE]"'  -mhapMemory=16 -mhapThreads=8 -MhapBlockSize=200 purgeOverlaps=aggressive
         '''
 
 rule assembler_shasta:
@@ -38,3 +39,5 @@ rule assembler_raven:
         walltime = '24:00'
     shell:
         'raven -t {threads} --graphical-fragment-assembly={output.gfa} {input} > {output.asm}'
+
+/cluster/work/pausch/alex/software/canu/build/bin/generateCorrectionLayouts -S ../asm-haplotype2.seqStore -O  ./asm-haplotype2.ovlStore -C  ./asm-haplotype2.corStore.WORKING -eC 80 ./asm-haplotype2.corStore.err 2>&1
