@@ -122,10 +122,10 @@ def plot_sampling_curves(df_total):
 
         df_busco = df[['sample','assembler','single','total']].melt(id_vars=['sample','assembler'],var_name='copy',value_name='complete')
         seaborn.lineplot(data=df_busco,x='sample',y='complete',ax=axes[2],hue='assembler',style='copy',**{'marker':'o'})
-        
+
         for ax in axes:
             ax.get_legend().remove()
-        
+
     fig.tight_layout()
     save_figure(fig,'figures/sampling_curves.png')
     return 'figures/sampling_curves.png'
@@ -223,10 +223,15 @@ def generate_markdown_string(summary_str,build_str=None):
     aln_metrics = load_NGA()[1]
     scaff_metrics = load_auNCurves('scaffolds')[1]
     lineage, busco_string = busco_report()
-    kmer_stats = kmer_QV('full' if haplotype in ('asm','hap1','hap2') else 'simple')
+
+    try:
+        kmer_stats = kmer_QV('full' if haplotype in ('asm','hap1','hap2') else 'simple')
+        QV = f'{float(kmer_stats["QV"]):.1f}'
+    except:
+        QV = '-'
 
     summary_str += f'| {assembler} | {emph_haplotype(haplotype) if build_str is not None else sample} | {asm_metrics["SZ"]/1e9:.2f} | {asm_metrics["NN"]:,} | ' \
-                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {float(kmer_stats["QV"]):.1f} |\n'
+                   f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {QV} |\n'
 
     if build_str is None:
         return summary_str, {'NGA50':aln_metrics['NGA50'],'NG50':asm_metrics['N50'],'QV':kmer_stats['QV'],'P50':kmer_stats['phased'].replace(',',''),'completeness':kmer_stats['completeness'],'total':busco_string[2:6],'single':busco_string[10:14]}
@@ -320,17 +325,26 @@ def main(direct_input=None):
     Path('figures').mkdir(exist_ok=True)
 
     parser = argparse.ArgumentParser(description='Produce assembly report.')
-    parser.add_argument('--animal', type=str, required=True)
+    parser.add_argument('--animal', nargs='+', required=True)
     parser.add_argument('--samples', nargs='+', required=True)
     parser.add_argument('--input', nargs='+', required=True)
     parser.add_argument('--outfile', default='assembly_report.pdf', type=str)
     parser.add_argument('--keepfig', action='store_true')
     parser.add_argument('--css', default='report.css', type=str)
+    parser.add_argument('--multi', action='store_true')
 
     args = parser.parse_args(direct_input)
+
+    css_path = args.css if Path(args.css).is_file() else None
+
+    if args.multi:
+        generate_multiple_statistics(args)
+        custom_PDF_writer(args.outfile,'',md_string,css_path)
+        return
+
     global animal
     animal = args.animal
-    css_path = args.css if Path(args.css).is_file() else None
+
 
     prepend_str = generate_markdown_reads() + \
                   '# table of contents'
@@ -368,7 +382,7 @@ def main(direct_input=None):
                 summary_string, new_row = generate_markdown_string(summary_string)
             except:
                 print(f'Error generating summary for {haplotype_t} @ {sample_t}% coverage with {assembler_t}.')
-                continue 
+                continue
             new_row = {k: float(v) for k,v in new_row.items()}
             new_row.update({'sample':sample_t,'assembler':assembler_t,'haplotype':haplotype_t})
             row_data.append(new_row)
@@ -381,6 +395,21 @@ def main(direct_input=None):
     custom_PDF_writer(args.outfile,prepend_str,md_string,css_path)
     if not args.keepfig:
         rmtree('figures')
+
+def generate_multiple_statistics(args):
+    summary_string = '# summary \n' \
+                     '| assembler | haplotype | size | contigs | N50 | L50 | S50 | BUSCO | QV |\n' \
+                     '| --------- | --------- | ---- | ------- | --- | --- | --- | ----- | -- |\n'
+    global haplotype
+    global assembler
+    global animal
+    assembler = 'hifiasm'
+    for animal_t,haplotype_t,name in zip(args.animals,args.samples,args.input),:
+        animal = animal_t
+        haplotype = haplotype_t
+        os.chdir(animal)
+        summary_string = generate_markdown_string(summary_string)[0].replace('100',name)
+        os.chdir('..')
 
 if __name__ == "__main__":
     main()
