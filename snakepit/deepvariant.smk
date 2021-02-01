@@ -19,7 +19,10 @@ if Path('config/deepvariant.yaml').exists():
     configfile: 'config/deepvariant.yaml'
 
 wildcard_constraints:
-     subset = r'.*'
+     subset = r'|_child|_parent1|_parent2',
+     haplotype = r'asm',
+     phase = r'unphased|phased',
+     model = r'pbmm2|hybrid'
 
 def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
     model_location = f'{base}/{{}}/{ext}'
@@ -47,8 +50,8 @@ for dir in ('input',):
 
 rule all:
     input:
-        get_dir('output','asm_trio_merged.unphased.vcf.gz',model='pbmm2'),
-        get_dir('output',f'asm.{config["phased"]}.vcf.gz',model=config['model'])
+        get_dir('output','asm.trio.merged.unphased.vcf.gz',model='pbmm2'),
+        #get_dir('output',f'asm.{config["phased"]}.vcf.gz',model=config['model'])
 
 rule minimap_align:
     input:
@@ -170,7 +173,7 @@ rule deepvariant_post_postprocess:
     input:
         ref = config['reference'],
         variants = get_dir('work','call_variants_output{subset}.tfrecord.gz'),
-        gvcf = (get_dir('work', f'gvcf.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
+        gvcf = (get_dir('work', f'gvcf{{subset}}.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
     output:
         vcf = get_dir('output','{haplotype}{subset}.{phase}.vcf.gz'),
         gvcf = get_dir('output','{haplotype}{subset}.{phase}.g.vcf.gz')
@@ -209,11 +212,11 @@ rule deeptrio_make_examples:
         example = temp(get_dir('work',f'make_examples{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2')),
         gvcf = temp(get_dir('work',f'gvcf{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2'))
     params:
-        examples = lambda wildcards, output: PurePath(output[0]).with_name('make_examples.tfrecord@{config[shards]}.gz'),
-        gvcf = lambda wildcards, output: PurePath(output[0]).with_name('gvcf.tfrecord@{config[shards]}.gz'),
+        examples = f'/output/intermediate/make_examples.tfrecord@{config["shards"]}.gz',
+        gvcf = f'/output/intermediate/gvcf.tfrecord@{config["shards"]}.gz',
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
-        phase_args = lambda wildcards: '--{i}parse_same_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
-        model_args = lambda wildcards: '--add_hp_channel --alt_aligned_pileup diff_channels --norealign_reads --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
+        phase_args = lambda wildcards: '--{i}parse_sam_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
+        model_args = lambda wildcards: '--alt_aligned_pileup diff_channels --norealign_reads --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
         singularity_call = lambda wildcards, output: make_singularity_call(wildcards)
     threads: 1
     resources:
@@ -227,10 +230,10 @@ rule deeptrio_make_examples:
         {config[DT_container]} \
         /opt/deepvariant/bin/deeptrio/make_examples \
         --mode calling \
-        --ref /{input.ref} \
-        --reads /{input.bam} \
-        --reads_parent1 /{input.bam_p1} \
-        --reads_parent2 /{input.bam_p2} \
+        --ref /{input.ref[0]} \
+        --reads /{input.bam[0]} \
+        --reads_parent1 /{input.bam_p1[0]} \
+        --reads_parent2 /{input.bam_p2[0]} \
         --sample_name offspring \
         --sample_name_parent1 sire \
         --sample_name_parent2 dam \
@@ -247,7 +250,7 @@ rule deeptrio_merge:
     input:
         (get_dir('output',f'{{haplotype}}{S}.{{phase}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
     output:
-        get_dir('output','{haplotype}_trio_merged.vcf.gz')
+        get_dir('output','{haplotype}.trio.merged.{phase}.vcf.gz')
     params:
         singularity_call = lambda wildcards, output: make_singularity_call(wildcards)
     threads: 12
