@@ -7,6 +7,7 @@ import seaborn
 from itertools import cycle
 from numpy import linspace, cumsum
 from pathlib import PurePath
+import os
 
 animal, haplotype, sample, assembler = '', '', '100', ''
 
@@ -234,7 +235,7 @@ def generate_markdown_string(summary_str,build_str=None):
                    f'{asm_metrics["N50"]/1e6:.2f} | {asm_metrics["L50"]} | {scaff_metrics["N50"]/1e6:.2f} | {busco_string[2:7]} | {QV} |\n'
 
     if build_str is None:
-        return summary_str, {'NGA50':aln_metrics['NGA50'],'NG50':asm_metrics['N50'],'QV':kmer_stats['QV'],'P50':kmer_stats['phased'].replace(',',''),'completeness':kmer_stats['completeness'],'total':busco_string[2:6],'single':busco_string[10:14]}
+        return summary_str#, {'NGA50':aln_metrics['NGA50'],'NG50':asm_metrics['N50'],'QV':kmer_stats['QV'],'P50':kmer_stats['phased'].replace(',',''),'completeness':kmer_stats['completeness'],'total':busco_string[2:6],'single':busco_string[10:14]}
 
     build_str += '\n\n---\n\n' \
                 f'# assembler: *{assembler}*, haplotype: {haplotype} \n'
@@ -338,8 +339,8 @@ def main(direct_input=None):
     css_path = args.css if Path(args.css).is_file() else None
 
     if args.multi:
-        generate_multiple_statistics(args)
-        custom_PDF_writer(args.outfile,'',md_string,css_path)
+        summary_str = generate_multiple_statistics(args)
+        custom_PDF_writer(args.outfile,'',summary_str,css_path)
         return
 
     global animal
@@ -398,18 +399,19 @@ def main(direct_input=None):
 
 def generate_multiple_statistics(args):
     summary_string = '# summary \n' \
-                     '| assembler | haplotype | size | contigs | N50 | L50 | S50 | BUSCO | QV |\n' \
+                     '| animal | haplotype | size | contigs | N50 | L50 | S50 | BUSCO | QV |\n' \
                      '| --------- | --------- | ---- | ------- | --- | --- | --- | ----- | -- |\n'
     global haplotype
     global assembler
     global animal
     assembler = 'hifiasm'
-    for animal_t,haplotype_t,name in zip(args.animals,args.samples,args.input),:
+    for (animal_t,haplotype_t,name) in zip(args.animal,args.samples,args.input):
         animal = animal_t
         haplotype = haplotype_t
         os.chdir(animal)
-        summary_string = generate_markdown_string(summary_string)[0].replace('100',name)
+        summary_string = generate_markdown_string(summary_string).replace('hifiasm',animal_t).replace('100',name)
         os.chdir('..')
+    return summary_string
 
 if __name__ == "__main__":
     main()
