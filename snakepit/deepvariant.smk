@@ -18,6 +18,23 @@ def get_dir(base='work',ext='', **kwargs):
 if Path('config/deepvariant.yaml').exists():
     configfile: 'config/deepvariant.yaml'
 
+wildcard_constraints:
+     subset = r'.*'
+
+def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
+    model_location = f'{base}/{{}}/{ext}'
+    if wildcards['subset'] == '':
+        if wildcards['model'] == 'pbmm2':
+            return model_location.format('pacbio')
+        elif wildcards['model'] == 'hybrid':
+            return model_location.format('hybrid_pacbio_illumina')
+    else:
+        if wildcards['model'] == 'pbmm2':
+            if wildcards['subset'] == 'child':
+                return model_location.format(f'deeptrio/pacbio/child')
+            else:
+                return model_location.format(f'deeptrio/pacbio/parent')
+
 include: 'whatshap.smk'
 
 localrules: samtools_faidx
@@ -30,6 +47,7 @@ for dir in ('input',):
 
 rule all:
     input:
+        get_dir('output','asm_trio_merged.unphased.vcf.gz',model='pbmm2'),
         get_dir('output',f'asm.{config["phased"]}.vcf.gz',model=config['model'])
 
 rule minimap_align:
@@ -123,14 +141,15 @@ rule deepvariant_make_examples:
 
 rule deepvariant_call_variants:
     input:
-        (get_dir('work', f'make_examples.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
+        (get_dir('work', f'make_examples{{subset}}.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
     output:
-        temp(get_dir('work','call_variants_output.tfrecord.gz'))
+        temp(get_dir('work','call_variants_output{subset}.tfrecord.gz'))
     params:
-        outfile = '/output/intermediate/call_variants_output.tfrecord.gz',
+        outfile = lambda wildcards, output: '/output/intermediate/' + PurePath(output[0]).name,
         examples = f'/output/intermediate/make_examples.tfrecord@{config["shards"]}.gz',
-        model = lambda wildcards: 'pacbio' if wildcards.model == 'pbmm2' else 'hybrid_pacbio_illumina',
-        singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,'--env OMP_NUM_THREADS={threads}')
+        model = lambda wildcards: get_model(wildcards),
+        singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,'--env OMP_NUM_THREADS={threads}'),
+        contain = lambda wildcards: config['container'] if wildcards.subset == '' else config['DT_container']
     threads: 16
     resources:
         mem_mb = 4000,
@@ -139,28 +158,29 @@ rule deepvariant_call_variants:
     shell:
         '''
         {params.singularity_call} \
-        {config[container]} \
+        {params.contain} \
         /bin/bash -c "cd /output; ../opt/deepvariant/bin/call_variants \
         --outfile {params.outfile} \
         --examples {params.examples} \
-        --checkpoint /opt/models/{params.model}/model.ckpt \
+        --checkpoint {params.model} \
         --use_openvino"
         '''
 
 rule deepvariant_post_postprocess:
     input:
         ref = config['reference'],
-        variants = get_dir('work','call_variants_output.tfrecord.gz'),
+        variants = get_dir('work','call_variants_output{subset}.tfrecord.gz'),
         gvcf = (get_dir('work', f'gvcf.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
     output:
-        vcf = get_dir('output','{haplotype}.{phase}.vcf.gz'),
-        gvcf = get_dir('output','{haplotype}.{phase}.g.vcf.gz')
+        vcf = get_dir('output','{haplotype}{subset}.{phase}.vcf.gz'),
+        gvcf = get_dir('output','{haplotype}{subset}.{phase}.g.vcf.gz')
     params:
-        variants = '/output/intermediate/call_variants_output.tfrecord.gz',
+        variants = lambda wildcards, input: '/output/intermediate/' + PurePath(input['variants']).name,
         gvcf = (f'/output/intermediate/gvcf.tfrecord-{N:05}-of-{config["shards"]:05}.gz' for N in range(config['shards'])),
-        vcf_out = lambda wildcards: f'/output/{wildcards.haplotype}/{wildcards.phase}.vcf.gz',
-        gvcf_out = lambda wildcards: f'/output/{wildcards.haplotype}/{wildcards.phase}.g.vcf.gz',
-        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        vcf_out = lambda wildcards, output: '/output/' + PurePath(output['vcf']).name,
+        gvcf_out = lambda wildcards, output: '/output/' + PurePath(output['gvcf']).name,
+        singularity_call = lambda wildcards: make_singularity_call(wildcards),
+        contain = lambda wildcards: config['container'] if wildcards.subset == '' else config['DT_container']
     threads: 1
     resources:
         mem_mb = 30000,
@@ -169,7 +189,7 @@ rule deepvariant_post_postprocess:
     shell:
         '''
         {params.singularity_call} \
-        {config[container]} \
+        {params.contain} \
         /opt/deepvariant/bin/postprocess_variants \
         --ref /{input.ref} \
         --infile {params.variants} \
@@ -183,29 +203,29 @@ rule deeptrio_make_examples:
     input:
         ref = multiext(config['reference'],'','.fai'),
         bam = multiext(get_dir('input','{haplotype}.{phase}.{model}.bam'),'','.bai'),
-        bam_p1 = multiext(get_dir('input','{parent1}.{phase}.{model}.bam'),'','.bai'),
-        bam_p2 = multiext(get_dir('input','{parent2}.{phase}.{model}.bam'),'','.bai')
+        bam_p1 = multiext(get_dir('input','sire.{phase}.{model}.bam'),'','.bai'),
+        bam_p2 = multiext(get_dir('input','dam.{phase}.{model}.bam'),'','.bai')
     output:
-        example = temp(get_dir('work','DT_make_examples.tfrecord-{N}-of-{sharding}.gz')),
-        gvcf = temp(get_dir('work','DT_gvcf.tfrecord-{N}-of-{sharding}.gz'))
+        example = temp(get_dir('work',f'make_examples{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2')),
+        gvcf = temp(get_dir('work',f'gvcf{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2'))
     params:
         examples = lambda wildcards, output: PurePath(output[0]).with_name('make_examples.tfrecord@{config[shards]}.gz'),
         gvcf = lambda wildcards, output: PurePath(output[0]).with_name('gvcf.tfrecord@{config[shards]}.gz'),
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         phase_args = lambda wildcards: '--{i}parse_same_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
         model_args = lambda wildcards: '--add_hp_channel --alt_aligned_pileup diff_channels --norealign_reads --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
-        singularity_call = lambda wildcards, output: make_singularity_call(PurePath(output[0]).parent)
+        singularity_call = lambda wildcards, output: make_singularity_call(wildcards)
     threads: 1
     resources:
         mem_mb = 4000,
+        disk_scratch = 10,
         use_singularity = True
     shell:
         '''
-        /opt/deepvariant/bin/deeptrio/make_examples
         mkdir -p {params.dir_}
         {params.singularity_call} \
         {config[DT_container]} \
-        /opt/deepvariant/bin/make_examples \
+        /opt/deepvariant/bin/deeptrio/make_examples \
         --mode calling \
         --ref /{input.ref} \
         --reads /{input.bam} \
@@ -218,5 +238,32 @@ rule deeptrio_make_examples:
         --gvcf {params.gvcf} \
         {params.model_args} \
         {params.phase_args} \
+        --pileup_image_height_child 100 \
+        --pileup_image_height_parent 100 \
         --task {wildcards.N}
         '''
+
+rule deeptrio_merge:
+    input:
+        (get_dir('output',f'{{haplotype}}{S}.{{phase}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
+    output:
+        get_dir('output','{haplotype}_trio_merged.vcf.gz')
+    params:
+        singularity_call = lambda wildcards, output: make_singularity_call(wildcards)
+    threads: 12
+    resources:
+        mem_mb = 30000,
+        disk_scratch = 10,
+        use_singularity = True
+    shell:
+        '''
+        {params.singularity_call} \
+        {config[GL_container]} \
+        quay.io/mlin/glnexus:v1.2.7 \
+        /usr/local/bin/glnexus_cli \
+        --config DeepVariantWGS \
+        --threads {threads} \
+        {input} \
+        | bcftools view - | bgzip -c > {output}
+        '''
+        #--trim-uncalled-alleles
