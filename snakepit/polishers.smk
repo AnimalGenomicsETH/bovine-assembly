@@ -83,6 +83,38 @@ rule pepper_stitch:
     shell:
         'pepper stitch -i {input} -o {output} -t {threads}'
 
+rule merfin:
+    input:
+        fasta = '',
+        seqmers = '',
+        readmers = '',
+        vcf = ''#should have refcall removed
+    output:
+        'merfin.vcf'
+    params:
+        coverage = 30, #double for haploid?
+        low_mem = 10,
+        high_mem = 60
+    threads: 16
+    resources:
+        mem_mb = 5500
+    shell:
+        'merfin -vmer -sequence {input.fasta} -memory1 {params.low_mem} -memory2 {params.high_mem} -seqmers {input.seqmers} -readmers {input.readmers} -threads {threads} -peak {params.coverage} -vcf {input.vcf} -output {output}'
+
+rule merfin_polish:
+    input:
+        fasta = '',
+        vcf = 'merfin.vcf'
+    output:
+        vcf = multiext('','','.csi')
+        fasta = 'polished.fa'
+    shell:
+        '''
+        bcftools view -Oz {input.vcf} > {output.vcf[0]}
+        bcftools index {output.vcf[0]}
+        bcftools consensus {output.vcf[0]} -f {input.fasta} -H 2 > {output.fasta}
+        '''
+
 # rule racon_polish:
 #     input:
 #         scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',
