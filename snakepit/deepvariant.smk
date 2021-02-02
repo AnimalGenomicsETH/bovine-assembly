@@ -149,15 +149,17 @@ rule deepvariant_call_variants:
         temp(get_dir('work','call_variants_output{subset}.tfrecord.gz'))
     params:
         outfile = lambda wildcards, output: '/output/intermediate/' + PurePath(output[0]).name,
-        examples = f'/output/intermediate/make_examples.tfrecord@{config["shards"]}.gz',
+        examples = lambda wildcards: f'/output/intermediate/make_examples{wildcards.subset}.tfrecord@{config["shards"]}.gz',
         model = lambda wildcards: get_model(wildcards),
-        singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,'--env OMP_NUM_THREADS={threads}'),
-        contain = lambda wildcards: config['container'] if wildcards.subset == '' else config['DT_container']
-    threads: 16
+        singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
+        contain = lambda wildcards: config['container'] if wildcards.subset == '' else config['DT_container'],
+        vino = lambda wildcards: '--use_openvino' if wildcards.subset == '' else ''
+    threads: 24
     resources:
-        mem_mb = 4000,
+        mem_mb = 2000,
         disk_scratch = 10,
-        use_singularity = True
+        use_singularity = True,
+        walltime = lambda wildcards: '4:00' if wildcards.subset == '' else '24:00'
     shell:
         '''
         {params.singularity_call} \
@@ -166,7 +168,7 @@ rule deepvariant_call_variants:
         --outfile {params.outfile} \
         --examples {params.examples} \
         --checkpoint {params.model} \
-        --use_openvino"
+        {params.vino}"
         '''
 
 rule deepvariant_post_postprocess:
@@ -222,7 +224,8 @@ rule deeptrio_make_examples:
     resources:
         mem_mb = 4000,
         disk_scratch = 10,
-        use_singularity = True
+        use_singularity = True,
+        walltime = '8:00'
     shell:
         '''
         mkdir -p {params.dir_}
