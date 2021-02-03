@@ -1,7 +1,13 @@
 shards: 24
 reference: 'asm.fasta'
-long_reads: 'hifi.fq.gz'
-short_reads: 'sr.fq.gz'
+long_reads:
+    asm: 'hifi.fq.gz'
+    parent1: 'par1.fq.gz'
+    parent2: 'par2.fq.gz'
+short_reads:
+    asm: 'sr.fq.gz'
+    parent1: 'par1.fq.gz'
+    parent2: 'par2.fq.gz'
 model: 'hybrid'
 phased: 'unphased'
 container: 'deepvariant_1.1.0.sif'
