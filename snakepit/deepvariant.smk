@@ -156,8 +156,8 @@ rule deepvariant_call_variants:
         vino = lambda wildcards: '--use_openvino' if wildcards.subset == '' else ''
     threads: 24
     resources:
-        mem_mb = 2000,
-        disk_scratch = 10,
+        mem_mb = 1500,
+        disk_scratch = 1,
         use_singularity = True,
         walltime = lambda wildcards: '4:00' if wildcards.subset == '' else '24:00'
     shell:
