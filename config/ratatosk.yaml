@@ -1,0 +1,7 @@
+segment_py: '/cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py'
+animal: 'test'
+reference: 'asm.fasta'
+phase1_threads: 4
+max_lines_per_phase2: 120000
+short_reads: 'sr.fq.gz'
+long_reads: 'hifi.fq.gz'
