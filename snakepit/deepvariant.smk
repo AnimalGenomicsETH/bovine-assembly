@@ -171,7 +171,7 @@ rule deepvariant_call_variants:
         {params.vino}"
         '''
 
-rule deepvariant_post_postprocess:
+rule deepvariant_postprocess:
     input:
         ref = config['reference'],
         variants = get_dir('work','call_variants_output{subset}.tfrecord.gz'),
@@ -249,7 +249,7 @@ rule deeptrio_make_examples:
         --task {wildcards.N}
         '''
 
-rule deeptrio_merge:
+rule deeptrio_GLnexus_merge:
     input:
         (get_dir('output',f'{{haplotype}}{S}.{{phase}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
     output:
