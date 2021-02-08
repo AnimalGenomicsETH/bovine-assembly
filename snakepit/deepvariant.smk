@@ -20,7 +20,7 @@ if Path('config/deepvariant.yaml').exists():
 
 wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
-     haplotype = r'asm',
+     haplotype = r'asm|parent1|parent2',
      phase = r'unphased|phased',
      model = r'pbmm2|hybrid'
 
@@ -56,7 +56,7 @@ rule all:
 rule minimap_align:
     input:
         ref = config['reference'],
-        reads = config['short_reads']
+        reads = lambda wildcards: config['short_reads'][wildcards.haplotype]
     output:
         temp(get_dir('input','{haplotype}.unphased.mm2.bam'))
     threads: 24
@@ -70,7 +70,7 @@ rule minimap_align:
 rule pbmm2_align:
     input:
         ref = config['reference'],
-        reads = config['long_reads']
+        reads = lambda wildcards: config['long_reads'][wildcards.haplotype]
     output:
         temp(get_dir('input','{haplotype}.unphased.pbmm2.bam'))
     threads: 16
@@ -208,8 +208,8 @@ rule deeptrio_make_examples:
     input:
         ref = multiext(config['reference'],'','.fai'),
         bam = multiext(get_dir('input','{haplotype}.{phase}.{model}.bam'),'','.bai'),
-        bam_p1 = multiext(get_dir('input','sire.{phase}.{model}.bam'),'','.bai'),
-        bam_p2 = multiext(get_dir('input','dam.{phase}.{model}.bam'),'','.bai')
+        bam_p1 = multiext(get_dir('input','parent1.{phase}.{model}.bam'),'','.bai'),
+        bam_p2 = multiext(get_dir('input','parent2.{phase}.{model}.bam'),'','.bai')
     output:
         example = temp(get_dir('work',f'make_examples{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2')),
         gvcf = temp(get_dir('work',f'gvcf{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2'))
@@ -238,8 +238,8 @@ rule deeptrio_make_examples:
         --reads_parent1 /{input.bam_p1[0]} \
         --reads_parent2 /{input.bam_p2[0]} \
         --sample_name offspring \
-        --sample_name_parent1 sire \
-        --sample_name_parent2 dam \
+        --sample_name_parent1 parent1 \
+        --sample_name_parent2 parent2 \
         --examples {params.examples} \
         --gvcf {params.gvcf} \
         {params.model_args} \
@@ -249,7 +249,7 @@ rule deeptrio_make_examples:
         --task {wildcards.N}
         '''
 
-rule deeptrio_merge:
+rule deeptrio_GLnexus_merge:
     input:
         (get_dir('output',f'{{haplotype}}{S}.{{phase}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
     output:
