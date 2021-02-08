@@ -171,7 +171,7 @@ rule deepvariant_call_variants:
         {params.vino}"
         '''
 
-rule deepvariant_post_postprocess:
+rule deepvariant_postprocess:
     input:
         ref = config['reference'],
         variants = get_dir('work','call_variants_output{subset}.tfrecord.gz'),
@@ -181,7 +181,7 @@ rule deepvariant_post_postprocess:
         gvcf = get_dir('output','{haplotype}{subset}.{phase}.g.vcf.gz')
     params:
         variants = lambda wildcards, input: '/output/intermediate/' + PurePath(input['variants']).name,
-        gvcf = (f'/output/intermediate/gvcf.tfrecord-{N:05}-of-{config["shards"]:05}.gz' for N in range(config['shards'])),
+        gvcf = lambda wildcards: f'/output/intermediate/gvcf{wildcards.subset}.tfrecord@{config["shards"]}.gz',
         vcf_out = lambda wildcards, output: '/output/' + PurePath(output['vcf']).name,
         gvcf_out = lambda wildcards, output: '/output/' + PurePath(output['gvcf']).name,
         singularity_call = lambda wildcards: make_singularity_call(wildcards),
@@ -225,7 +225,7 @@ rule deeptrio_make_examples:
         mem_mb = 4000,
         disk_scratch = 10,
         use_singularity = True,
-        walltime = '8:00'
+        walltime = '24:00'
     shell:
         '''
         mkdir -p {params.dir_}
@@ -255,21 +255,21 @@ rule deeptrio_merge:
     output:
         get_dir('output','{haplotype}.trio.merged.{phase}.vcf.gz')
     params:
+        gvcfs = lambda wildcards, input: list(f'/output/{PurePath(fpath).name}' for fpath in input),
         singularity_call = lambda wildcards, output: make_singularity_call(wildcards)
     threads: 12
     resources:
-        mem_mb = 30000,
+        mem_mb = 3000,
         disk_scratch = 10,
         use_singularity = True
     shell:
         '''
         {params.singularity_call} \
         {config[GL_container]} \
-        quay.io/mlin/glnexus:v1.2.7 \
-        /usr/local/bin/glnexus_cli \
+        /bin/bash -c "cd /output; /usr/local/bin/glnexus_cli \
         --config DeepVariantWGS \
         --threads {threads} \
-        {input} \
-        | bcftools view - | bgzip -c > {output}
+        {params.gvcfs} \
+        | bcftools view - | bgzip -c > {output}"
         '''
         #--trim-uncalled-alleles
