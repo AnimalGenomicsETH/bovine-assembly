@@ -256,10 +256,11 @@ rule deeptrio_GLnexus_merge:
         get_dir('output','{haplotype}.trio.merged.{phase}.vcf.gz')
     params:
         gvcfs = lambda wildcards, input: list(f'/output/{PurePath(fpath).name}' for fpath in input),
+        out = lambda wildcards, output: f'/output/{PurePath(output[0]).name}',
         singularity_call = lambda wildcards, output: make_singularity_call(wildcards)
     threads: 12
     resources:
-        mem_mb = 3000,
+        mem_mb = 5000,
         disk_scratch = 10,
         use_singularity = True
     shell:
@@ -270,6 +271,6 @@ rule deeptrio_GLnexus_merge:
         --config DeepVariantWGS \
         --threads {threads} \
         {params.gvcfs} \
-        | bcftools view - | bgzip -c > {output}"
+        | bcftools view - | bgzip -c > {params.out}"
         '''
         #--trim-uncalled-alleles
