@@ -20,7 +20,7 @@ if Path('config/deepvariant.yaml').exists():
 
 wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
-     haplotype = r'asm|parent1|parent2',
+     haplotype = r'asm|hap1|hap2|parent1|parent2',
      phase = r'unphased|phased',
      model = r'pbmm2|hybrid'
 
@@ -42,6 +42,9 @@ include: 'whatshap.smk'
 
 localrules: samtools_faidx
 
+##TODO determine how to pull singularity images
+##TODO merge calls with snakemake format
+
 def make_singularity_call(wildcards,extra_args='',tmp_bind='tmp',input_bind=None, output_bind=None, work_bind=None):
     return f'singularity exec {extra_args} -B $TMPDIR:/tmp,{input_bind or get_dir("input",**wildcards)}:/input,{output_bind or get_dir("output",**wildcards)}:/output,{work_bind or get_dir("work",**wildcards)}:/output/intermediate'
 
@@ -50,13 +53,13 @@ for dir in ('input',):
 
 rule all:
     input:
-        get_dir('output','asm.trio.merged.unphased.vcf.gz',model='pbmm2'),
-        #get_dir('output',f'asm.{config["phased"]}.vcf.gz',model=config['model'])
+        get_dir('output',f'{config["haplotype"]}.trio.merged.{config["phased"]}.vcf.gz',model=config['model']) if config['trio'] else [],
+        get_dir('output',f'{config["haplotype"]}.{config["phased"]}.vcf.gz',model=config['model']) if not config['trio'] else []
 
 rule minimap_align:
     input:
         ref = config['reference'],
-        reads = lambda wildcards: config['short_reads'][wildcards.haplotype]
+        reads = lambda wildcards: config['short_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
     output:
         temp(get_dir('input','{haplotype}.unphased.mm2.bam'))
     threads: 24
@@ -70,7 +73,7 @@ rule minimap_align:
 rule pbmm2_align:
     input:
         ref = config['reference'],
-        reads = lambda wildcards: config['long_reads'][wildcards.haplotype]
+        reads = lambda wildcards: config['long_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
     output:
         temp(get_dir('input','{haplotype}.unphased.pbmm2.bam'))
     threads: 16

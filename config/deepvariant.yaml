@@ -1,14 +1,16 @@
 shards: 24
 reference: 'asm.fasta'
+haplotype: 'asm'
 long_reads:
-    asm: 'hifi.fq.gz'
+    individual: 'hifi.fq.gz'
     parent1: 'par1.fq.gz'
     parent2: 'par2.fq.gz'
 short_reads:
-    asm: 'sr.fq.gz'
+    individual: 'hifi.fq.gz'
     parent1: 'par1.fq.gz'
     parent2: 'par2.fq.gz'
 model: 'hybrid'
+trio: False
 phased: 'unphased'
 container: 'deepvariant_1.1.0.sif'
 DT_container: 'deepvariant_deeptrio-1.1.0.sif'
