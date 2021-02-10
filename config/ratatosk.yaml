@@ -1,4 +1,4 @@
-segment_py: '/cluster/work/pausch/alex/software/Ratatosk/script/reference_guiding/segmentBAM.py'
+segment_py: '/cluster/work/pausch/alex/software/Ratatosk/scripts/reference_guiding/segmentBAM.py'
 animal: 'test'
 reference: 'asm.fasta'
 phase1_threads: 4

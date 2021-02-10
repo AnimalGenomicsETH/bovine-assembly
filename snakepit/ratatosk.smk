@@ -6,8 +6,8 @@ localrules: ratatosk_make_bins, ratatosk_merge_bin1, ratatosk_merge_bin2, ratato
 if Path('config/ratatosk.yaml').exists():
     configfile: 'config/ratatosk.yaml'
 
-wildcard_constraints:
-    N = r'\d+'
+#wildcard_constraints:
+#    N = r'\d+'
 
 class Default(dict):
     def __missing__(self, key):
@@ -26,7 +26,7 @@ def get_dir(base='segments',ext='', **kwargs):
 
 
 for path in ('main','result','segments'):
-    Path(get_dir(path)).mkdir(exist_ok=True)
+    Path(get_dir(path,animal=config['animal'])).mkdir(exist_ok=True)
 
 rule all:
     input:
@@ -38,10 +38,10 @@ rule map_long_reads:
         asm = config['reference']
     output:
         temp(get_dir('main','long_reads.bam'))
-    threads: 24
+    threads: 12
     resources:
-        mem_mb = 6000,
-        walltime = '4:00',
+        mem_mb = 12000,
+        walltime = '24:00',
         disk_scratch = 250
     shell:
         'minimap2 -ax map-ont -t {threads} {input.asm} {input.reads} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'
@@ -77,9 +77,10 @@ rule ratatosk_segment_bam:
         SR = multiext(get_dir('main','short_reads.bam'),'','.bai'),
         LR = multiext(get_dir('main','long_reads.bam'),'','.bai')
     output:
-        get_dir('segments','sample_lr_unknown.fq')
+        get_dir('segments','sample_lr_unknown.fq'),
+        get_dir('segments','sample_sr_unmapped.fa')
     params:
-        out = get_dir('segments','sample')
+        out = lambda wildcards, output: PurePath(output[0]).with_name('sample')
     threads: 12
     resources:
         mem_mb = 6000
@@ -88,24 +89,27 @@ rule ratatosk_segment_bam:
 
 checkpoint ratatosk_make_bins:
     input:
-        SR_bam = get_dir('main','short_reads.bam')
+        SR = multiext(get_dir('main','short_reads.bam'),'','.bai'),
+        LR = multiext(get_dir('main','long_reads.bam'),'','.bai'),
+        unknown = get_dir('segments','sample_lr_unknown.fq'),
+        unmapped = get_dir('segments','sample_sr_unmapped.fa')
     output:
-        script = directory(get_dir('main','bin_split'))
+        scripts = directory(get_dir('main','bin_split'))
     params:
-        unmapped = get_dir('segments','sample_sr_unmapped.fa'),
+        seg_path = lambda wildcards, input: Path(input.unknown).parent,
         BIN_SIZE = 5000000
     run:
         import pysam
-        bamf = pysam.AlignmentFile(input.SR_bam, "rb")
-        directory = Path(output.script)
+        bamf = pysam.AlignmentFile(input.SR[0], "rb")
+        directory = Path(output.scripts)
         directory.mkdir(exist_ok=True)
         for chr_name, chr_length in zip(bamf.references,bamf.lengths):
             for position in range(0,chr_length+1,params.BIN_SIZE):
-                short_read_in, long_read_in, long_read_out = (seg_path / f'sample_{read}_{chr_name}_{position}{ext}' for read,ext in zip(('sr','fa'),('lr','fq'),'lr','_corrected.fastq'))
+                short_read_in, long_read_in, long_read_out = (params.seg_path / f'sample_{read}_{chr_name}_{position}{ext}' for read,ext in (('sr','.fa'),('lr','.fq'),('lr','_corrected.fastq')))
                 if long_read_in.exists() and long_read_in.stat().st_size > 0:
                     if short_read_in.exists() and short_read_in.stat().st_size > 0:
                         with open(directory / f'bin_{chr_name}_{position}.sh','w') as fout:
-                            fout.write(f'Ratatosk -v -c {config["phase1_threads"]} -s {short_read_in} -l {long_read_in} -u {params.unmapped} -o {long_read_out.with_suffix("")}')
+                            fout.write(f'Ratatosk -v -c {config["phase1_threads"]} -s {short_read_in} -l {long_read_in} -u {input.unmapped} -o {long_read_out.with_suffix("")}')
                     else:
                         shutil.copy(long_read_in,long_read_out)
 
@@ -122,8 +126,8 @@ rule ratatosk_correct_bin1:
         'bash {input}'
 
 def aggregate_corrected_bin1(wildcards):
-    checkpoint_output = checkpoints.ratatosk_make_bins.get(**wildcards).output[0]
-    return expand(get_dir('segments','sample_lr_{chunk}_corrected.fastq'),chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('bin_{chunk}.sh')).chunk)
+    checkpoint_output = PurePath(checkpoints.ratatosk_make_bins.get(**wildcards).output[0])
+    return expand(get_dir('segments','sample_lr_{chunk}_corrected.fastq',**wildcards),chunk=glob_wildcards(checkpoint_output.joinpath('bin_{chunk}.sh')).chunk)
 
 rule ratatosk_merge_bin1:
     input:
@@ -135,7 +139,7 @@ rule ratatosk_merge_bin1:
 
 rule ratatosk_get_SR_fastq:
     input:
-        SR = 'SR.bam'
+        SR = multiext(get_dir('main','short_reads.bam'),'','.bai')
     output:
         temp(get_dir('segments','sample_sr.fastq.gz'))
     threads: 4
@@ -143,7 +147,7 @@ rule ratatosk_get_SR_fastq:
         mem_mb = 10000,
         walltime = '1:00'
     shell:
-        'samtools bam2fq -@ {threads} -n {input.SR} > {output}'
+        'samtools bam2fq -@ {threads} -n {input.SR[0]} > {output}'
 
 rule ratatosk_correct_bin2_p1:
     input:
@@ -192,7 +196,7 @@ rule ratatosk_correct_bin2_p2:
 
 def aggregate_corrected_bin2(wildcards):
     checkpoint_output = checkpoints.ratatosk_shard_bin2.get(**wildcards).output[0]
-    return expand(seg_path / 'shard_{chunk}_corrected.fastq',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('shard_{chunk}.fq')).chunk)
+    return expand(get_dir('segments','shard_{chunk}_corrected.fastq',animal=config['animal']),chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('shard_{chunk}.fq')).chunk)
 
 rule ratatosk_merge_bin2:
     input:
