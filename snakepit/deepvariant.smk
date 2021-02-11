@@ -15,8 +15,8 @@ def get_dir(base='work',ext='', **kwargs):
         raise Exception('Base not found')
     return str(Path(base_dir.format_map(Default(kwargs))) / ext)
 
-if Path('config/deepvariant.yaml').exists():
-    configfile: 'config/deepvariant.yaml'
+#if Path('config/deepvariant.yaml').exists():
+#    configfile: 'config/deepvariant.yaml'
 
 wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
@@ -76,9 +76,10 @@ rule pbmm2_align:
         reads = lambda wildcards: config['long_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
     output:
         temp(get_dir('input','{haplotype}.unphased.pbmm2.bam'))
-    threads: 16
+    threads: 12
     resources:
-        mem_mb = 3000
+        mem_mb = 3500,
+        walltime = '24:00'
     shell:
         'pbmm2 align {input.ref} {input.reads} {output} --sort --preset CCS -j {threads}'
 
@@ -108,7 +109,7 @@ rule samtools_faidx:
     output:
         f'{config["reference"]}.fai'
     shell:
-        'samtools faidx {input}'
+        'samtools faidx {config[reference]}'
 
 rule deepvariant_make_examples:
     input:
