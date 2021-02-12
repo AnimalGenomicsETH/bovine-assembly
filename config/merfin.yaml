@@ -1,0 +1,10 @@
+animal: ''
+assembly: ''
+haplotype: ''
+polished: ''
+reads: ''
+vcf: ''
+kmer: 21
+mem_adj: 1100
+coverage: 30
+lookup: '/cluster/work/pausch/alex/software/merfin/scripts/lookup_table/lookup.R'
