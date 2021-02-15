@@ -43,7 +43,7 @@ rule meryl_count_reads:
 
 rule meryl_count_asm:
     input:
-        lambda wildcards: config['fasta'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished'])
+        lambda wildcards: config['assembly'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished'])
     output:
         directory(get_dir('work','seqmers.{polished}.meryl'))
     threads: 8
@@ -77,7 +77,7 @@ rule merfin_lookup:
 
 rule merfin_vmer:
     input:
-        fasta = config['fasta'],
+        fasta = config['assembly'],
         seqmers = get_dir('work','seqmers.unpolished.meryl'),
         readmers = get_dir('main','readmers.meryl'),
         vcf = config['vcf'],
@@ -89,15 +89,15 @@ rule merfin_vmer:
         coverage = config['coverage'],
         low_mem = 10,
         high_mem = 60
-    threads: 16
+    threads: 24
     resources:
-        mem_mb = 5000
+        mem_mb = 4000
     shell:
         'merfin -vmer -sequence {input.fasta} -memory1 {params.low_mem} -memory2 {params.high_mem} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -vcf {input.vcf} -output {params.out}'
 
 rule merfin_hist:
     input:
-        fasta = lambda wildcards: config['fasta'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished']),
+        fasta = lambda wildcards: config['assembly'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished']),
         seqmers = get_dir('work','seqmers.{polished}.meryl'),
         readmers = get_dir('main','readmers.meryl'),
         lookup = get_dir('lookup','lookup_table.txt')
@@ -115,7 +115,7 @@ rule merfin_hist:
 
 rule merfin_polish:
     input:
-        fasta = config['fasta'],
+        fasta = config['assembly'],
         vcf = get_dir('work','merfin.polish.vcf')
     output:
         vcf = multiext(get_dir('work','merfin.polish.vcf.gz'),'','.csi'),

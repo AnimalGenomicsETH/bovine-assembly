@@ -1,4 +1,4 @@
-ruleorder: convert_sam_to_paf > map_asm_ref
+ruleorder: map_asm_ref > convert_sam_to_paf
 
 rule generate_winnow_meryl:
     input:

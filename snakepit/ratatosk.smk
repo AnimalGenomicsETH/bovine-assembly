@@ -158,9 +158,9 @@ rule ratatosk_correct_bin2_p1:
         get_dir('segments','sample_lr_unknown_corrected2.fastq')
     params:
         lambda wildcards, output: PurePath(output[0]).with_name('sample_lr_unknown_corrected')
-    threads: 36
+    threads: 32
     resources:
-        mem_mb = 8000,
+        mem_mb = 9000,
         walltime = '24:00'
     shell:
         'Ratatosk -1 -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params}'

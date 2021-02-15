@@ -39,7 +39,7 @@ def get_dir(base,ext='',**kwargs):
 WORK_PATH = '{assembler}_{sample}/'
 RESULT_PATH = 'results/{haplotype}_{sample}_{assembler}'
 
-include: 'snakepit/kmer_meryl.smk'
+include: 'snakepit/merqury.smk'
 include: 'snakepit/cross_analysis.smk'
 include: 'snakepit/data_preparation.smk'
 include: 'snakepit/trio_assemblies.smk'

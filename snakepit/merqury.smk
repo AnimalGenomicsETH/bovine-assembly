@@ -39,13 +39,13 @@ if 'get_dir' not in dir():
     config['merqury_root']='/cluster/work/pausch/alex/software/merqury'
     config['genome_est']=2.7
 
+    rule all:
+        input:
+            get_dir('result','.merqury.full.stats',haplotype='asm')
+
 for configuration in ('assembly','short_reads'):
     if configuration not in config:
         config[configuration] = None
-
-rule all:
-    input:
-        get_dir('result','.merqury.full.stats',haplotype='asm')
 
 rule count_asm_kmers:
     input:
