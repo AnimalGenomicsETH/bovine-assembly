@@ -232,3 +232,20 @@ rule ratatosk_finish:
         get_dir('result','sample_corrected.fastq')
     shell:
         'cat {input} > {output}'
+
+rule replace_ambiguous_bases:
+    input:
+        get_dir('result','sample_corrected.fastq')
+    output:
+        get_dir('result','sample_corrected_unambiguous.fastq')
+    run:
+        import re, random
+        IUPAC = {'R':['A','G'],'Y':['C','T'],'S':['G','C'],'W':['A','T'],'K':['G','T'],'M':['A','C'],
+        'B':['C','G','T'],'D':['A','G','T'],'H':['A','C','T'],'V':['A','C','G'],'N':['A','C','G','T']}
+        regex = re.compile(r'({})'.format('|'.join(IUPAC)))
+        with open(input[0],'r') as fin, open(output[0],'w') as fout:
+            for i, line in enumerate(fin):
+                if i%4 == 1: # fasta sequence line
+                    fout.write(regex.sub(lambda match: random.choice(IUPAC[match.group(1)]), line) + '\n')
+                else:
+                    fout.write(line + '\n')
