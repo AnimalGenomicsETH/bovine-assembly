@@ -101,7 +101,8 @@ rule samtools_index:
         '{bam}.bam.bai'
     threads: 8
     resources:
-        mem_mb = 4000
+        mem_mb = 4000,
+        walltime = '30'
     shell:
         'samtools index -@ {threads} {input}'
 
@@ -127,8 +128,8 @@ rule deepvariant_make_examples:
         singularity_call = lambda wildcards: make_singularity_call(wildcards)
     threads: 1
     resources:
-        mem_mb = 4000,
-        disk_scratch = 10,
+        mem_mb = 6000,
+        disk_scratch = 1,
         use_singularity = True
     shell:
         '''
@@ -193,7 +194,7 @@ rule deepvariant_postprocess:
     threads: 1
     resources:
         mem_mb = 30000,
-        disk_scratch = 10,
+        disk_scratch = 1,
         use_singularity = True
     shell:
         '''
@@ -227,7 +228,7 @@ rule deeptrio_make_examples:
     threads: 1
     resources:
         mem_mb = 4000,
-        disk_scratch = 10,
+        disk_scratch = 1,
         use_singularity = True,
         walltime = '24:00'
     shell:
@@ -265,7 +266,7 @@ rule deeptrio_GLnexus_merge:
     threads: 12
     resources:
         mem_mb = 5000,
-        disk_scratch = 10,
+        disk_scratch = 1,
         use_singularity = True
     shell:
         '''

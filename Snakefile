@@ -252,7 +252,7 @@ rule validation_refalign:
 
 rule validation_asmgene:
     input:
-        asm = get_dir('work','{haplotype}_asm_splices.paf'),
+        asm = get_dir('work','{haplotype}_cDNAs_splices.paf'),
         ref = str(PurePath(f'{config["ref_genome"]}').with_name('ref_cDNAs_splices.paf'))
     output:
         get_dir('result','.asmgene.{opt}.txt')

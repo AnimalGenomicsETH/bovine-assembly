@@ -1,40 +1,6 @@
 localrules: merqury_formatting, merqury_formatting_simple
 
 ### LOCAL EXECUTION TEMPORARY CODE ###
-# from pathlib import PurePath
-#
-# class Default(dict):
-#     def __missing__(self, key):
-#         return '{'+key+'}'
-#
-# def get_dir(base,ext='',**kwargs):
-#     if base == 'work':
-#         base_dir = '{assembler}_{sample}'
-#     elif base == 'result':
-#         base_dir = 'results/{haplotype}_{sample}_{assembler}'
-#     elif base == 'data':
-#         base_dir = 'data'
-#     else:
-#         raise Exception('Base not found')
-#     if ext and ext[0] == '.':
-#         return f'{base_dir}{ext}'.format_map(Default(kwargs))
-#     return str(PurePath(base_dir.format_map(Default(kwargs))) / ext)
-#
-# wildcard_constraints:
-#     assembler = r'[^\W_]+',
-#     parent = r'dam|sire',
-#     individual = r'dam|sire|offspring',
-#     haplotype = r'asm|hap1|hap2|sire|dam|ref',
-#     hap = r'\w+',
-#     sample = r'\d+',
-#     data = r'[^\W_]+',
-#     modifier = r'\w+',
-#     read_t  = r'hifi|SR',
-#     mapper = r'mm2|wm2'
-#
-# rule all:
-#     input:
-#         get_dir('result','.merqury.full.stats',sample='100',assembler='hifiasm',haplotype='asm')
 
 if 'get_dir' not in dir():
     from pathlib import PurePath
@@ -73,13 +39,17 @@ if 'get_dir' not in dir():
     config['merqury_root']='/cluster/work/pausch/alex/software/merqury'
     config['genome_est']=2.7
 
+for configuration in ('assembly','short_reads'):
+    if configuration not in config:
+        config[configuration] = None
+
 rule all:
     input:
         get_dir('result','.merqury.full.stats',haplotype='asm')
 
 rule count_asm_kmers:
     input:
-        get_dir('work','{haplotype}.contigs.fasta')
+        config['assembly'] or get_dir('work','{haplotype}.contigs.fasta')
     output:
         directory(get_dir('work','{haplotype}.contigs.meryl'))
     threads: 8
@@ -92,7 +62,7 @@ rule count_asm_kmers:
 
 rule count_SR_reads:
     input:
-        'data/{individual}.read_R{N}.SR.fq.gz'
+        'data/{individual}.read_R{N}.SR.fq.gz' #config['short_reads'] or
     output:
         temp(directory('data/{individual}.read_R{N}.meryl'))
     threads: 24
