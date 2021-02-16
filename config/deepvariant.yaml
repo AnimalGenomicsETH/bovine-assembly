@@ -10,8 +10,10 @@ short_reads:
     parent1: 'par1.fq.gz'
     parent2: 'par2.fq.gz'
 model: 'hybrid'
+gender: 'female'
 trio: False
 phased: 'unphased'
 container: 'deepvariant_1.1.0.sif'
 DT_container: 'deepvariant_deeptrio-1.1.0.sif'
 GL_container: 'glnexus_v1.2.7.sif'
+RTG_container: 'rtg-tools_latest.sif'

@@ -40,7 +40,7 @@ def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
 
 include: 'whatshap.smk'
 
-localrules: samtools_faidx
+localrules: samtools_faidx, rtg_pedigree, rtg_format, rtg_mendelian_concordance
 
 ##TODO determine how to pull singularity images
 ##TODO merge calls with snakemake format
@@ -54,6 +54,7 @@ for dir in ('input',):
 rule all:
     input:
         get_dir('output',f'{config["haplotype"]}.trio.merged.{config["phased"]}.vcf.gz',model=config['model']) if config['trio'] else [],
+        get_dir('output',f'{config["haplotype"]}.trio.{config["phased"]}.mendelian.log',model=config['model']) if config['trio'] else [],
         get_dir('output',f'{config["haplotype"]}.{config["phased"]}.vcf.gz',model=config['model']) if not config['trio'] else []
 
 rule minimap_align:
@@ -224,7 +225,7 @@ rule deeptrio_make_examples:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         phase_args = lambda wildcards: '--{i}parse_sam_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
         model_args = lambda wildcards: '--alt_aligned_pileup diff_channels --norealign_reads --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
-        singularity_call = lambda wildcards, output: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards: make_singularity_call(wildcards)
     threads: 1
     resources:
         mem_mb = 4000,
@@ -262,7 +263,7 @@ rule deeptrio_GLnexus_merge:
     params:
         gvcfs = lambda wildcards, input: list(f'/output/{PurePath(fpath).name}' for fpath in input),
         out = lambda wildcards, output: f'/output/{PurePath(output[0]).name}',
-        singularity_call = lambda wildcards, output: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards: make_singularity_call(wildcards)
     threads: 12
     resources:
         mem_mb = 5000,
@@ -279,3 +280,57 @@ rule deeptrio_GLnexus_merge:
         | bcftools view - | bgzip -c > {params.out}"
         '''
         #--trim-uncalled-alleles
+
+rule rtg_pedigree:
+    output:
+        get_dir('input','trio.ped')
+    params:
+        gender = 1 if config['gender'] == 'male' else 2
+    shell:
+        '''
+        FILE={output}
+        cat <<EOM >$FILE
+        #PED format pedigree
+        #
+        #fam-id/ind-id/pat-id/mat-id: 0=unknown
+        #sex: 1=male; 2=female; 0=unknown
+        #phenotype: -9=missing, 0=missing; 1=unaffected; 2=affected
+        #
+        #fam-id ind-id pat-id mat-id sex phen
+        1 offspring parent1 parent2 {params.gender} 0
+        1 parent1 0 0 1 0
+        1 parent2 0 0 2 0
+        EOM
+        '''
+
+rule rtg_format:
+    input:
+        ref = multiext(config['reference'],'','.fai')
+    output:
+        sdf = get_dir('input','reference.sdf') #TODO make general to match haplotype?
+    params:
+        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+    shell:
+        '''
+        {params.singularity_call} \
+        {config[RTG_container]} \
+        rtg format -o {output.sdf} {input.ref[0]}
+        '''
+
+rule rtg_mendelian_concordance:
+    input:
+        sdf = get_dir('input','reference.sdf'),
+        vcf = get_dir('output','{haplotype}.trio.merged.{phase}.vcf.gz'),
+        pedigree = get_dir('input','trio.ped')
+    output:
+        get_dir('output','{haplotype}.trio.{phase}.mendelian.log')
+    params:
+        vcf_in = lambda wildcards, input: '/output/' + PurePath(input.vcf).name,
+        vcf_annotated = lambda wildcards, output: '/output/' + PurePath(output[0]).name,
+        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+    shell:
+        '''
+        {params.singularity_call} \
+        {config[RTG_container]} \
+        rtg mendelian -i {params.vcf_in} -o {params.vcf_annotated} --pedigree={input.pedigree} -t {input.sdf}
+        '''
