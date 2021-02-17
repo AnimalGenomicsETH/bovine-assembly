@@ -45,8 +45,17 @@ localrules: samtools_faidx, rtg_pedigree, rtg_format, rtg_mendelian_concordance
 ##TODO determine how to pull singularity images
 ##TODO merge calls with snakemake format
 
-def make_singularity_call(wildcards,extra_args='',tmp_bind='tmp',input_bind=None, output_bind=None, work_bind=None):
-    return f'singularity exec {extra_args} -B $TMPDIR:/tmp,{input_bind or get_dir("input",**wildcards)}:/input,{output_bind or get_dir("output",**wildcards)}:/output,{work_bind or get_dir("work",**wildcards)}:/output/intermediate'
+def make_singularity_call(wildcards,extra_args='',tmp_bind='$TMPDIR',input_bind=True, output_bind=True, work_bind=True):
+    call = f'singularity exec {extra_args} '
+    if input_bind:
+        call += f'-B {get_dir("input",**wildcards)}:/input '
+    if output_bind:
+        call += f'-B {get_dir("output",**wildcards)}:/output '
+    if work_bind:
+        call += f'-B {get_dir("work",**wildcards)}:/output/intermediate '
+    if tmp_bind:
+        call += f'-B {tmp_bind}:/tmp '
+    return call
 
 for dir in ('input',):
     Path(get_dir(dir)).mkdir(exist_ok=True)
@@ -259,10 +268,12 @@ rule deeptrio_GLnexus_merge:
     input:
         (get_dir('output',f'{{haplotype}}{S}.{{phase}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
     output:
-        get_dir('output','{haplotype}.trio.merged.{phase}.vcf.gz')
+        get_dir('output','{haplotype}.trio.merged.{phase}.vcf.gz'),
+        directory(get_dir('output','{haplotype}.trio.merged.{phase}.DB'))
     params:
         gvcfs = lambda wildcards, input: list(f'/output/{PurePath(fpath).name}' for fpath in input),
         out = lambda wildcards, output: f'/output/{PurePath(output[0]).name}',
+        DB = lambda wildcards, output: f'/output/{PurePath(output[1]).name}',
         singularity_call = lambda wildcards: make_singularity_call(wildcards)
     threads: 12
     resources:
@@ -274,6 +285,7 @@ rule deeptrio_GLnexus_merge:
         {params.singularity_call} \
         {config[GL_container]} \
         /bin/bash -c "cd /output; /usr/local/bin/glnexus_cli \
+        --dir {params.DB} \
         --config DeepVariantWGS \
         --threads {threads} \
         {params.gvcfs} \
@@ -289,27 +301,27 @@ rule rtg_pedigree:
     shell:
         '''
         FILE={output}
-        cat <<EOM >$FILE
-        #PED format pedigree
-        #
-        #fam-id/ind-id/pat-id/mat-id: 0=unknown
-        #sex: 1=male; 2=female; 0=unknown
-        #phenotype: -9=missing, 0=missing; 1=unaffected; 2=affected
-        #
-        #fam-id ind-id pat-id mat-id sex phen
-        1 offspring parent1 parent2 {params.gender} 0
-        1 parent1 0 0 1 0
-        1 parent2 0 0 2 0
-        EOM
+cat <<EOM >$FILE
+#PED format pedigree
+#
+#fam-id/ind-id/pat-id/mat-id: 0=unknown
+#sex: 1=male; 2=female; 0=unknown
+#phenotype: -9=missing, 0=missing; 1=unaffected; 2=affected
+#
+#fam-id ind-id pat-id mat-id sex phen
+1 offspring parent1 parent2 {params.gender} 0
+1 parent1 0 0 1 0
+1 parent2 0 0 2 0
+EOM
         '''
 
 rule rtg_format:
     input:
         ref = multiext(config['reference'],'','.fai')
     output:
-        sdf = get_dir('input','reference.sdf') #TODO make general to match haplotype?
+        sdf = directory(get_dir('input','reference.sdf')) #TODO make general to match haplotype?
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards: make_singularity_call(wildcards,tmp_bind=False,output_bind=False,work_bind=False)
     shell:
         '''
         {params.singularity_call} \
@@ -327,7 +339,7 @@ rule rtg_mendelian_concordance:
     params:
         vcf_in = lambda wildcards, input: '/output/' + PurePath(input.vcf).name,
         vcf_annotated = lambda wildcards, output: '/output/' + PurePath(output[0]).name,
-        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards: make_singularity_call(wildcards,tmp_bind=False,work_bind=False)
     shell:
         '''
         {params.singularity_call} \

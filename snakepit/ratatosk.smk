@@ -30,7 +30,7 @@ for path in ('main','result','segments'):
 
 rule all:
     input:
-        get_dir('result','sample_corrected.fastq',animal=config['animal'])
+        expand(get_dir('result','sample_corrected{ambiguous}.fastq',animal=config['animal']),ambiguous=('','_unambiguous'))
 
 rule map_long_reads:
     input:
@@ -45,7 +45,6 @@ rule map_long_reads:
         disk_scratch = 250
     shell:
         'minimap2 -ax map-ont -t {threads} {input.asm} {input.reads} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'
-
 
 rule map_SR_reads:
     input:
@@ -155,10 +154,10 @@ rule ratatosk_correct_bin2_p1:
         long_unknown = get_dir('segments','sample_lr_unknown.fq'),
         long_mapped = get_dir('segments','sample_lr_map.fastq')
     output:
-        get_dir('segments','sample_lr_unknown_corrected2.fastq')
+        temp(get_dir('segments','sample_lr_unknown_corrected2.fastq'))
     params:
         lambda wildcards, output: PurePath(output[0]).with_name('sample_lr_unknown_corrected')
-    threads: 32
+    threads: 28
     resources:
         mem_mb = 9000,
         walltime = '24:00'
@@ -172,15 +171,16 @@ rule ratatosk_build_graph:
         long_mapped = get_dir('segments','sample_lr_map.fastq'),
         p1_correction = get_dir('segments','sample_lr_unknown_corrected2.fastq'),
     output:
-        get_dir('main','direct_write.gfa')
+        temp(get_dir('main','direct_write.gfa'))
     params:
-        lambda wildcards, output: PurePath(output[0]).with_name('sample_lr_unknown_corrected')
+        out = lambda wildcards, input: PurePath(input.p1_correction).with_name('sample_lr_unknown_corrected'),
+        gfa = lambda wildcards, output: PurePath(output[0]).with_suffix('')
     threads: 24
     resources:
         mem_mb = 10000,
         walltime = '24:00'
     shell:
-        'Ratatosk -2 -X {output} -v -c {threads} -s {input.short_reads} -l {input.p1_correction} -a {input.long_mapped} -o {params}'
+        'Ratatosk -2 -X {params.gfa} -v -c {threads} -s {input.short_reads} -l {input.p1_correction} -a {input.long_mapped} -o {params.out}'
 
 checkpoint ratatosk_shard_bin2:
     input:
@@ -202,7 +202,7 @@ rule ratatosk_correct_bin2_p2:
         p1_correction = get_dir('segments','sample_lr_unknown_corrected2.fastq'),
         lr_shard = get_dir('segments','unknown_shards/shard_{N}.fq')
     output:
-        get_dir('segments','shard_{N}_corrected.fastq')
+        temp(get_dir('segments','shard_{N}_corrected.fastq'))
     params:
         lambda wildcards, output: PurePath(output[0]).with_name('sample_lr_unknown_corrected')
     threads: 12
@@ -220,7 +220,7 @@ rule ratatosk_merge_bin2:
     input:
         aggregate_corrected_bin2
     output:
-        get_dir('segments','sample_lr_unknown_corrected.fastq')
+        temp(get_dir('segments','sample_lr_unknown_corrected.fastq'))
     shell:
         'cat {input} > {output}'
 

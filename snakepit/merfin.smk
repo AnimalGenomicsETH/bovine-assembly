@@ -17,7 +17,7 @@ def get_dir(base='main',ext='', **kwargs):
     if base == 'main':
         base_dir = 'merfin_{animal}'
     elif base == 'lookup':
-        base_dir = get_dir('main','lookup',**kwargs)
+        base_dir = get_dir('main','lookup_{haplotype}',**kwargs)
     elif base == 'work':
         base_dir = get_dir('main','polishing_{haplotype}',**kwargs)
     else:
@@ -26,13 +26,13 @@ def get_dir(base='main',ext='', **kwargs):
 
 rule all:
     input:
-        get_dir('work','polished.hist',haplotype=config['haplotype'],animal=config['animal'])
+        expand(get_dir('work','{polish}.hist',haplotype=config['haplotype'],animal=config['animal']),polish=('unpolished','polished'))
 
 rule meryl_count_reads:
     input:
         config['reads']
     output:
-        directory(get_dir('main','readmers.meryl'))
+        directory(get_dir('main','{haplotype}.readmers.meryl'))
     threads: 16
     resources:
         mem_mb = 4000
@@ -56,7 +56,7 @@ rule meryl_count_asm:
 
 rule meryl_print_histogram:
     input:
-        get_dir('main','readmers.meryl')
+        get_dir('main','{haplotype}.readmers.meryl')
     output:
         get_dir('lookup','read_hist.tsv')
     shell:
@@ -68,18 +68,19 @@ rule merfin_lookup:
     output:
         get_dir('lookup','lookup_table.txt')
     params:
-        out = lambda wildcards, output: PurePath(output[0]).parent
+        out = lambda wildcards, output: PurePath(output[0]).parent,
+        ploidy = lambda wildcards: 2 if wildcards.haplotype == 'asm' else 1
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
     shell:
-        'Rscript {config[lookup]} {input} {config[kmer]} {params.out} 2'
+        'Rscript {config[lookup]} {input} {config[kmer]} {params.out} {params.ploidy}'
 
 rule merfin_vmer:
     input:
         fasta = config['assembly'],
         seqmers = get_dir('work','seqmers.unpolished.meryl'),
-        readmers = get_dir('main','readmers.meryl'),
+        readmers = get_dir('main','{haplotype}.readmers.meryl'),
         vcf = config['vcf'],
         lookup = get_dir('lookup','lookup_table.txt')
     output:
@@ -99,7 +100,7 @@ rule merfin_hist:
     input:
         fasta = lambda wildcards: config['assembly'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished']),
         seqmers = get_dir('work','seqmers.{polished}.meryl'),
-        readmers = get_dir('main','readmers.meryl'),
+        readmers = get_dir('main','{haplotype}.readmers.meryl'),
         lookup = get_dir('lookup','lookup_table.txt')
     output:
         get_dir('work','{polished}.hist')
