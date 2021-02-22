@@ -78,8 +78,8 @@ rule pepper_stitch:
         '{haplotype}.contigs.fasta'
     threads: 6
     resources:
-        mem_mb = 12000,
-        walltime = '12:00'
+        mem_mb = 15000,
+        walltime = '24:00'
     shell:
         'pepper stitch -i {input} -o {output} -t {threads}'
 
