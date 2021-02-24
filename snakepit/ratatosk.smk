@@ -151,8 +151,7 @@ rule ratatosk_get_SR_fastq:
 rule ratatosk_correct_bin2_p1:
     input:
         short_reads = get_dir('segments','sample_sr.fastq.gz'),
-        long_unknown = get_dir('segments','sample_lr_unknown.fq'),
-        long_mapped = get_dir('segments','sample_lr_map.fastq')
+        long_unknown = get_dir('segments','sample_lr_unknown.fq')
     output:
         temp(get_dir('segments','sample_lr_unknown_corrected2.fastq'))
     params:
@@ -162,12 +161,11 @@ rule ratatosk_correct_bin2_p1:
         mem_mb = 9000,
         walltime = '24:00'
     shell:
-        'Ratatosk -1 -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params}'
+        'Ratatosk -1 -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -o {params}'
 
 rule ratatosk_build_graph:
     input:
         short_reads = get_dir('segments','sample_sr.fastq.gz'),
-        long_unknown = get_dir('segments','sample_lr_unknown.fq'),
         long_mapped = get_dir('segments','sample_lr_map.fastq'),
         p1_correction = get_dir('segments','sample_lr_unknown_corrected2.fastq'),
     output:
@@ -175,9 +173,9 @@ rule ratatosk_build_graph:
     params:
         out = lambda wildcards, input: PurePath(input.p1_correction).with_name('sample_lr_unknown_corrected'),
         gfa = lambda wildcards, output: PurePath(output[0]).with_suffix('')
-    threads: 24
+    threads: 36
     resources:
-        mem_mb = 10000,
+        mem_mb = 8000,
         walltime = '24:00'
     shell:
         'Ratatosk -2 -X {params.gfa} -v -c {threads} -s {input.short_reads} -l {input.p1_correction} -a {input.long_mapped} -o {params.out}'
@@ -208,9 +206,9 @@ rule ratatosk_correct_bin2_p2:
     threads: 12
     resources:
         mem_mb = 5000,
-        walltime = '24:00'
+        walltime = '4:00'
     shell:
-        'Ratatosk -2 -Y {input.graph} -v -c {threads} -s {input.short_reads} -l {input.long_unknown} -a {input.long_mapped} -o {params} -L {input.lr_shard} -O {output}'
+        'Ratatosk -2 -Y {input.graph} -v -c {threads} -s {input.short_reads} -l {input.p1_correction} -a {input.long_mapped} -o {params} -L {input.lr_shard} -O {output}'
 
 def aggregate_corrected_bin2(wildcards):
     checkpoint_output = checkpoints.ratatosk_shard_bin2.get(**wildcards).output[0]
