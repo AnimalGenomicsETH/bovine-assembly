@@ -181,6 +181,24 @@ if 'IPA' in config['assemblers']:
         shell:
             'snakemake --profile "lsf" -n --snakefile /cluster/work/pausch/alex/software/miniconda3/envs/pbipa/etc/ipa.snakefile --configfile config.yaml  -U finish -d {wildcards.haplotype}'
 
+if 'peregrine' in config['assemblers']:
+    rule assembler_peregrine:
+        input:
+            'data/offspring.{sample}.hifi.fq.gz'
+        output:
+            get_dir('work','{haplotype}.contigs.fasta',assembler='peregrine')
+        params:
+            dir_ = lambda wildcards, output: PurePath(output[0]).parent,
+            procs = lambda wildcards, threads: ' '.join(str(threads)*9)
+        shell:
+            '''
+            rsync -aq {input} $TMPDIR
+            cd $TMPDIR
+            singularity run -B ${TMPDIR}:/data /cluster/work/pausch/alex/peregrine_latest.sif asm <(echo {input}) {params.procs} --with-consensus --shimmer-r 3 --best_n_ovlp 8 --output data/asm <<< "yes"
+            cp -r ${TMPDIR}/asm {params.dir_}
+            #mv final name to {output}
+            '''
+
 ##Requires yak installed
 rule count_yak_asm:
     input:
