@@ -22,7 +22,7 @@ wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
      haplotype = r'asm|hap1|hap2|parent1|parent2',
      phase = r'unphased|phased',
-     model = r'pbmm2|hybrid'
+     model = r'pbmm2|hybrid|wgs'
 
 def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
     model_location = f'{base}/{{}}/{ext}'
@@ -275,21 +275,21 @@ rule deeptrio_GLnexus_merge:
         out = lambda wildcards, output: f'/output/{PurePath(output[0]).name}',
         DB = lambda wildcards, output: f'/output/{PurePath(output[1]).name}',
         singularity_call = lambda wildcards: make_singularity_call(wildcards)
-    threads: 12
+    threads: 12 #force using 4 threads for bgziping
     resources:
         mem_mb = 5000,
         disk_scratch = 1,
         use_singularity = True
-    shell:
+    shell: #/bin/bash -c "cd /output; #consider moving to scratch for performance
         '''
         {params.singularity_call} \
         {config[GL_container]} \
-        /bin/bash -c "cd /output; /usr/local/bin/glnexus_cli \
+        /usr/local/bin/glnexus_cli \
         --dir {params.DB} \
         --config DeepVariantWGS \
         --threads {threads} \
         {params.gvcfs} \
-        | bcftools view - | bgzip -c > {params.out}"
+        | bcftools view - | bgzip -@ 4 -c > {params.out}"
         '''
         #--trim-uncalled-alleles
 
@@ -335,14 +335,15 @@ rule rtg_mendelian_concordance:
         vcf = get_dir('output','{haplotype}.trio.merged.{phase}.vcf.gz'),
         pedigree = get_dir('input','trio.ped')
     output:
-        get_dir('output','{haplotype}.trio.{phase}.mendelian.log')
+        vcf = get_dir('output','{haplotype}.trio.{phase}.annotated'),
+        log = get_dir('output','{haplotype}.trio.{phase}.mendelian.log')
     params:
         vcf_in = lambda wildcards, input: '/output/' + PurePath(input.vcf).name,
-        vcf_annotated = lambda wildcards, output: '/output/' + PurePath(output[0]).name,
+        vcf_annotated = lambda wildcards, output: '/output/' + PurePath(output.vcf).name,
         singularity_call = lambda wildcards: make_singularity_call(wildcards,tmp_bind=False,work_bind=False)
     shell:
         '''
         {params.singularity_call} \
         {config[RTG_container]} \
-        rtg mendelian -i {params.vcf_in} -o {params.vcf_annotated} --pedigree={input.pedigree} -t {input.sdf}
+        rtg mendelian -i {params.vcf_in} -o {params.vcf_annotated} --pedigree={input.pedigree} -t {input.sdf} > {output.log}
         '''

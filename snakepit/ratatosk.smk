@@ -244,6 +244,6 @@ rule replace_ambiguous_bases:
         with open(input[0],'r') as fin, open(output[0],'w') as fout:
             for i, line in enumerate(fin):
                 if i%4 == 1: # fasta sequence line
-                    fout.write(regex.sub(lambda match: random.choice(IUPAC[match.group(1)]), line) + '\n')
+                    fout.write(regex.sub(lambda match: random.choice(IUPAC[match.group(1)]), line))
                 else:
-                    fout.write(line + '\n')
+                    fout.write(line)
