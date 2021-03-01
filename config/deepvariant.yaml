@@ -1,5 +1,9 @@
 shards: 24
-reference: 'asm.fasta'
+animal: 'moo'
+reference: 'BSW'
+references:
+    BSW: 'asm.fasta'
+    BSW_canu: 'asm.fasta'
 haplotype: 'asm'
 long_reads:
     individual: 'hifi.fq.gz'
@@ -12,7 +16,7 @@ short_reads:
 model: 'hybrid'
 gender: 'female'
 trio: False
-phased: 'unphased'
+phase: 'unphased'
 container: 'deepvariant_1.1.0.sif'
 DT_container: 'deepvariant_deeptrio-1.1.0.sif'
 GL_container: 'glnexus_v1.2.7.sif'

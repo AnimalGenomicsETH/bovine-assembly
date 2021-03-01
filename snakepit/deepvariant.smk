@@ -6,14 +6,14 @@ class Default(dict):
 
 def get_dir(base='work',ext='', **kwargs):
     if base == 'input':
-        base_dir = 'input'
+        base_dir = 'input_{animal}'
     elif base == 'output':
-        base_dir = 'output_{model}'
+        base_dir = 'output_{animal}'
     elif base == 'work':
-        base_dir = get_dir('output','intermediate_results_{haplotype}_{phase}',**kwargs)
+        base_dir = get_dir('output','intermediate_results_{haplotype}_{phase}_{model}_{ref}',**kwargs)
     else:
         raise Exception('Base not found')
-    return str(Path(base_dir.format_map(Default(kwargs))) / ext)
+    return str(Path(base_dir.format_map(Default(kwargs))) / ext.format_map(Default(kwargs)))
 
 #if Path('config/deepvariant.yaml').exists():
 #    configfile: 'config/deepvariant.yaml'
@@ -62,16 +62,18 @@ for dir in ('input',):
 
 rule all:
     input:
-        get_dir('output',f'{config["haplotype"]}.trio.merged.{config["phased"]}.vcf.gz',model=config['model']) if config['trio'] else [],
-        get_dir('output',f'{config["haplotype"]}.trio.{config["phased"]}.mendelian.log',model=config['model']) if config['trio'] else [],
-        get_dir('output',f'{config["haplotype"]}.{config["phased"]}.vcf.gz',model=config['model']) if not config['trio'] else []
+        get_dir('output','{haplotype}.{phase}.{reference}.{model}.vcf.gz',**config) if not config['trio'] else [],
+        multiext(get_dir('output','{haplotype}.trio.merged.{phase}.{reference}.{model}',**config),'.vcf.gz','.mendelian.log') if config['trio'] else []
+        #get_dir('output',f'{config["haplotype"]}.trio.{config["phased"]}.{config["reference"]}.mendelian.log',model=config['model']) if config['trio'] else [],
+        #get_dir('output',f'{config["haplotype"]}.{config["phased"]}.{config["reference"]}.vcf.gz',model=config['model']) if not config['trio'] else []
+
 
 rule minimap_align:
     input:
-        ref = config['reference'],
+        ref = lambda wildcards: config['references'][wildcards.ref],
         reads = lambda wildcards: config['short_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
     output:
-        temp(get_dir('input','{haplotype}.unphased.mm2.bam'))
+        temp(get_dir('input','{haplotype}.unphased.{ref}.mm2.bam'))
     threads: 24
     resources:
         mem_mb = 5000,
@@ -82,10 +84,10 @@ rule minimap_align:
 
 rule pbmm2_align:
     input:
-        ref = config['reference'],
+        ref = lambda wildcards: config['references'][wildcards.ref],
         reads = lambda wildcards: config['long_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
     output:
-        temp(get_dir('input','{haplotype}.unphased.pbmm2.bam'))
+        temp(get_dir('input','{haplotype}.unphased.{ref}.pbmm2.bam'))
     threads: 12
     resources:
         mem_mb = 3500,
@@ -95,9 +97,9 @@ rule pbmm2_align:
 
 rule merge_hybrid:
     input:
-        expand(get_dir('input','{{haplotype}}.unphased.{model}.bam'),model=('mm2','pbmm2'))
+        (get_dir('input','{haplotype}.unphased.{ref}.{model}.bam',model=X) for X in ('mm2','pbmm2'))
     output:
-        temp(get_dir('input','{haplotype}.unphased.hybrid.bam'))
+        temp(get_dir('input','{haplotype}.unphased.{ref}.hybrid.bam'))
     threads: 8
     resources:
         mem_mb = 3000
@@ -117,15 +119,17 @@ rule samtools_index:
         'samtools index -@ {threads} {input}'
 
 rule samtools_faidx:
+    input:
+        '{reference}'
     output:
-        f'{config["reference"]}.fai'
+        '{reference}.fai'
     shell:
-        'samtools faidx {config[reference]}'
+        'samtools faidx {input}'
 
 rule deepvariant_make_examples:
     input:
-        ref = multiext(config['reference'],'','.fai'),
-        bam = multiext(get_dir('input','{haplotype}.{phase}.{model}.bam'),'','.bai')
+        ref = lambda wildcards: multiext(config['references'][wildcards.ref],'','.fai'),
+        bam = multiext(get_dir('input','{haplotype}.{phase}.{ref}.{model}.bam'),'','.bai')
     output:
         example = temp(get_dir('work','make_examples.tfrecord-{N}-of-{sharding}.gz')),
         gvcf = temp(get_dir('work','gvcf.tfrecord-{N}-of-{sharding}.gz'))
@@ -188,12 +192,12 @@ rule deepvariant_call_variants:
 
 rule deepvariant_postprocess:
     input:
-        ref = config['reference'],
+        ref = lambda wildcards: multiext(config['references'][wildcards.ref],'','.fai'),
         variants = get_dir('work','call_variants_output{subset}.tfrecord.gz'),
         gvcf = (get_dir('work', f'gvcf{{subset}}.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
     output:
-        vcf = get_dir('output','{haplotype}{subset}.{phase}.vcf.gz'),
-        gvcf = get_dir('output','{haplotype}{subset}.{phase}.g.vcf.gz')
+        vcf = get_dir('output','{haplotype}{subset}.{phase}.{ref}.{model}.vcf.gz'),
+        gvcf = get_dir('output','{haplotype}{subset}.{phase}.{ref}.{model}.g.vcf.gz')
     params:
         variants = lambda wildcards, input: '/output/intermediate/' + PurePath(input['variants']).name,
         gvcf = lambda wildcards: f'/output/intermediate/gvcf{wildcards.subset}.tfrecord@{config["shards"]}.gz',
@@ -221,10 +225,10 @@ rule deepvariant_postprocess:
 
 rule deeptrio_make_examples:
     input:
-        ref = multiext(config['reference'],'','.fai'),
-        bam = multiext(get_dir('input','{haplotype}.{phase}.{model}.bam'),'','.bai'),
-        bam_p1 = multiext(get_dir('input','parent1.{phase}.{model}.bam'),'','.bai'),
-        bam_p2 = multiext(get_dir('input','parent2.{phase}.{model}.bam'),'','.bai')
+        ref = lambda wildcards: multiext(config['references'][wildcards.ref],'','.fai'),
+        bam = multiext(get_dir('input','{haplotype}.{phase}.{ref}.{model}.bam'),'','.bai'),
+        bam_p1 = multiext(get_dir('input','parent1.{phase}.{ref}.{model}.bam'),'','.bai'),
+        bam_p2 = multiext(get_dir('input','parent2.{phase}.{ref}.{model}.bam'),'','.bai')
     output:
         example = temp(get_dir('work',f'make_examples{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2')),
         gvcf = temp(get_dir('work',f'gvcf{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2'))
@@ -266,19 +270,19 @@ rule deeptrio_make_examples:
 
 rule deeptrio_GLnexus_merge:
     input:
-        (get_dir('output',f'{{haplotype}}{S}.{{phase}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
+        (get_dir('output',f'{{haplotype}}{S}.{{phase}}.{{ref}}.{{model}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
     output:
-        get_dir('output','{haplotype}.trio.merged.{phase}.vcf.gz'),
-        directory(get_dir('output','{haplotype}.trio.merged.{phase}.DB'))
+        get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.vcf.gz')
+        #directory(get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.DB'))
     params:
         gvcfs = lambda wildcards, input: list(f'/output/{PurePath(fpath).name}' for fpath in input),
         out = lambda wildcards, output: f'/output/{PurePath(output[0]).name}',
-        DB = lambda wildcards, output: f'/output/{PurePath(output[1]).name}',
+        DB = lambda wildcards, output: f'/tmp/GLnexus.DB',#{PurePath(output[1]).name}',
         singularity_call = lambda wildcards: make_singularity_call(wildcards)
     threads: 12 #force using 4 threads for bgziping
     resources:
         mem_mb = 5000,
-        disk_scratch = 1,
+        disk_scratch = 50,
         use_singularity = True
     shell: #/bin/bash -c "cd /output; #consider moving to scratch for performance
         '''
@@ -317,9 +321,9 @@ EOM
 
 rule rtg_format:
     input:
-        ref = multiext(config['reference'],'','.fai')
+        ref = lambda wildcards: multiext(config['references'][wildcards.ref],'','.fai')
     output:
-        sdf = directory(get_dir('input','reference.sdf')) #TODO make general to match haplotype?
+        sdf = directory(get_dir('input','{ref}.sdf')) #TODO make general to match haplotype?
     params:
         singularity_call = lambda wildcards: make_singularity_call(wildcards,tmp_bind=False,output_bind=False,work_bind=False)
     shell:
@@ -331,12 +335,12 @@ rule rtg_format:
 
 rule rtg_mendelian_concordance:
     input:
-        sdf = get_dir('input','reference.sdf'),
-        vcf = get_dir('output','{haplotype}.trio.merged.{phase}.vcf.gz'),
+        sdf = get_dir('input','{ref}.sdf'),
+        vcf = get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.vcf.gz'),
         pedigree = get_dir('input','trio.ped')
     output:
-        vcf = get_dir('output','{haplotype}.trio.{phase}.annotated'),
-        log = get_dir('output','{haplotype}.trio.{phase}.mendelian.log')
+        vcf = get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.annotated.vcf.gz'),
+        log = get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.mendelian.log')
     params:
         vcf_in = lambda wildcards, input: '/output/' + PurePath(input.vcf).name,
         vcf_annotated = lambda wildcards, output: '/output/' + PurePath(output.vcf).name,
