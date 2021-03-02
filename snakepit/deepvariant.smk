@@ -57,16 +57,13 @@ def make_singularity_call(wildcards,extra_args='',tmp_bind='$TMPDIR',input_bind=
         call += f'-B {tmp_bind}:/tmp '
     return call
 
-for dir in ('input',):
-    Path(get_dir(dir)).mkdir(exist_ok=True)
+for dir in ('input','output','work'):
+    Path(get_dir(dir,**config)).mkdir(exist_ok=True)
 
 rule all:
     input:
         get_dir('output','{haplotype}.{phase}.{reference}.{model}.vcf.gz',**config) if not config['trio'] else [],
         multiext(get_dir('output','{haplotype}.trio.merged.{phase}.{reference}.{model}',**config),'.vcf.gz','.mendelian.log') if config['trio'] else []
-        #get_dir('output',f'{config["haplotype"]}.trio.{config["phased"]}.{config["reference"]}.mendelian.log',model=config['model']) if config['trio'] else [],
-        #get_dir('output',f'{config["haplotype"]}.{config["phased"]}.{config["reference"]}.vcf.gz',model=config['model']) if not config['trio'] else []
-
 
 rule minimap_align:
     input:
@@ -273,18 +270,17 @@ rule deeptrio_GLnexus_merge:
         (get_dir('output',f'{{haplotype}}{S}.{{phase}}.{{ref}}.{{model}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
     output:
         get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.vcf.gz')
-        #directory(get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.DB'))
     params:
         gvcfs = lambda wildcards, input: list(f'/output/{PurePath(fpath).name}' for fpath in input),
         out = lambda wildcards, output: f'/output/{PurePath(output[0]).name}',
-        DB = lambda wildcards, output: f'/tmp/GLnexus.DB',#{PurePath(output[1]).name}',
+        DB = lambda wildcards, output: f'/tmp/GLnexus.DB',
         singularity_call = lambda wildcards: make_singularity_call(wildcards)
     threads: 12 #force using 4 threads for bgziping
     resources:
         mem_mb = 5000,
         disk_scratch = 50,
         use_singularity = True
-    shell: #/bin/bash -c "cd /output; #consider moving to scratch for performance
+    shell:
         '''
         {params.singularity_call} \
         {config[GL_container]} \
