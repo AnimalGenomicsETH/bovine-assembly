@@ -15,9 +15,6 @@ def get_dir(base='work',ext='', **kwargs):
         raise Exception('Base not found')
     return str(Path(base_dir.format_map(Default(kwargs))) / ext.format_map(Default(kwargs)))
 
-#if Path('config/deepvariant.yaml').exists():
-#    configfile: 'config/deepvariant.yaml'
-
 wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
      haplotype = r'asm|hap1|hap2|parent1|parent2',
@@ -146,7 +143,7 @@ rule deepvariant_make_examples:
         '''
         mkdir -p {params.dir_}
         {params.singularity_call} \
-        {config[container]} \
+        {config[DV_container]} \
         /opt/deepvariant/bin/make_examples \
         --mode calling \
         --ref /{input.ref[0]} \
@@ -168,7 +165,7 @@ rule deepvariant_call_variants:
         examples = lambda wildcards: f'/output/intermediate/make_examples{wildcards.subset}.tfrecord@{config["shards"]}.gz',
         model = lambda wildcards: get_model(wildcards),
         singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
-        contain = lambda wildcards: config['container'] if wildcards.subset == '' else config['DT_container'],
+        contain = lambda wildcards: config['DV_container'] if wildcards.subset == '' else config['DT_container'],
         vino = lambda wildcards: '--use_openvino' if wildcards.subset == '' else ''
     threads: 24
     resources:
@@ -201,7 +198,7 @@ rule deepvariant_postprocess:
         vcf_out = lambda wildcards, output: '/output/' + PurePath(output['vcf']).name,
         gvcf_out = lambda wildcards, output: '/output/' + PurePath(output['gvcf']).name,
         singularity_call = lambda wildcards: make_singularity_call(wildcards),
-        contain = lambda wildcards: config['container'] if wildcards.subset == '' else config['DT_container']
+        contain = lambda wildcards: config['DV_container'] if wildcards.subset == '' else config['DT_container']
     threads: 1
     resources:
         mem_mb = 30000,
@@ -218,7 +215,6 @@ rule deepvariant_postprocess:
         --gvcf_outfile {params.gvcf_out} \
         --nonvariant_site_tfrecord_path {params.gvcf}
         '''
-
 
 rule deeptrio_make_examples:
     input:
