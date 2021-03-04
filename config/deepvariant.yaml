@@ -1,23 +1,18 @@
-shards: 24
-animal: 'moo'
-reference: 'BSW'
+shards: 32
 references:
-    BSW: 'asm.fasta'
     BSW_canu: 'asm.fasta'
-haplotype: 'asm'
-long_reads:
-    individual: 'hifi.fq.gz'
-    parent1: 'par1.fq.gz'
-    parent2: 'par2.fq.gz'
-short_reads:
-    individual: 'hifi.fq.gz'
-    parent1: 'par1.fq.gz'
-    parent2: 'par2.fq.gz'
-model: 'hybrid'
+haplotype: 'hap2'
+animals:
+    BSWCHEF120152514636:
+        individual:
+            long_reads: 'hifi.fq.gz'
+        parent1:
+            long_reads: 'hifi.fq.gz'
+model: 'pbmm2'
 gender: 'female'
 trio: False
 phase: 'unphased'
-DV_container: 'deepvariant_1.1.0.sif'
-DT_container: 'deepvariant_deeptrio-1.1.0.sif'
-GL_container: 'glnexus_v1.3.1.sif'
-RTG_container: 'rtg-tools_latest.sif'
+DV_container: '/cluster/work/pausch/alex/images/deepvariant_1.1.0.sif'
+DT_container: '/cluster/work/pausch/alex/images/deepvariant_deeptrio-1.1.0.sif'
+GL_container: '/cluster/work/pausch/alex/images/glnexus_v1.3.1.sif'
+RTG_container: '/cluster/work/pausch/alex/images/rtg-tools_latest.sif'

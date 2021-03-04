@@ -46,11 +46,11 @@ localrules: samtools_faidx, rtg_pedigree, rtg_format, rtg_mendelian_concordance
 def make_singularity_call(wildcards,extra_args='',tmp_bind='$TMPDIR',input_bind=True, output_bind=True, work_bind=True):
     call = f'singularity exec {extra_args} '
     if input_bind:
-        call += f'-B {get_dir("input",**wildcards)}:/input '
+        call += f'-B {":/".join([get_dir("input",**wildcards)]*2)} '
     if output_bind:
-        call += f'-B {get_dir("output",**wildcards)}:/output '
+        call += f'-B {":/".join([get_dir("output",**wildcards)]*2)} '
     if work_bind:
-        call += f'-B {get_dir("work",**wildcards)}:/output/intermediate '
+        call += f'-B {":/".join([get_dir("work",**wildcards)]*2)} '
     if tmp_bind:
         call += f'-B {tmp_bind}:/tmp '
     return call
@@ -62,12 +62,12 @@ for dir_ in ('input','output','work'):
 rule all:
     input:
         expand(get_dir('output','{haplotype}.{phase}.{ref}.{model}.vcf.gz',**config),animal=config['animals'].keys(),ref=config['references'].keys()) if not config['trio'] else [],
-        multiext(get_dir('output','{haplotype}.trio.merged.{phase}.{reference}.{model}',**config),'.vcf.gz','.mendelian.log') if config['trio'] else []
+        expand(get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.{ext}',**config),ext=('vcf.gz','mendelian.log'),animal=config['animals'].keys(),ref=config['references'].keys()) if config['trio'] else []
 
 rule minimap_align:
     input:
         ref = lambda wildcards: config['references'][wildcards.ref],
-        reads = lambda wildcards: config['animals'][wildcards.animal]['short_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
+        reads = lambda wildcards: config['animals'][wildcards.animal]['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]['short_reads']
     output:
         temp(get_dir('input','{haplotype}.unphased.{ref}.mm2.bam'))
     threads: 24
@@ -81,7 +81,7 @@ rule minimap_align:
 rule pbmm2_align:
     input:
         ref = lambda wildcards: config['references'][wildcards.ref],
-        reads = lambda wildcards: config['animals'][wildcards.animal]['long_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
+        reads = lambda wildcards: config['animals'][wildcards.animal]['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]['long_reads']
     output:
         temp(get_dir('input','{haplotype}.unphased.{ref}.pbmm2.bam'))
     threads: 12
@@ -130,12 +130,12 @@ rule deepvariant_make_examples:
         example = temp(get_dir('work','make_examples.tfrecord-{N}-of-{sharding}.gz')),
         gvcf = temp(get_dir('work','gvcf.tfrecord-{N}-of-{sharding}.gz'))
     params:
-        examples = f'/output/intermediate/make_examples.tfrecord@{config["shards"]}.gz',
-        gvcf = f'/output/intermediate/gvcf.tfrecord@{config["shards"]}.gz',
-        dir_ = lambda wildcards, output: PurePath(output[0]).parent,
+        examples = lambda wildcards, output: PurePath(output[0]).with_name(f'make_examples.tfrecord@{config["shards"]}.gz'),
+        gvcf = lambda wildcards, output: PurePath(output[1]).with_name(f'gvcf.tfrecord@{config["shards"]}.gz'),
         phase_args = lambda wildcards: '--parse_sam_aux_fields={i} --sort_by_haplotypes={i}'.format(i=('true' if wildcards.phase == 'phased' else 'false')),
         model_args = lambda wildcards: '--add_hp_channel --alt_aligned_pileup diff_channels --realign_reads=false --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
-        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
     threads: 1
     resources:
         mem_mb = 6000,
@@ -143,13 +143,12 @@ rule deepvariant_make_examples:
         use_singularity = True
     shell:
         '''
-        mkdir -p {params.dir_}
         {params.singularity_call} \
         {config[DV_container]} \
         /opt/deepvariant/bin/make_examples \
         --mode calling \
-        --ref /{input.ref[0]} \
-        --reads /{input.bam[0]} \
+        --ref {params.ref} \
+        --reads {input.bam[0]} \
         --examples {params.examples} \
         --gvcf {params.gvcf} \
         {params.model_args} \
@@ -163,8 +162,7 @@ rule deepvariant_call_variants:
     output:
         temp(get_dir('work','call_variants_output{subset}.tfrecord.gz'))
     params:
-        outfile = lambda wildcards, output: '/output/intermediate/' + PurePath(output[0]).name,
-        examples = lambda wildcards: f'/output/intermediate/make_examples{wildcards.subset}.tfrecord@{config["shards"]}.gz',
+        examples = lambda wildcards,input: PurePath(input[0]).with_suffix('').with_suffix(f'.tfrecord@{config["shards"]}.gz'),
         model = lambda wildcards: get_model(wildcards),
         singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
         contain = lambda wildcards: config['DV_container'] if wildcards.subset == '' else config['DT_container'],
@@ -180,7 +178,7 @@ rule deepvariant_call_variants:
         {params.singularity_call} \
         {params.contain} \
         /bin/bash -c "cd /output; ../opt/deepvariant/bin/call_variants \
-        --outfile {params.outfile} \
+        --outfile {output} \
         --examples {params.examples} \
         --checkpoint {params.model} \
         {params.vino}"
@@ -195,11 +193,9 @@ rule deepvariant_postprocess:
         vcf = get_dir('output','{haplotype}{subset}.{phase}.{ref}.{model}.vcf.gz'),
         gvcf = get_dir('output','{haplotype}{subset}.{phase}.{ref}.{model}.g.vcf.gz')
     params:
-        variants = lambda wildcards, input: '/output/intermediate/' + PurePath(input['variants']).name,
-        gvcf = lambda wildcards: f'/output/intermediate/gvcf{wildcards.subset}.tfrecord@{config["shards"]}.gz',
-        vcf_out = lambda wildcards, output: '/output/' + PurePath(output['vcf']).name,
-        gvcf_out = lambda wildcards, output: '/output/' + PurePath(output['gvcf']).name,
-        singularity_call = lambda wildcards: make_singularity_call(wildcards),
+        gvcf = lambda wildcards,input: PurePath(input.gvcf[0]).with_suffix('').with_suffix(f'.tfrecord@{config["shards"]}.gz'),
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}',
         contain = lambda wildcards: config['DV_container'] if wildcards.subset == '' else config['DT_container']
     threads: 1
     resources:
@@ -211,10 +207,10 @@ rule deepvariant_postprocess:
         {params.singularity_call} \
         {params.contain} \
         /opt/deepvariant/bin/postprocess_variants \
-        --ref /{input.ref} \
-        --infile {params.variants} \
-        --outfile {params.vcf_out} \
-        --gvcf_outfile {params.gvcf_out} \
+        --ref {params.ref} \
+        --infile {input.variants} \
+        --outfile {output.vcf} \
+        --gvcf_outfile {output.gvcf} \
         --nonvariant_site_tfrecord_path {params.gvcf}
         '''
 
@@ -222,18 +218,18 @@ rule deeptrio_make_examples:
     input:
         ref = lambda wildcards: multiext(config['references'][wildcards.ref],'','.fai'),
         bam = multiext(get_dir('input','{haplotype}.{phase}.{ref}.{model}.bam'),'','.bai'),
-        bam_p1 = multiext(get_dir('input','parent1.{phase}.{ref}.{model}.bam'),'','.bai'),
-        bam_p2 = multiext(get_dir('input','parent2.{phase}.{ref}.{model}.bam'),'','.bai')
+        bam_p1 = lambda wildcards: multiext(get_dir('input','parent1.{phase}.{ref}.{model}.bam'),'','.bai') if 'parent1' in config['animals'][wildcards.animal] else [],
+        bam_p2 = lambda wildcards: multiext(get_dir('input','parent2.{phase}.{ref}.{model}.bam'),'','.bai') if 'parent2' in config['animals'][wildcards.animal] else []
     output:
         example = temp(get_dir('work',f'make_examples{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2')),
         gvcf = temp(get_dir('work',f'gvcf{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2'))
     params:
-        examples = f'/output/intermediate/make_examples.tfrecord@{config["shards"]}.gz',
-        gvcf = f'/output/intermediate/gvcf.tfrecord@{config["shards"]}.gz',
-        dir_ = lambda wildcards, output: PurePath(output[0]).parent,
+        examples = lambda wildcards, output: PurePath(output[0]).with_name(f'make_examples.tfrecord@{config["shards"]}.gz'),
+        gvcf = lambda wildcards, output: PurePath(output[1]).with_name(f'gvcf.tfrecord@{config["shards"]}.gz'),
         phase_args = lambda wildcards: '--{i}parse_sam_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
         model_args = lambda wildcards: '--alt_aligned_pileup diff_channels --norealign_reads --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
-        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
     threads: 1
     resources:
         mem_mb = 4000,
@@ -242,15 +238,14 @@ rule deeptrio_make_examples:
         walltime = '24:00'
     shell:
         '''
-        mkdir -p {params.dir_}
         {params.singularity_call} \
         {config[DT_container]} \
         /opt/deepvariant/bin/deeptrio/make_examples \
         --mode calling \
-        --ref /{input.ref[0]} \
-        --reads /{input.bam[0]} \
-        --reads_parent1 /{input.bam_p1[0]} \
-        --reads_parent2 /{input.bam_p2[0]} \
+        --ref {params.ref} \
+        --reads {input.bam[0]} \
+        --reads_parent1 {input.bam_p1[0]} \
+        --reads_parent2 {input.bam_p2[0]} \
         --sample_name offspring \
         --sample_name_parent1 parent1 \
         --sample_name_parent2 parent2 \
@@ -287,7 +282,7 @@ rule deeptrio_GLnexus_merge:
         --config DeepVariantWGS \
         --threads {threads} \
         {params.gvcfs} \
-        | bcftools view - | bgzip -@ 4 -c > {params.out}"
+        | bcftools view - | bgzip -@ 4 -c > {params.out}
         '''
         #--trim-uncalled-alleles
 
@@ -317,14 +312,15 @@ rule rtg_format:
     input:
         ref = lambda wildcards: multiext(config['references'][wildcards.ref],'','.fai')
     output:
-        sdf = directory(get_dir('input','{ref}.sdf')) #TODO make general to match haplotype?
+        sdf = directory(get_dir('input','{ref}.sdf'))
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards,tmp_bind=False,output_bind=False,work_bind=False)
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/',tmp_bind=False,output_bind=False,work_bind=False),
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}',
     shell:
         '''
         {params.singularity_call} \
         {config[RTG_container]} \
-        rtg format -o {output.sdf} {input.ref[0]}
+        rtg format -o {output.sdf} {params.ref}
         '''
 
 rule rtg_mendelian_concordance:
