@@ -42,6 +42,8 @@ localrules: samtools_faidx, rtg_pedigree, rtg_format, rtg_mendelian_concordance
 
 ##TODO determine how to pull singularity images
 ##TODO merge calls with snakemake format
+def get_parents(animal):
+    return [indv for indv in config['animals'][animal].keys() if 'parent' in indv]
 
 def make_singularity_call(wildcards,extra_args='',tmp_bind='$TMPDIR',input_bind=True, output_bind=True, work_bind=True):
     call = f'singularity exec {extra_args} '
@@ -221,15 +223,17 @@ rule deeptrio_make_examples:
         bam_p1 = lambda wildcards: multiext(get_dir('input','parent1.{phase}.{ref}.{model}.bam'),'','.bai') if 'parent1' in config['animals'][wildcards.animal] else [],
         bam_p2 = lambda wildcards: multiext(get_dir('input','parent2.{phase}.{ref}.{model}.bam'),'','.bai') if 'parent2' in config['animals'][wildcards.animal] else []
     output:
-        example = temp(get_dir('work',f'make_examples{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2')),
-        gvcf = temp(get_dir('work',f'gvcf{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2'))
+        example = temp(get_dir('work',f'make_examples{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in config['trios']),
+        gvcf = temp(get_dir('work',f'gvcf{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in config['trios'])
     params:
         examples = lambda wildcards, output: PurePath(output[0]).with_name(f'make_examples.tfrecord@{config["shards"]}.gz'),
         gvcf = lambda wildcards, output: PurePath(output[1]).with_name(f'gvcf.tfrecord@{config["shards"]}.gz'),
         phase_args = lambda wildcards: '--{i}parse_sam_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
         model_args = lambda wildcards: '--alt_aligned_pileup diff_channels --norealign_reads --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
-        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}',
+        parent1 = lambda wildcards, input: f'--reads_parent1 {input.bam_p1[0]} --sample_name_parent1 parent1' if 'parent1' in config['trios'] else '',
+        parent2 = lambda wildcards, input: f'--reads_parent2 {input.bam_p2[0]} --sample_name_parent2 parent2' if 'parent2' in config['trios'] else '',
     threads: 1
     resources:
         mem_mb = 4000,
@@ -244,11 +248,9 @@ rule deeptrio_make_examples:
         --mode calling \
         --ref {params.ref} \
         --reads {input.bam[0]} \
-        --reads_parent1 {input.bam_p1[0]} \
-        --reads_parent2 {input.bam_p2[0]} \
         --sample_name offspring \
-        --sample_name_parent1 parent1 \
-        --sample_name_parent2 parent2 \
+        {params.parent1} \
+        {params.parent2} \
         --examples {params.examples} \
         --gvcf {params.gvcf} \
         {params.model_args} \
@@ -260,7 +262,7 @@ rule deeptrio_make_examples:
 
 rule deeptrio_GLnexus_merge:
     input:
-        (get_dir('output',f'{{haplotype}}{S}.{{phase}}.{{ref}}.{{model}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
+        (get_dir('output',f'{{haplotype}}{S}.{{phase}}.{{ref}}.{{model}}.g.vcf.gz') for S in config['trios'])
     output:
         get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.vcf.gz')
     params:
@@ -290,7 +292,10 @@ rule rtg_pedigree:
     output:
         get_dir('input','trio.ped')
     params:
-        gender = 1 if config['gender'] == 'male' else 2
+        gender = 1 if config['gender'] == 'male' else 2,
+        parentage = lambda wildcards: ' '.join(f'parent{N}' if f'parent{N}' in get_parents(wildcards.animal) else '0' for N in (1,2)),
+        parent1 = lambda wildcards: '1 parent1 0 0 1 0' if 'parent1' in get_parents(wildcards.animal) else '',
+        parent2 = lambda wildcards: '1 parent2 0 0 2 0' if 'parent2' in get_parents(wildcards.animal) else '',
     shell:
         '''
         FILE={output}
@@ -302,9 +307,9 @@ cat <<EOM >$FILE
 #phenotype: -9=missing, 0=missing; 1=unaffected; 2=affected
 #
 #fam-id ind-id pat-id mat-id sex phen
-1 offspring parent1 parent2 {params.gender} 0
-1 parent1 0 0 1 0
-1 parent2 0 0 2 0
+1 offspring {params.parentage} {params.gender} 0
+{params.parent1}
+{params.parent2}
 EOM
         '''
 

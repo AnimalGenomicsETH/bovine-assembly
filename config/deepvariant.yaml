@@ -8,10 +8,15 @@ animals:
             long_reads: 'hifi.fq.gz'
         parent1:
             long_reads: 'hifi.fq.gz'
+        parent2:
+            long_reads: 'hifi.fq.gz'
 model: 'pbmm2'
 gender: 'female'
-trio: False
+trio: True
 phase: 'unphased'
+trios:
+  - '_child'
+  - '_parent2'
 DV_container: '/cluster/work/pausch/alex/images/deepvariant_1.1.0.sif'
 DT_container: '/cluster/work/pausch/alex/images/deepvariant_deeptrio-1.1.0.sif'
 GL_container: '/cluster/work/pausch/alex/images/glnexus_v1.3.1.sif'
