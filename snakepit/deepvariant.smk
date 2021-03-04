@@ -1,4 +1,5 @@
 from pathlib import PurePath
+from itertools import product
 
 class Default(dict):
     def __missing__(self, key):
@@ -54,18 +55,19 @@ def make_singularity_call(wildcards,extra_args='',tmp_bind='$TMPDIR',input_bind=
         call += f'-B {tmp_bind}:/tmp '
     return call
 
-for dir in ('input','output','work'):
-    Path(get_dir(dir,**config)).mkdir(exist_ok=True)
+for dir_ in ('input','output','work'):
+    for animal,reference in product(config['animals'],config['references']):
+        Path(get_dir(dir_,animal=animal,ref=reference,**config)).mkdir(exist_ok=True)
 
 rule all:
     input:
-        get_dir('output','{haplotype}.{phase}.{reference}.{model}.vcf.gz',**config) if not config['trio'] else [],
+        expand(get_dir('output','{haplotype}.{phase}.{ref}.{model}.vcf.gz',**config),animal=config['animals'].keys(),ref=config['references'].keys()) if not config['trio'] else [],
         multiext(get_dir('output','{haplotype}.trio.merged.{phase}.{reference}.{model}',**config),'.vcf.gz','.mendelian.log') if config['trio'] else []
 
 rule minimap_align:
     input:
         ref = lambda wildcards: config['references'][wildcards.ref],
-        reads = lambda wildcards: config['short_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
+        reads = lambda wildcards: config['animals'][wildcards.animal]['short_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
     output:
         temp(get_dir('input','{haplotype}.unphased.{ref}.mm2.bam'))
     threads: 24
@@ -79,7 +81,7 @@ rule minimap_align:
 rule pbmm2_align:
     input:
         ref = lambda wildcards: config['references'][wildcards.ref],
-        reads = lambda wildcards: config['long_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
+        reads = lambda wildcards: config['animals'][wildcards.animal]['long_reads']['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]
     output:
         temp(get_dir('input','{haplotype}.unphased.{ref}.pbmm2.bam'))
     threads: 12
