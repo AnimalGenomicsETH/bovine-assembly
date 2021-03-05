@@ -84,10 +84,10 @@ rule pbmm2_align:
         reads = lambda wildcards: config['animals'][wildcards.animal]['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]['long_reads']
     output:
         temp(get_dir('input','{haplotype}.unphased.{ref}.pbmm2.bam'))
-    threads: 12
+    threads: 26
     resources:
-        mem_mb = 3500,
-        walltime = '24:00'
+        mem_mb = 3000,
+        walltime = '4:00'
     shell:
         'pbmm2 align {input.ref} {input.reads} {output} --sort --preset CCS -j {threads}'
 
@@ -139,6 +139,7 @@ rule deepvariant_make_examples:
     threads: 1
     resources:
         mem_mb = 6000,
+        walltime = '8:00',
         disk_scratch = 1,
         use_singularity = True
     shell:
@@ -162,8 +163,9 @@ rule deepvariant_call_variants:
     output:
         temp(get_dir('work','call_variants_output{subset}.tfrecord.gz'))
     params:
-        examples = lambda wildcards,input: PurePath(input[0]).with_suffix('').with_suffix(f'.tfrecord@{config["shards"]}.gz'),
+        examples = lambda wildcards: (f'make_examples{wildcards.subset}.tfrecord@{config["shards"]}.gz'),
         model = lambda wildcards: get_model(wildcards),
+        dir_ = lambda wildcards: get_dir('work',**wildcards),
         singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
         contain = lambda wildcards: config['DV_container'] if wildcards.subset == '' else config['DT_container'],
         vino = lambda wildcards: '--use_openvino' if wildcards.subset == '' else ''
@@ -172,13 +174,13 @@ rule deepvariant_call_variants:
         mem_mb = 1500,
         disk_scratch = 1,
         use_singularity = True,
-        walltime = lambda wildcards: '4:00' if wildcards.subset == '' else '24:00'
+        walltime = lambda wildcards: '24:00' if wildcards.subset == '' else '24:00'
     shell:
         '''
         {params.singularity_call} \
         {params.contain} \
-        /bin/bash -c "cd /output; ../opt/deepvariant/bin/call_variants \
-        --outfile {output} \
+        /bin/bash -c "cd {params.dir_}; /opt/deepvariant/bin/call_variants \
+        --outfile /{output} \
         --examples {params.examples} \
         --checkpoint {params.model} \
         {params.vino}"

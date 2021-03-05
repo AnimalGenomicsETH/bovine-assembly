@@ -12,7 +12,7 @@ def capture_logic(wildcards):
 
     if 100 in config['sampling']:
         sample = 100
-        required_files.append(f'data/offspring.{sample}.QC.txt')
+        #required_files.append(f'data/offspring.{sample}.QC.txt')
         for assembler in config['assemblers']:
             a_path = PurePath(WORK_PATH.format(assembler=assembler,sample=sample))
 
@@ -26,10 +26,10 @@ def capture_logic(wildcards):
                     for extension in config['target_metrics']['general'] + config['target_metrics']['trio']:
                         required_files.append(r_path / f'hap{N}_{sample}_{assembler}.{extension}')
 
-                    if have_parental_data('long_reads'):
-                        required_files.append(a_path / f'hap{N}.filled.fasta')
+                    #if have_parental_data('long_reads'):
+                    #    required_files.append(a_path / f'hap{N}.filled.fasta')
 
-                required_files.append(r_path / f'hap2_100_{assembler}.hap1.mumSV.txt')
+                #required_files.append(r_path / f'hap2_100_{assembler}.hap1.mumSV.txt')
 
             if 'parents' in config['haplotypes'] and have_parental_data('long_reads'):
                 for parent in ('dam', 'sire'):
