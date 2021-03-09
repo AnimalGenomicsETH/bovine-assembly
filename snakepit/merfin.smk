@@ -74,7 +74,7 @@ rule merfin_lookup:
         'gcc/8.2.0',
         'r/4.0.2'
     shell:
-        'Rscript {config[lookup]} {input} {config[kmer]} {params.out} {params.ploidy}'
+        'Rscript {config[lookup]} {input} {config[kmer]} {params.out} --fitted_hist {params.ploidy}'
 
 rule merfin_vmer:
     input:
@@ -94,7 +94,7 @@ rule merfin_vmer:
     resources:
         mem_mb = 4000
     shell:
-        'merfin -vmer -sequence {input.fasta} -memory1 {params.low_mem} -memory2 {params.high_mem} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -vcf {input.vcf} -output {params.out}'
+        'merfin -vmer -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -vcf {input.vcf} -output {params.out}'
 
 rule merfin_hist:
     input:
@@ -112,7 +112,7 @@ rule merfin_hist:
     resources:
         mem_mb = 5500
     shell:
-        'merfin -hist -sequence {input.fasta} -memory1 {params.low_mem} -memory2 {params.high_mem} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -output {output}'
+        'merfin -hist -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -output {output}'
 
 rule merfin_polish:
     input:
