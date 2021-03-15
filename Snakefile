@@ -47,6 +47,7 @@ include: 'snakepit/purge_duplicates.smk'
 include: 'snakepit/variant_calling.smk'
 include: 'snakepit/mappers.smk'
 include: 'snakepit/capture_logic.smk'
+include: 'snakepit/gap_closing.smk'
 
 wildcard_constraints:
     assembler = r'[^\W_]+',

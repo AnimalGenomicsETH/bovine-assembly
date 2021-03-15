@@ -181,13 +181,12 @@ rule merge_masked_chromosomes:
 
 rule TGS_gapcloser:
     input:
-        scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',
+        scaffolds = get_dir('work','{haplotype}.scaffolds.fasta'),
         reads = lambda wildcards: f'data/{"sire" if wildcards.haplotype == "hap1" else "dam"}.hifi.fasta'
     output:
-        WORK_PATH + '{haplotype}.filled.fasta'
+        get_dir('work','{haplotype}.filled.fasta')
     params:
-        dir_ = WORK_PATH + '{haplotype}_TGS',
-        out = '{haplotype}',
+        dir_ = get_dir('work','{haplotype}_TGS'),
         scaffolds = lambda wildcards, input: '../' + PurePath(input['scaffolds']).name,
         reads = lambda wildcards, input: '../../' + input['reads']
     threads: 12
@@ -197,8 +196,16 @@ rule TGS_gapcloser:
     shell:
         '''
         mkdir -p {params.dir_}
-        (cd {params.dir_} && {config[tgs_root]}/TGS-GapCloser.sh --scaff {params.scaffolds} --reads {params.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads})
+        (cd {params.dir_} && {config[tgs_root]}/TGS-GapCloser.sh --scaff {params.scaffolds} --reads {params.reads} --output {wildcards.haplotype} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads})
         cp {params.dir_}/{params.out}.scaff_seqs {output}
         '''
 
+def aggregate_filled_gaps(wildcards):
+    checkpoint_output = checkpoints.split_main_chromosomes.get(**wildcards).output[0]
+    return expand(get_dir('work','shard_{chunk}_corrected.fastq',animal=config['animal']),chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('shard_{chunk}.fq')).chunk)
+    return expand('{fpath}/{chunk}.chrm.fa.masked',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.chrm.fa')).chunk)
+
+rule merge_masked_chromosomes:
+    inp
+        aggregate_chrm_input
 # prepare gapcloser for ONT reads
