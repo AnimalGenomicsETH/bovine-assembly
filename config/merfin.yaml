@@ -6,5 +6,4 @@ reads: ''
 vcf: ''
 kmer: 21
 mem_adj: 1100
-coverage: 30
 lookup: '/cluster/work/pausch/alex/software/genomescope2.0/genomescope.R'

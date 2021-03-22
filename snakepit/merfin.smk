@@ -7,7 +7,8 @@ if Path('config/ratatosk.yaml').exists():
     configfile: 'config/ratatosk.yaml'
 
 wildcard_constraints:
-    N = r'\d+'
+    N = r'\d+',
+    merfin_op = r'hist|completeness'
 
 class Default(dict):
     def __missing__(self, key):
@@ -26,7 +27,7 @@ def get_dir(base='main',ext='', **kwargs):
 
 rule all:
     input:
-        expand(get_dir('work','{polish}.hist',haplotype=config['haplotype'],animal=config['animal']),polish=('unpolished','polished'))
+        expand(get_dir('work','{polish}.{op}',haplotype=config['haplotype'],animal=config['animal']),op=('hist','completeness'),polish=('unpolished','polished'))
 
 rule meryl_count_reads:
     input:
@@ -66,15 +67,16 @@ rule merfin_lookup:
     input:
         get_dir('lookup','read_hist.tsv')
     output:
-        get_dir('lookup','lookup_table.txt')
+        get_dir('lookup','lookup_table.txt'),
+        get_dir('lookup','model.txt')
     params:
         out = lambda wildcards, output: PurePath(output[0]).parent,
-        ploidy = lambda wildcards: 2 if wildcards.haplotype == 'asm' else 1
+        ploidy = lambda wildcards: 2 if wildcards.haplotype == 'asm' else 2
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
     shell:
-        'Rscript {config[lookup]} {input} {config[kmer]} {params.out} --fitted_hist {params.ploidy}'
+        'Rscript {config[lookup]} -i {input} -k {config[kmer]} -o {params.out} --fitted_hist -p {params.ploidy}'
 
 rule merfin_vmer:
     input:
@@ -82,17 +84,16 @@ rule merfin_vmer:
         seqmers = get_dir('work','seqmers.unpolished.meryl'),
         readmers = get_dir('main','{haplotype}.readmers.meryl'),
         vcf = config['vcf'],
-        lookup = get_dir('lookup','lookup_table.txt')
+        lookup = get_dir('lookup','lookup_table.txt'),
+        model = get_dir('lookup','model.txt')
     output:
         get_dir('work','merfin.polish.vcf')
     params:
         out = lambda wildcards, output: PurePath(output[0]).with_name('merfin'),
-        coverage = config['coverage'],
-        low_mem = 10,
-        high_mem = 60
-    threads: 24
+        coverage = lambda wildcards, input: float([line for line in open(input.model)][8].split()[1])
+    threads: 12
     resources:
-        mem_mb = 4000
+        mem_mb = 6000
     shell:
         'merfin -vmer -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -vcf {input.vcf} -output {params.out}'
 
@@ -101,18 +102,17 @@ rule merfin_hist:
         fasta = lambda wildcards: config['assembly'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished']),
         seqmers = get_dir('work','seqmers.{polished}.meryl'),
         readmers = get_dir('main','{haplotype}.readmers.meryl'),
-        lookup = get_dir('lookup','lookup_table.txt')
+        lookup = get_dir('lookup','lookup_table.txt'),
+        model = get_dir('lookup','model.txt')
     output:
-        get_dir('work','{polished}.hist')
+        get_dir('work','{polished}.{merfin_op}')
     params:
-        coverage = 30,
-        low_mem = 10,
-        high_mem = 60
+        coverage = lambda wildcards, input: float([line for line in open(input.model)][8].split()[1])
     threads: 16
     resources:
         mem_mb = 5500
     shell:
-        'merfin -hist -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -output {output}'
+        'merfin -{wildcards.merfin_op} -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -output {output}'
 
 rule merfin_polish:
     input:
@@ -127,3 +127,5 @@ rule merfin_polish:
         bcftools index {output.vcf[0]}
         bcftools consensus {output.vcf[0]} -f {input.fasta} -H 1 > {output.fasta}
         '''
+
+
