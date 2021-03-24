@@ -32,7 +32,7 @@ def load_bed(fname):
                             row['link'] = 'alt'
                     except ValueError:
                         link = parts[5][2:].split(':')[0]
-                        row['link'] = 'multi'
+                        row['link'] = 'alt'
 
 
                 row['size'] = int(parts[5].split(':')[1])
@@ -42,7 +42,10 @@ def load_bed(fname):
                 row['map_start']= int(parts[5].split(':')[4])
                 row['map_end'] = int(parts[5].split(':')[5])
             data.append(row)
-    return pandas.DataFrame(data)
+    df = pandas.DataFrame(data)
+    #for coord in ('map_start','map_end'):
+    #    df[coord] = df[coord].astype(int)
+    return df
 
 
 hifiasm = load_bed(f'/Users/alexleonard/Documents/Tiergenomik/DATA/hifiasm_graph.bed')
@@ -65,20 +68,41 @@ def extract_overlap_regions(reference,hifiasm,canu):
     BSW_divergences = (hifiasm['edge']==canu['edge']) & (hifiasm['edge']!=ARS['edge'])
     BSW_hifiasm = hifiasm[BSW_divergences]
     BSW_canu = canu[BSW_divergences]
+
     hifiasm_exclusive = hifiasm[(ARS['link']=='match') & (hifiasm['edge']!=ARS['edge']) & (hifiasm['edge']!=canu['edge'])]
     canu_exclusive = canu[(ARS['link']=='match') & (canu['edge']!=ARS['edge']) & (hifiasm['edge']!=canu['edge'])]
+
     return hifiasm_exclusive, BSW_hifiasm
 
 def filter_end_regions(df,max_distance=1e6,chr_only=True):
-    df_filt = df[(df['ref_contig']==df['map_contig']) & (abs(df['map_start']-df['ref_start']) < max_distance)]
+    df_filt = df.dropna()
+    df_filt = df_filt[(df_filt['ref_contig']==df_filt['map_contig']) & (abs(df_filt['map_start']-df_filt['ref_start']) < max_distance)]
+    for coord in ('map_start','map_end'):
+       df_filt[coord] = df_filt[coord].astype(int)
     if chr_only:
         return df_filt[df_filt['chromosome']==True]
     else:
         return df_filt
 
-bc = extract_overlap_regions(ARS,hifiasm,canu)[1]
+def print_bed_regions(df,fname,flank=250,ref_coord=False):
+    with open(fname,'w') as fout:
+        for _, row in df.iterrows():
+            if ref_coord:
+                fout.write('\t'.join(map(str,[row['ref_contig'],max(row['ref_start']-flank,1),row['ref_end']+flank])) + '\n')
+            else:
+                fout.write('\t'.join(map(str,[row['map_contig'],max(row['map_start']-flank,1),row['map_end']+flank])) + '\n')
 
-print(filter_end_regions(bc))
+bc = extract_overlap_regions(ARS,hifiasm,canu)[0]
+
+filt= filter_end_regions(bc[bc['size']>100],1e7)
+
+print(len(set(filt['ref_contig'])))
+print(filt['map_start'])
+print_bed_regions(filt,'hifiasm.bed',250,False)
+print_bed_regions(filt,'hifiasm_ref.bed',250,True)
+
+print(filt)
+
 
 print(extract_overlap_regions(ARS,hifiasm,canu)[1].dropna()[100:110])
 
