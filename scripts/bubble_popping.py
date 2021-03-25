@@ -72,7 +72,7 @@ def extract_overlap_regions(reference,hifiasm,canu):
     hifiasm_exclusive = hifiasm[(ARS['link']=='match') & (hifiasm['edge']!=ARS['edge']) & (hifiasm['edge']!=canu['edge'])]
     canu_exclusive = canu[(ARS['link']=='match') & (canu['edge']!=ARS['edge']) & (hifiasm['edge']!=canu['edge'])]
 
-    return hifiasm_exclusive, BSW_hifiasm
+    return hifiasm_exclusive, BSW_hifiasm, canu_exclusive, BSW_canu
 
 def filter_end_regions(df,max_distance=1e6,chr_only=True):
     df_filt = df.dropna()
@@ -86,25 +86,25 @@ def filter_end_regions(df,max_distance=1e6,chr_only=True):
 
 def print_bed_regions(df,fname,flank=250,ref_coord=False):
     with open(fname,'w') as fout:
-        for _, row in df.iterrows():
+        print('writing to ',fname)
+        for i, row in df.iterrows():
+            print('row',i)
             if ref_coord:
                 fout.write('\t'.join(map(str,[row['ref_contig'],max(row['ref_start']-flank,1),row['ref_end']+flank])) + '\n')
             else:
                 fout.write('\t'.join(map(str,[row['map_contig'],max(row['map_start']-flank,1),row['map_end']+flank])) + '\n')
 
-bc = extract_overlap_regions(ARS,hifiasm,canu)[0]
+regions = extract_overlap_regions(ARS,hifiasm,canu)
 
-filt= filter_end_regions(bc[bc['size']>100],1e7)
-
-print(len(set(filt['ref_contig'])))
-print(filt['map_start'])
-print_bed_regions(filt,'hifiasm.bed',250,False)
-print_bed_regions(filt,'hifiasm_ref.bed',250,True)
-
-print(filt)
+for code, df in zip(('hifiasm_exclusive','hifiasm_cns','canu_exclusive','canu_cns'),regions):
+    filtered = filter_end_regions(df[df['size']>100],1e7)
+    print(code,len(filtered))
+    print_bed_regions(filt,f'{code}.bed',500,False)
+    print_bed_regions(filt,f'{code}.ARS.bed',500,True)
 
 
-print(extract_overlap_regions(ARS,hifiasm,canu)[1].dropna()[100:110])
+
+
 
 
 variations = np.zeros((len(truth),2))
