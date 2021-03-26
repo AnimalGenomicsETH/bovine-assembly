@@ -86,21 +86,21 @@ def filter_end_regions(df,max_distance=1e6,chr_only=True):
 
 def print_bed_regions(df,fname,flank=250,ref_coord=False):
     with open(fname,'w') as fout:
-        print('writing to ',fname)
         for i, row in df.iterrows():
-            print('row',i)
             if ref_coord:
                 fout.write('\t'.join(map(str,[row['ref_contig'],max(row['ref_start']-flank,1),row['ref_end']+flank])) + '\n')
             else:
                 fout.write('\t'.join(map(str,[row['map_contig'],max(row['map_start']-flank,1),row['map_end']+flank])) + '\n')
 
 regions = extract_overlap_regions(ARS,hifiasm,canu)
+print(len(regions[3]))
+print(regions[1].head())
 
 for code, df in zip(('hifiasm_exclusive','hifiasm_cns','canu_exclusive','canu_cns'),regions):
     filtered = filter_end_regions(df[df['size']>100],1e7)
     print(code,len(filtered))
-    print_bed_regions(filt,f'{code}.bed',500,False)
-    print_bed_regions(filt,f'{code}.ARS.bed',500,True)
+    print_bed_regions(filtered,f'{code}.bed',500,False)
+    print_bed_regions(filtered,f'{code}.ARS.bed',500,True)
 
 
 
