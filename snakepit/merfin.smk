@@ -1,14 +1,12 @@
 from pathlib import Path,PurePath
 
 
-localrules: meryl_print_histogram, merfin_lookup
-
-if Path('config/ratatosk.yaml').exists():
-    configfile: 'config/ratatosk.yaml'
+localrules: meryl_print_histogram, merfin_lookup, samtools_faidx
 
 wildcard_constraints:
     N = r'\d+',
-    merfin_op = r'hist|completeness'
+    merfin_op = r'hist|completeness',
+    read = r'hifi|SR'
 
 class Default(dict):
     def __missing__(self, key):
@@ -18,22 +16,22 @@ def get_dir(base='main',ext='', **kwargs):
     if base == 'main':
         base_dir = 'merfin_{animal}'
     elif base == 'lookup':
-        base_dir = get_dir('main','lookup_{haplotype}',**kwargs)
+        base_dir = get_dir('main','lookup_{haplotype}_{read}',**kwargs)
     elif base == 'work':
-        base_dir = get_dir('main','polishing_{haplotype}',**kwargs)
+        base_dir = get_dir('main','polishing_{haplotype}_{read}',**kwargs)
     else:
         raise Exception('Base not found')
-    return str(Path(base_dir.format_map(Default(kwargs))) / ext)
+    return str(Path(base_dir.format_map(Default(kwargs))) / ext.format_map(Default(kwargs)))
 
 rule all:
     input:
-        expand(get_dir('work','{polish}.{op}',haplotype=config['haplotype'],animal=config['animal']),op=('hist','completeness'),polish=('unpolished','polished'))
+        expand(get_dir('work','{polish}.{op}',read='hifi',haplotype=config['haplotype'],animal=config['animal']),op=('hist','completeness'),polish=('unpolished','polished'))
 
 rule meryl_count_reads:
     input:
         config['reads']
     output:
-        directory(get_dir('main','{haplotype}.readmers.meryl'))
+        directory(get_dir('main','{haplotype}.readmers.{read}.meryl'))
     threads: 16
     resources:
         mem_mb = 4000
@@ -57,7 +55,7 @@ rule meryl_count_asm:
 
 rule meryl_print_histogram:
     input:
-        get_dir('main','{haplotype}.readmers.meryl')
+        get_dir('main','{haplotype}.readmers.{read}.meryl')
     output:
         get_dir('lookup','read_hist.tsv')
     shell:
@@ -82,12 +80,12 @@ rule merfin_vmer:
     input:
         fasta = config['assembly'],
         seqmers = get_dir('work','seqmers.unpolished.meryl'),
-        readmers = get_dir('main','{haplotype}.readmers.meryl'),
+        readmers = get_dir('main','{haplotype}.readmers.{read}.meryl'),
         vcf = config['vcf'],
         lookup = get_dir('lookup','lookup_table.txt'),
         model = get_dir('lookup','model.txt')
     output:
-        get_dir('work','merfin.polish.vcf')
+        temp(get_dir('work','merfin.polish.vcf'))
     params:
         out = lambda wildcards, output: PurePath(output[0]).with_name('merfin'),
         coverage = lambda wildcards, input: float([line for line in open(input.model)][8].split()[1])
@@ -101,7 +99,7 @@ rule merfin_hist:
     input:
         fasta = lambda wildcards: config['assembly'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished']),
         seqmers = get_dir('work','seqmers.{polished}.meryl'),
-        readmers = get_dir('main','{haplotype}.readmers.meryl'),
+        readmers = get_dir('main','{haplotype}.readmers.{read}.meryl'),
         lookup = get_dir('lookup','lookup_table.txt'),
         model = get_dir('lookup','model.txt')
     output:
@@ -110,16 +108,16 @@ rule merfin_hist:
         coverage = lambda wildcards, input: float([line for line in open(input.model)][8].split()[1])
     threads: 16
     resources:
-        mem_mb = 5500
+        mem_mb = lambda wildcards: 5500 if wildcards.merfin_op != 'dump' else 9000
     shell:
         'merfin -{wildcards.merfin_op} -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -output {output}'
 
-rule merfin_polish:
+rule bcftools_polish:
     input:
         fasta = config['assembly'],
         vcf = get_dir('work','merfin.polish.vcf')
     output:
-        vcf = multiext(get_dir('work','merfin.polish.vcf.gz'),'','.csi'),
+        vcf = temp(multiext(get_dir('work','merfin.polish.vcf.gz'),'','.csi')),
         fasta = get_dir('work',config['polished'])
     shell:
         '''
@@ -128,4 +126,39 @@ rule merfin_polish:
         bcftools consensus {output.vcf[0]} -f {input.fasta} -H 1 > {output.fasta}
         '''
 
+rule merfin_correlation:
+    input:
+        get_dir('work','{polished}.{merfin_op}',read=('hifi','SR'))
+    output:
+        get_dir('work','correlation.svg')
+    envmodules:
+        'gcc/8.2.0',
+        'r/4.0.2'
+    shell:
+        'Rscript {config[cartesian]} {input}'
 
+rule samtools_faidx:
+    input:
+        '{reference}'
+    output:
+        '{reference}.fai'
+    shell:
+        'samtools faidx {input}'
+
+rule dump_to_bigWig:
+    input:
+        dump = get_dir('work','{polished}.dump'),
+        fai = lambda wildcards: f"{config['assembly'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished'])}.fai"
+    output:
+        wig = temp(get_dir('work','{polished}.wig')),
+        sizes =  temp(get_dir('work','{polished}.sizes')),
+        bw = get_dir('work','{polished}.bw')
+    threads: 1
+    resources:
+        mem_mb = 80000
+    shell:
+        '''
+        awk 'BEGIN{{print "track autoScale=on"}}{{if($1!=chr){{chr=$1; print "variableStep chrom="chr" span=1"}};if($3!=0){{printf $2+1"\t"$5"\n"}}}' {input.dump} > {output.wig}
+        cut -f1,2 {input.fai} > {output.sizes}
+        wigToBigWig {output.wig} {output.sizes} {output.bw}
+        '''
