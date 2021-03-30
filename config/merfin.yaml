@@ -2,8 +2,11 @@ animal: ''
 assembly: ''
 haplotype: ''
 polished: ''
-reads: ''
+reads:
+    hifi: ''
+    SR: ''
 vcf: ''
 kmer: 21
 mem_adj: 1100
 lookup: '/cluster/work/pausch/alex/software/genomescope2.0/genomescope.R'
+cartesian: '/cluster/work/pausch/alex/software/merfin/scripts/cartesian_plot.R'

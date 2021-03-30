@@ -5,7 +5,7 @@ localrules: meryl_print_histogram, merfin_lookup, samtools_faidx
 
 wildcard_constraints:
     N = r'\d+',
-    merfin_op = r'hist|completeness',
+    merfin_op = r'hist|completeness|dump',
     read = r'hifi|SR'
 
 class Default(dict):
@@ -29,7 +29,7 @@ rule all:
 
 rule meryl_count_reads:
     input:
-        config['reads']
+        lambda wildcards: config['reads'][wildcards.read]
     output:
         directory(get_dir('main','{haplotype}.readmers.{read}.meryl'))
     threads: 16
@@ -43,8 +43,9 @@ rule meryl_count_reads:
 rule meryl_count_asm:
     input:
         lambda wildcards: config['assembly'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished'])
-    output:
-        directory(get_dir('work','seqmers.{polished}.meryl'))
+    output: 
+        directory(get_dir('main','{haplotype}.seqmers.{polished}.meryl'))
+        #directory(get_dir('work','seqmers.{polished}.meryl'))
     threads: 8
     resources:
         mem_mb = 2500
@@ -79,7 +80,7 @@ rule merfin_lookup:
 rule merfin_vmer:
     input:
         fasta = config['assembly'],
-        seqmers = get_dir('work','seqmers.unpolished.meryl'),
+        seqmers = get_dir('main','{haplotype}.seqmers.unpolished.meryl'),
         readmers = get_dir('main','{haplotype}.readmers.{read}.meryl'),
         vcf = config['vcf'],
         lookup = get_dir('lookup','lookup_table.txt'),
@@ -98,7 +99,7 @@ rule merfin_vmer:
 rule merfin_hist:
     input:
         fasta = lambda wildcards: config['assembly'] if wildcards.polished == 'unpolished' else get_dir('work',config['polished']),
-        seqmers = get_dir('work','seqmers.{polished}.meryl'),
+        seqmers = get_dir('main','{haplotype}.seqmers.{polished}.meryl'),
         readmers = get_dir('main','{haplotype}.readmers.{read}.meryl'),
         lookup = get_dir('lookup','lookup_table.txt'),
         model = get_dir('lookup','model.txt')
@@ -108,7 +109,7 @@ rule merfin_hist:
         coverage = lambda wildcards, input: float([line for line in open(input.model)][8].split()[1])
     threads: 16
     resources:
-        mem_mb = lambda wildcards: 5500 if wildcards.merfin_op != 'dump' else 9000
+        mem_mb = lambda wildcards: 5500 if wildcards.merfin_op != 'dump' else 12000
     shell:
         'merfin -{wildcards.merfin_op} -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -output {output}'
 
@@ -128,14 +129,18 @@ rule bcftools_polish:
 
 rule merfin_correlation:
     input:
-        get_dir('work','{polished}.{merfin_op}',read=('hifi','SR'))
+        (get_dir('work','{polished}.dump',polished='unpolished',read=read) for read in ('hifi','SR'))
     output:
-        get_dir('work','correlation.svg')
+        kstar = temp(get_dir('work','kstar_cor.txt')),
+        plot = get_dir('work','correlation.svg')
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
     shell:
-        'Rscript {config[cartesian]} {input}'
+        '''
+        cut -f3-5 {input[1]} | paste {input[0]} - | awk '{{if($3==0){{a="NA"}}else{{a=$5}};if($6==0){{b="NA"}}else{{b=$8}}; dups[a"\t"b]++}} END{{for (num in dups) {{printf dups[num]"\t"num"\n"}}}}' | sort -nrk1 -nk2 > {output.kstar}
+        Rscript {config[cartesian]} {output.kstar} {output.plot}
+        '''
 
 rule samtools_faidx:
     input:
