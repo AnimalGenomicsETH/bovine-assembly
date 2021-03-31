@@ -109,7 +109,8 @@ rule merfin_hist:
         coverage = lambda wildcards, input: float([line for line in open(input.model)][8].split()[1])
     threads: 16
     resources:
-        mem_mb = lambda wildcards: 5500 if wildcards.merfin_op != 'dump' else 12000
+        mem_mb = lambda wildcards: 5500 if wildcards.merfin_op != 'dump' else 15000,
+        walltime = '2:00'
     shell:
         'merfin -{wildcards.merfin_op} -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -output {output}'
 
@@ -129,16 +130,19 @@ rule bcftools_polish:
 
 rule merfin_correlation:
     input:
-        (get_dir('work','{polished}.dump',polished='unpolished',read=read) for read in ('hifi','SR'))
-    output:
-        kstar = temp(get_dir('work','kstar_cor.txt')),
-        plot = get_dir('work','correlation.svg')
+        (get_dir('work','{polished}.dump',read=read) for read in ('hifi','SR'))
+    output:#add {polished} wildcard
+        kstar = temp(get_dir('main','{haplotype}.{polished}.kstar_cor.txt')),
+        plot = get_dir('main','{haplotype}.{polished}.correlation.svg')
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
+    threads: 2
+    resources:
+        mem_mb = 3000
     shell:
         '''
-        cut -f3-5 {input[1]} | paste {input[0]} - | awk '{{if($3==0){{a="NA"}}else{{a=$5}};if($6==0){{b="NA"}}else{{b=$8}}; dups[a"\t"b]++}} END{{for (num in dups) {{printf dups[num]"\t"num"\n"}}}}' | sort -nrk1 -nk2 > {output.kstar}
+        cut -f3-5 {input[1]} | paste {input[0]} - | awk '{{if($3==0){{a="NA"}}else{{a=$5}};if($6==0){{b="NA"}}else{{b=$8}}; dups[a"\\t"b]++}} END{{for (num in dups) {{printf dups[num]"\\t"num"\\n"}}}}' | sort -nrk1 -nk2 > {output.kstar}
         Rscript {config[cartesian]} {output.kstar} {output.plot}
         '''
 
