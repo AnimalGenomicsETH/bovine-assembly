@@ -8,7 +8,6 @@ if config['animal'] != 'test':
     workdir: PurePath(config['workdir']).joinpath(config['animal'])
 
 #GLOBAL VAR
-raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
 localrules: all, analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign, validation_yak_completeness, validation_asmgene
@@ -47,7 +46,7 @@ include: 'snakepit/purge_duplicates.smk'
 include: 'snakepit/variant_calling.smk'
 include: 'snakepit/mappers.smk'
 include: 'snakepit/capture_logic.smk'
-include: 'snakepit/gap_closing.smk'
+#include: 'snakepit/gap_closing.smk'
 
 wildcard_constraints:
     assembler = r'[^\W_]+',

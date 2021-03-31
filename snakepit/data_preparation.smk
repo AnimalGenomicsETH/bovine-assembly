@@ -2,7 +2,7 @@ localrules: raw_merge_files, raw_QC, fastq_to_fasta
 
 rule raw_read_conversion:
     input:
-        lambda wildcards: f'{config["data"][config["animal"]]["long_reads"][wildcards.individual]}{{read_name}}.ccs.bam'
+        lambda wildcards: f'{config["data"]["long_reads"][wildcards.individual]}{{read_name}}.ccs.bam'
     output:
         temp('data/{individual}_{read_name}.temp.fastq.gz')
     threads: 8
@@ -13,7 +13,7 @@ rule raw_read_conversion:
 
 rule raw_merge_files:
     input:
-        lambda wildcards: expand('data/{{individual}}_{read_name}.temp.fastq.gz',read_name=glob_wildcards(f'{config["data"][config["animal"]]["long_reads"][wildcards.individual]}{{read_name}}.ccs.bam').read_name)
+        lambda wildcards: expand('data/{{individual}}_{read_name}.temp.fastq.gz',read_name=glob_wildcards(f'{config["data"]["long_reads"][wildcards.individual]}{{read_name}}.ccs.bam').read_name)
     output:
         protected('data/{individual}.raw.hifi.fq.gz')
     shell: 'cat {input} > {output}'
@@ -45,7 +45,7 @@ rule fastq_to_fasta:
 
 rule filter_SR_data:
     input:
-        reads = lambda wildcards: expand(f'{config["data"][config["animal"]]["short_reads"][wildcards.individual]}_R{{N}}.fastq.gz', N = (1,2))
+        reads = lambda wildcards: expand(f'{config["data"]["short_reads"][wildcards.individual]}_R{{N}}.fastq.gz', N = (1,2))
     output:
         reads = expand('data/{{individual}}.read_R{N}.SR.fq.gz', N = (1,2))
     params:
