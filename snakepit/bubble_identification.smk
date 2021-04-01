@@ -3,6 +3,8 @@ rule all:
         expand('{asm}.path.{L}.bed',asm=config['asm'],L=config['L'])
 
 print(config['asm'])
+#awk '{if(index($0, ">")) {print $0} else print "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"$0"GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"}' canu.chr_only.fa > canu.poly_g.fa
+
 rule minigraph_ggs:
     input:
         config['asm'].values()
