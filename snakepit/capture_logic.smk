@@ -2,7 +2,7 @@ from itertools import product
 
 def have_parental_data(read_t):
     for parent in ('dam', 'sire'):
-        if parent not in config['data'][config['animal']][read_t]:
+        if parent not in config['data'][read_t]:
             return False
     return True
 
@@ -19,13 +19,13 @@ def capture_logic(wildcards):
 
             if 'asm' in config['haplotypes']:
                 for extension in config['target_metrics']['general'] + config['target_metrics']['primary']:
-                    required_files.append(r_path / f'asm_{sample}_{assembler}.{extension}')
-
+                    #required_files.append(r_path / f'asm_{sample}_{assembler}.{extension}')
+                    required_files.append(get_dir('result',f'.{extension}',haplotype='asm',sample=sample,assembler=assembler))
             if 'trio' in config['haplotypes'] and have_parental_data('short_reads'):
                 for N in (1,2):
                     for extension in config['target_metrics']['general'] + config['target_metrics']['trio']:
-                        required_files.append(r_path / f'hap{N}_{sample}_{assembler}.{extension}')
-
+                        #required_files.append(r_path / f'hap{N}_{sample}_{assembler}.{extension}')
+                        required_files.append(get_dir('result',f'.{extension}',haplotype=f'hap{N}',sample=sample,assembler=assembler))
                     #if have_parental_data('long_reads'):
                     #    required_files.append(a_path / f'hap{N}.filled.fasta')
 
