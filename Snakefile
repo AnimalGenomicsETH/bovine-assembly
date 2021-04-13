@@ -109,7 +109,7 @@ if 'hifiasm' in config['assemblers']:
         shell:
             'hifiasm -o {params.out} -t {threads} {params.settings} {input}'
 
-if 'canu' in config['assemblers']:
+if 'canuhifi' in config['assemblers']:
     localrules: assembler_canu, strip_canu_bubbles, assembler_canu_parents
     rule assembler_canu:
         input:
@@ -149,9 +149,9 @@ if 'canu' in config['assemblers']:
 
     rule strip_canu_bubbles:
         input:
-            get_dir('work','{haplotype}.contigs_all.fa',assembler='canu')
+            get_dir('work','{haplotype}.contigs_all.fa',assembler='canuhifi')
         output:
-            get_dir('work','{haplotype}.contigs_raw.fa',assembler='canu')
+            get_dir('work','{haplotype}.contigs_raw.fa',assembler='canuhifi')
         shell:
             'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 --no-group-separator > {output}'
 
@@ -294,8 +294,8 @@ rule validation_busco:
         tmp_dir = '{haplotype}_{sample}_{assembler}_busco_results'
     threads: 12
     resources:
-        mem_mb = 5000,
-        walltime = '16:00'
+        mem_mb = 8000,
+        walltime = '24:00'
     shell:
         '''
         busco --cpu {threads} -i {input} -o {params.tmp_dir}
@@ -316,6 +316,17 @@ rule generate_reffai:
         f'{config["ref_genome"]}.fai'
     shell:
         'samtools faidx {config[ref_genome]}'
+
+rule index_bam:
+    input:
+        '{bam}.bam'
+    output:
+        '{bam}.bam.bai'
+    threads: 8
+    resources:
+        mem_mb = 4000
+    shell:
+        'samtools index -@ {threads} {input}'
 
 rule analysis_report:
     input:

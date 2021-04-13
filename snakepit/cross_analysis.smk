@@ -82,17 +82,6 @@ rule prep_window:
         bedtools makewindows -g {output.genome} -w {params} > {output.bed}
         '''
 
-rule index_bam:
-    input:
-        WORK_PATH + '{haplotype}_scaffolds_{type}_reads.bam'
-    output:
-        WORK_PATH + '{haplotype}_scaffolds_{type}_reads.bam.bai'
-    threads: 8
-    resources:
-        mem_mb = 4000
-    shell:
-        'samtools index -@ {threads} {input}'
-
 rule window_coverage:
     input:
         windows = WORK_PATH + '{haplotype}.windows.bed',
@@ -112,7 +101,21 @@ rule chromosome_coverage:
     shell:
         'samtools coverage {input.bam} -o {output}'
 
-checkpoint split_chromosomes:
+rule megadepth_coverage:
+    input:
+        multiext(get_dir('work','{haplotype}_scaffolds_{type}_reads.mm2.bam'),'','.bai')
+    output:
+        get_dir('work','{haplotype}.scaffolds.{type}.coverage.mm2.all.bw')
+    params:
+        out = lambda wilcards, output: PurePath(output[0]).with_suffix('').with_suffix(''),
+        opt = lambda wildcards: '--longreads' if wildcards.type == 'hifi' else ''
+    threads: 4
+    resources:
+        mem_mb = 7000
+    shell:
+        'megadepth {input[0]} --threads {threads} {params.opt} --filter-out 260 --bigwig --prefix {params.out}'
+        
+checkpoint split_chromosomes:       
     input:
         WORK_PATH + '{haplotype}.scaffolds.fasta'
     output:
@@ -127,9 +130,9 @@ checkpoint split_chromosomes:
         '''
         mkdir -p {output} && cd {output}
         grep ">" {params.asm} | cut -c 2- > {params.headers}
-        grep "{config[ref_chrm]}" {params.headers} | seqtk subseq {params.asm} - > {params.chrm}
-        grep "{config[ref_tig]}" {params.headers} | seqtk subseq {params.asm} - > {params.ur_tigs}
-        grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {params.headers} | seqtk subseq {params.asm} - > {params.ua_tigs}
+        grep -P "^[YX\d]" {params.headers} | seqtk subseq {params.asm} - > {params.chrm}
+        grep "^{config[ref_tig]}" {params.headers} | seqtk subseq {params.asm} - > {params.ur_tigs}
+        grep -v -P "^([XY\d]|config[ref_tig])" {params.headers} | seqtk subseq {params.asm} - > {params.ua_tigs}
         awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> filename".chrm.fa"}}' {params.chrm}
 
         for val in ref asm; do
@@ -146,10 +149,10 @@ rule repeat_masker:
     output:
         #NOTE repeatmasker doesn't output .masked if no masking, so just wrap the plain sequence via seqtk
         WORK_PATH + '{haplotype}_split_chrm/{chunk}.chrm.fa.masked'
-    threads: 24#lambda wildcards, input: 18 if input.size_mb < 100 else 24
+    threads: 6#lambda wildcards, input: 18 if input.size_mb < 100 else 24
     resources:
-        mem_mb = 400,
-        walltime = '4:00'
+        mem_mb = 1000,
+        walltime = '24:00'
     shell:
         '''
         RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} -qq -no_is {input} #-species "Bos taurus"
@@ -199,13 +202,3 @@ rule TGS_gapcloser:
         (cd {params.dir_} && {config[tgs_root]}/TGS-GapCloser.sh --scaff {params.scaffolds} --reads {params.reads} --output {wildcards.haplotype} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads})
         cp {params.dir_}/{params.out}.scaff_seqs {output}
         '''
-
-def aggregate_filled_gaps(wildcards):
-    checkpoint_output = checkpoints.split_main_chromosomes.get(**wildcards).output[0]
-    return expand(get_dir('work','shard_{chunk}_corrected.fastq',animal=config['animal']),chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('shard_{chunk}.fq')).chunk)
-    return expand('{fpath}/{chunk}.chrm.fa.masked',fpath=checkpoint_output,chunk=glob_wildcards(PurePath(checkpoint_output).joinpath('{chunk}.chrm.fa')).chunk)
-
-rule merge_masked_chromosomes:
-    inp
-        aggregate_chrm_input
-# prepare gapcloser for ONT reads

@@ -53,7 +53,7 @@ rule map_minigraph:
 
 rule map_hifi_cell:
     input:
-        reads = lambda wildcards: f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz',
+        reads = config['hifi'],#lambda wildcards: f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz',
         asm = get_dir('work','{haplotype}.scaffolds.fasta'),
         rep = get_dir('work','{haplotype}_repetitive_k15.txt')
     output:
@@ -80,10 +80,10 @@ rule merge_sort_map_cells:
 
 rule map_SR_reads:
     input:
-        reads = expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
+        reads = config['SR'],#expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
         asm = get_dir('work','{haplotype}.scaffolds.fasta')
     output:
-        get_dir('work','{haplotype}_scaffolds_SR_reads.bam')
+        get_dir('work','{haplotype}_scaffolds_SR_reads.mm2.bam')
     threads: 24
     resources:
         mem_mb = 6000,
