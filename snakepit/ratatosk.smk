@@ -6,8 +6,8 @@ localrules: ratatosk_make_bins, ratatosk_merge_bin1, ratatosk_shard_bin2, ratato
 if Path('config/ratatosk.yaml').exists():
     configfile: 'config/ratatosk.yaml'
 
-#wildcard_constraints:
-#    N = r'\d+'
+wildcard_constraints:
+    N = r'\d+'
 
 class Default(dict):
     def __missing__(self, key):
@@ -144,9 +144,12 @@ rule ratatosk_get_SR_fastq:
     threads: 4
     resources:
         mem_mb = 10000,
-        walltime = '1:00'
+        walltime = '2:00'
+    envmodules:
+        'gcc/8.2.0',
+        'pigz'
     shell:
-        'samtools bam2fq -@ {threads} -n {input.SR[0]} > {output}'
+        'samtools bam2fq -@ {threads} -n {input.SR[0]} | pigz -5 -p {threads} > {output}'
 
 rule ratatosk_correct_bin2_p1:
     input:
