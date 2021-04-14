@@ -27,6 +27,8 @@ def get_dir(base,ext='',**kwargs):
         base_dir = '{assembler}_{sample}'
     elif base == 'result':
         base_dir = 'results/{haplotype}_{sample}_{assembler}'
+    elif base =='summary':
+        base_dir = 'results'
     elif base == 'data':
         base_dir = 'data'
     else:
@@ -47,6 +49,7 @@ include: 'snakepit/variant_calling.smk'
 include: 'snakepit/mappers.smk'
 include: 'snakepit/capture_logic.smk'
 #include: 'snakepit/gap_closing.smk'
+include: 'snakepit/summariser.smk'
 
 wildcard_constraints:
     assembler = r'[^\W_]+',
