@@ -10,7 +10,7 @@ if config['animal'] != 'test':
 #GLOBAL VAR
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: all, analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign, validation_yak_completeness, validation_asmgene
+localrules: all, analysis_report, plot_dot, samtools_faidx, validation_auN, validation_refalign, validation_yak_completeness, validation_asmgene
 
 for _dir in ['data','results']:
     Path(_dir).mkdir(exist_ok=True)
@@ -301,7 +301,7 @@ rule validation_busco:
         walltime = '24:00'
     shell:
         '''
-        busco --cpu {threads} -i {input} -o {params.tmp_dir}
+        busco --cpu {threads} -i {input} -o {params.tmp_dir} --offline
         cp {params.tmp_dir}/short_summary*.txt {output.summary}
         mv {params.tmp_dir} {output.out_dir}
         '''
@@ -314,13 +314,15 @@ rule plot_dot:
     shell:
         'minidot -L {input} | convert -density 150 - {output}'
 
-rule generate_reffai:
+rule samtools_faidx:
+    input:
+        '{fasta}.{fa_ext,fa|fasta}'
     output:
-        f'{config["ref_genome"]}.fai'
+        '{fasta}.{fa_ext,fa|fasta}.fai'
     shell:
-        'samtools faidx {config[ref_genome]}'
+        'samtools faidx {input}'
 
-rule index_bam:
+rule samtools_index_bam:
     input:
         '{bam}.bam'
     output:
