@@ -1,4 +1,5 @@
 
+localrules: extract_chromosome_lengths, plot_chromosome_lengths
 
 def is_chromosomal(name):
     valid_chromosomes = [*map(str,range(1,30)),'X','Y','MT']
