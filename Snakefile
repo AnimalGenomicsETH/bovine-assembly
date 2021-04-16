@@ -35,7 +35,7 @@ def get_dir(base,ext='',**kwargs):
         raise Exception('Base not found')
     if ext and ext[0] == '.':
         return f'{base_dir}{ext}'.format_map(Default(kwargs))
-    return str(PurePath(base_dir.format_map(Default(kwargs))) / ext)
+    return str(PurePath(base_dir.format_map(Default(kwargs))) / ext.format_map(Default(kwargs)))
 
 WORK_PATH = '{assembler}_{sample}/'
 RESULT_PATH = 'results/{haplotype}_{sample}_{assembler}'
@@ -61,7 +61,7 @@ wildcard_constraints:
     data = r'[^\W_]+',
     modifier = r'\w+',
     read_t  = r'hifi|SR',
-    mapper = r'mm2|wm2'
+    mapper = r'mm2|wm'
 
 #------------#
 #DEFINE RULES#
