@@ -68,17 +68,15 @@ rule ragtag_scaffold:
 
 rule prep_window:
     input:
-        WORK_PATH + '{haplotype}.scaffolds.fasta'
+        get_dir('work','{haplotype}.scaffolds.fasta.fai')
     output:
-        fai = WORK_PATH + '{haplotype}.scaffolds.fasta.fai',
         genome = WORK_PATH + '{haplotype}.genome',
         bed = WORK_PATH + '{haplotype}.windows.bed'
     params:
         10000
     shell:
         '''
-        samtools faidx {input}
-        awk -v OFS='\\t' {{'print $1,$2'}} {output.fai} > {output.genome}
+        awk -v OFS='\\t' {{'print $1,$2'}} {input} > {output.genome}
         bedtools makewindows -g {output.genome} -w {params} > {output.bed}
         '''
 

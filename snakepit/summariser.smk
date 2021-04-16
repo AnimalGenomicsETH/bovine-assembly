@@ -1,22 +1,33 @@
 
-VALID_CHR = [*range(1,30),'X','Y','MT']
+localrules: extract_chromosome_lengths, plot_chromosome_lengths
+
+VALID_CHR = [*map(str,range(1,30)),'X','Y','MT']
+
 def is_chromosomal(name):
-    valid_chromosomes = [*range(1,30),'X','Y','MT']
-    return name in valid_chromosomes
+    #TODO remove ragtag
+    return name.replace('_RagTag','') in VALID_CHR
+
+def length_against_reference(df):
+    lens = []
+    for _,row in df.iterrows():
+        lens.append(int(row['length']-df[(df['assembly']=='Ref')&(df['chromosome']==row['chromosome'])]['length']))
+    return lens
 
 rule extract_chromosome_lengths:
     input:
-        (get_dir('work','{haplotype}.scaffolds.fasta.fai',sample=100,assembler=ASM) for ASM in config['assemblers'])
+        (get_dir('work','{haplotype}.scaffolds.fasta.fai',sample=100,assembler=ASM) for ASM in config['assemblers']),
+        config['ref_genome'] + '.fai'
     output:
         get_dir('summary','{haplotype}.chromosome_lengths.csv')
     run:
         with open(output[0],'w') as fout:
-            for fai, assembler in zip(input,config['assemblers']):
+            fout.write('assembly,chromosome,length\n')
+            for fai, assembler in zip(input,config['assemblers']+['Ref',]):
                 with open(fai,'r') as fin:
                     for line in fin:
                         parts = line.rstrip().split()
                         if is_chromosomal(parts[0]):
-                            fout.write(f'{asm},{parts[1]},{parts[2]}\n')
+                            fout.write(f'{assembler},{parts[0].rstrip("_RagTag")},{parts[1]}\n')
 
 rule plot_chromosome_lengths:
     input:
@@ -31,7 +42,11 @@ rule plot_chromosome_lengths:
         df =pd.read_csv(input[0])
         #df2= df[~df['chromosome'].str.contains("NKL")]
         #df2['chromosome'] = [i.strip('_RagTag') for i in df2['chromosome']]
-        sns.catplot(data=df,kind='bar',x='chromosome',y='length',hue='assembly')
+        f, axes = plt.subplots(2,1)
+        sns.barplot(data=df,x='chromosome',y='length',hue='assembly',ax=axes[0])
+        df['residues'] = length_against_reference(df)
+        df_no_ref = df[df['assembly']!='Ref']
+        sns.barplot(data=df_no_ref,x='chromosome',y='residues',hue='assembly',ax=axes[1])
         plt.savefig(output[0])
 
 
