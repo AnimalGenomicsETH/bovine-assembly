@@ -1,7 +1,7 @@
-
-localrules: extract_chromosome_lengths, plot_chromosome_lengths
+localrules: extract_chromosome_lengths, plot_chromosome_lengths, extract_centr_telo_features, bedtools_merge_centr_telo
 
 VALID_CHR = [*map(str,range(1,30)),'X','Y','MT']
+PRIMARY_CHR = VALID_CHR[:-2]
 
 def is_chromosomal(name):
     #TODO remove ragtag
@@ -52,14 +52,21 @@ rule plot_chromosome_lengths:
 
 rule extract_centr_telo_features:
     input:
-        get_dir('work','{haplotype}_split_chrm/{chr}',chr=CHR) for CHR in VALID_CHR)
+        (get_dir('work','{haplotype}_split_chrm/{chr}.chrm.fa.out',chr=CHR) for CHR in PRIMARY_CHR)
     output:
         temp(get_dir('work','{haplotype}.centr_telo.unmerged.bed'))
     params:
-        regex = r'BTSAT|\(TTAGGG\)n'
+        regex = r'BTSAT|OSSAT|\(TTAGGG\)n'
     run:
         import re
-        colours = {'BTSAT':'186,56,44','(TTAGGG)n':'44,174,186'}
+        def get_colour(ele):
+            if ele == '(TTAGGG)n':
+                return '44,174,186'
+            elif 'BTSAT' in ele:
+                return '186,56,44'
+            else: #nominally OSSAT
+                return '140,50,200'
+            
         pattern = re.compile(params.regex)
         with open(output[0],'w') as fout:
             fout.write('track name="centro telo" visibility=2 itemRgb="On"\n')
@@ -70,7 +77,7 @@ rule extract_centr_telo_features:
                             continue
                         parts = line.rstrip().split()
                         if pattern.match(parts[9]):
-                            fout.write(f'{parts[4]},{int(parts[5])-1},{parts[6]},{parts[9]},.,{"-" if parts[8] =="C" else "+"},{int(parts[5])-1},{parts[6]},{colours[parts[9]]}\n')
+                            fout.write('\t'.join(map(str,(parts[4],int(parts[5])-1,parts[6],parts[9],'.','-' if parts[8] == 'C' else '+',int(parts[5])-1,parts[6],get_colour(parts[9]))))+'\n')
 
 rule bedtools_merge_centr_telo:
     input:
@@ -78,12 +85,5 @@ rule bedtools_merge_centr_telo:
     output:
         get_dir('result','.centr_telo.bed')
     shell:
-        'bedtools merge -i {input} -c 4,5,6,7,8,9 -o distinct,first,first,min,max,first > {output}'
+        'bedtools merge -i {input} -header -c 4,5,6,7,8,9 -o distinct,first,first,min,max,first > {output}'
 
-
-
-#(TTAGGG)n
-#track name="ItemRGBDemo" description="Item RGB demonstration" visibility=2 itemRgb="On"
-#chr7    127471196  127472363  Pos1  0  +  127471196  127472363  255,0,0
-#awk 'BEGIN{OFS="\t"}{if(NR>3 && $10 ~ /BTSAT/) {if($9=="C"){strand="-"}else{strand="+"};print $5,$6-1,$7,$10,".",strand}}' hap1_split_chrm/2_RagTag.chrm.fa.out > chr2.bed
-#bedtools merge -i chr2.bed -c 4 -o distinct > chr2.merge.bed

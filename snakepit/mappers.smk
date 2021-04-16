@@ -65,6 +65,22 @@ rule map_hifi_cell:
     shell:
         'winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} | samtools view -b -o {output} -'
 
+rule winnowmap_align:
+    input:
+        asm = get_dir('work','{haplotype}.scaffolds.fasta'),
+        reads = lambda wildcards: config['data'][wildcards.read][wildcards.haplotype],
+        rep = get_dir('work','{haplotype}_repetitive_k15.txt')
+    output:
+        temp(get_dir('work','{haplotype}.{read}.wm.bam'))
+    params:
+        lambda wildcards: 'map-pb' if wildcards.read == 'hifi' else 'map-ont'
+    threads: 32
+    resources:
+        mem_mb = 3000,
+        walltime = '24:00'
+    shell:
+        'winnowmap -t {threads} -W {input.rep} -ax {params} {input.asm} {input.reads} | samtools view -@ 2 -b -o {output} -'
+
 rule merge_sort_map_cells:
     input:
     #TODO still fix double escaping
