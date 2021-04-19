@@ -1,5 +1,7 @@
 localrules: make_unique_names, extract_chromosome, extract_unmapped_regions, samtools_faidx
 
+from pathlib import PurePath, Path
+
 class Default(dict):
     def __missing__(self, key):
         return '{'+key+'}'
@@ -15,7 +17,7 @@ def get_dir(base,ext='',**kwargs):
 
 rule all:
     input:
-        (get_dir('SV','{asm}.path.7.{L}.unmapped.bed',L=config['L'],asm=ASM) for ASM in config['assemblies'][1:])
+        (get_dir('SV','{asm}.path.7.{L}.unmapped.bed',L=config['L'],asm=ASM) for ASM in list(config['assemblies'].keys())[1:])
 
 rule make_unique_names:
     input:
@@ -23,7 +25,7 @@ rule make_unique_names:
     output:
         temp(get_dir('SV','{asm}.fasta'))
     shell:
-        'sed "/^>/ s/$/_{wildcards.asm}}/" {input} > {output}'
+        'sed "/^>/ s/$/_{wildcards.asm}/" {input} > {output}'
 
 rule extract_chromosome:
     input:
@@ -31,7 +33,7 @@ rule extract_chromosome:
     output:
         temp(get_dir('SV','{asm}.{chr}.fasta'))
     shell:
-        'samtools faidx {input} {wildcards.chr}_{wildcards.asm} > {output}'
+        'samtools faidx {input[0]} {wildcards.chr}_{wildcards.asm} > {output}'
 
 rule minigraph_ggs:
     input:
@@ -50,7 +52,7 @@ rule minigraph_align:
         gfa = get_dir('SV','{chr}.L{L}.gfa'),
         fasta = get_dir('SV','{asm}.{chr}.fasta')
     output:
-        get_dir('SV','{asm}.path.{chr}.{L}.{ext,gaf|bed}')
+        get_dir('SV','{asm}.path.{chr}.{L,\d+}.{ext,gaf|bed}')
     params:
         lambda wildcards: '--call' if wildcards.ext == 'bed' else ''
     threads: 12
@@ -58,7 +60,7 @@ rule minigraph_align:
         mem_mb = 7000,
         walltime = '4:00'
     shell:
-        'minigraph {params} -xasm -t {threads} {input.gfa} {input.fa} > {output}'
+        'minigraph {params} -xasm -t {threads} {input.gfa} {input.fasta} > {output}'
 
 rule extract_unmapped_regions:
     input:
