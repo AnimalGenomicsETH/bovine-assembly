@@ -48,12 +48,14 @@ rule minigraph_ggs:
         (get_dir('SV',f'{asm}.{{chr}}.fasta') for asm in config['assemblies'])
     output:
         get_dir('SV','{chr}.L{L}.gfa')
+    params:
+        asm = '-g1m -r1m --max-gap-pre=50k --min-cov-blen=1m --min-cov-mapq=20 --max-lc-skip=100 --max-gc-skip=100'
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 2
     resources:
         mem_mb = 5000,
         walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '30'
     shell:
-        'minigraph -xggs -t {threads} -l 300k -L {wildcards.L} {input} > {output}'
+        'minigraph -xggs -t {threads} -j.05 -L {wildcards.L} {input} > {output}'
 
 rule minigraph_align:
     input:
