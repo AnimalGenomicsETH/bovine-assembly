@@ -20,7 +20,7 @@ wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
      haplotype = r'asm|hap1|hap2|parent1|parent2',
      phase = r'unphased|phased',
-     model = r'pbmm2|hybrid|wgs'
+     model = r'pbmm2|hybrid|bwa'
 
 def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
     model_location = f'{base}/{{}}/{ext}'
@@ -29,6 +29,8 @@ def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
             return model_location.format('pacbio')
         elif wildcards['model'] == 'hybrid':
             return model_location.format('hybrid_pacbio_illumina')
+        elif wildcards['model'] == 'bwa':
+            return model_location.format('wgs')
     else:
         if wildcards['model'] == 'pbmm2':
             if wildcards['subset'] == 'child':
@@ -77,6 +79,35 @@ rule minimap_align:
         disk_scratch = 250
     shell:
         'minimap2 -ax sr -t {threads} {input.ref} {input.reads} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'
+
+rule bwamem2_index:
+    input:
+        ref = lambda wildcards: config['references'][wildcards.ref]
+    output:
+        temp(get_dir('input','{ref}_index.0123'))
+    params:
+        lambda wildcards, output: PurePath(output[0]).with_suffix('')
+    threads: 1
+    resources:
+        mem_mb = 85000
+    shell:
+        'bwa-mem2 index -p {params} {input}'
+
+rule bwamem2_align:
+    input:
+        index = lambda wildcards: str(PurePath(config['references'][wildcards.ref]).parent / f'{wildcards.ref}_index' / f'{wildcards.ref}.0123'),
+        reads = lambda wildcards: config['animals'][wildcards.animal]['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]['short_reads']
+    output:
+        temp(get_dir('input','{haplotype}.unphased.{ref}.bwa.bam'))
+    params:
+        prefix = lambda wildcards, input: PurePath(input.index).with_suffix('')
+    threads: 12
+    resources:
+        mem_mb = 6000,
+        walltime = '24:00',
+        disk_scratch = 250
+    shell:
+        'bwa-mem2 mem -t {threads} {params.prefix} {input.reads} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'
 
 rule pbmm2_align:
     input:
@@ -139,7 +170,7 @@ rule deepvariant_make_examples:
     threads: 1
     resources:
         mem_mb = 6000,
-        walltime = '8:00',
+        walltime = '4:00',
         disk_scratch = 1,
         use_singularity = True
     shell:
@@ -169,12 +200,12 @@ rule deepvariant_call_variants:
         singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
         contain = lambda wildcards: config['DV_container'] if wildcards.subset == '' else config['DT_container'],
         vino = lambda wildcards: '--use_openvino' if wildcards.subset == '' else ''
-    threads: 24
+    threads: 32
     resources:
         mem_mb = 1500,
         disk_scratch = 1,
         use_singularity = True,
-        walltime = lambda wildcards: '24:00' if wildcards.subset == '' else '24:00'
+        walltime = lambda wildcards: '4:00' if wildcards.subset == '' else '24:00'
     shell:
         '''
         {params.singularity_call} \
