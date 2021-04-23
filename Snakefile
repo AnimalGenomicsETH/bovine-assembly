@@ -50,6 +50,7 @@ include: 'snakepit/mappers.smk'
 include: 'snakepit/capture_logic.smk'
 #include: 'snakepit/gap_closing.smk'
 include: 'snakepit/summariser.smk'
+include: 'snakepit/structural_variants.smk'
 
 wildcard_constraints:
     assembler = r'[^\W_]+',
@@ -316,7 +317,7 @@ rule plot_dot:
 
 rule samtools_faidx:
     input:
-        '{fasta}.{fa_ext,fa|fasta}'
+        '{fasta}.{fa_ext}'
     output:
         '{fasta}.{fa_ext,fa|fasta}.fai'
     shell:
