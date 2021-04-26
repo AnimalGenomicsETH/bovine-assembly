@@ -83,6 +83,94 @@ rule pepper_stitch:
     shell:
         'pepper stitch -i {input} -o {output} -t {threads}'
 
+
+
+mkdir -p PEPPERv4;
+mkdir -p PEPPERv4/logs;
+mkdir -p PEPPERv4/intermediate_files;
+
+rule pepper_snp:
+    input:
+        ''
+    output:
+        ''
+    shell:
+        '''
+        pepper_snp call_variant -b bam -f fasta -t 24 -m /opt/pepper_models/PEPPER_SNP_R941_ONT_V4.pkl -o PEPPERv4/pepper_snp/ -s gaur -w 4 -bs 64 --ont 2>&1 | tee PEPPERv4/logs/1_pepper_snp.log
+        '''
+
+rule pepper_snp_post:
+    input:
+        ''
+    output:
+        ''
+    shell:
+        '''
+        mv PEPPERv4/pepper_snp/*.vcf PEPPERv4/PEPPER_SNP_OUPUT.vcf;
+        bgzip PEPPERv4/PEPPER_SNP_OUPUT.vcf;
+        tabix -p vcf PEPPERv4/PEPPER_SNP_OUPUT.vcf.gz;
+        rm -rf PEPPERv4/pepper_snp/;
+        '''
+
+rule pepper_margin:
+    input:
+        ''
+    output:
+        ''
+    shell:
+        '''
+        margin phase bam fasta PEPPERv4/PEPPER_SNP_OUPUT.vcf.gz /opt/margin_dir/params/misc/allParams.ont_haplotag.json -t 24 -V -o PEPPERv4/MARGIN_PHASED.PEPPER_SNP_MARGIN 2>&1 | tee PEPPERv4/logs/2_margin_haplotag.log;
+        '''
+
+rule pepper_margin_post:
+    input:
+        ''
+    output:
+        ''
+    shell:
+        '''
+        mv PEPPERv4/*.bam PEPPERv4/MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam;
+        samtools index -@24 PEPPERv4/MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam
+        '''
+
+rule pepper_hp:
+    input:
+        ''
+    output:
+        ''
+    shell:
+        '''
+        pepper_hp call_variant -b PEPPERv4/MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam -f fasta -t 24 -m /opt/pepper_models/PEPPER_HP_R941_ONT_V4.pkl -o PEPPERv4/pepper_hp/ -s gaur -w 4 -bs 64 --ont_asm 2>&1 | tee PEPPERv4/logs/3_pepper_hp.log
+        '''
+
+rule pepper_hp_post:
+    input:
+        ''
+    output:
+        ''
+    shell:
+        '''
+
+        mv PEPPERv4/pepper_hp/PEPPER_HP_OUTPUT_1.vcf PEPPERv4/PEPPER_HP_OUTPUT_1.vcf;
+        mv PEPPERv4/pepper_hp/PEPPER_HP_OUTPUT_2.vcf PEPPERv4/PEPPER_HP_OUTPUT_2.vcf;
+        bgzip PEPPERv4/PEPPER_HP_OUTPUT_1.vcf;
+        bgzip PEPPERv4/PEPPER_HP_OUTPUT_2.vcf;
+        tabix -p vcf PEPPERv4/PEPPER_HP_OUTPUT_1.vcf.gz;
+        tabix -p vcf PEPPERv4/PEPPER_HP_OUTPUT_2.vcf.gz;
+        rm -rf PEPPERv4/pepper_hp/;
+        '''
+
+rule pepper_DV:
+
+mkdir -p PEPPERv4/dv_intermediate_outputs/;
+echo "STARTING DEEPVARIANT";
+time /opt/deepvariant/bin/run_deepvariant --model_type=WGS --customized_model=/opt/dv_models/202012_polish_nohp_rows/model.ckpt-28400 --ref=fasta --reads=PEPPERv4/MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam --output_vcf=PEPPERv4/PEPPER_MARGIN_DEEPVARIANT_ASM_POLISHED_HAP1.vcf.gz --sample_name="gaur" --intermediate_results_dir=PEPPERv4/dv_intermediate_outputs/ --num_shards=24 --make_examples_extra_args="alt_aligned_pileup=rows,realign_reads=false,sort_by_haplotypes=true,parse_sam_aux_fields=true,add_hp_channel=false,hp_tag_for_assembly_polishing=1,variant_caller=vcf_candidate_importer,proposed_variants=PEPPERv4/PEPPER_HP_OUTPUT_1.vcf.gz"  2>&1 | tee PEPPERv4/logs/4_DeepVariant.log
+mkdir -p PEPPERv4/dv_intermediate_outputs/;
+echo "STARTING DEEPVARIANT";
+    time /opt/deepvariant/bin/run_deepvariant --model_type=WGS --customized_model=/opt/dv_models/202012_polish_nohp_rows/model.ckpt-28400 --ref=fasta --reads=PEPPERv4/MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam --output_vcf=PEPPERv4/PEPPER_MARGIN_DEEPVARIANT_ASM_POLISHED_HAP2.vcf.gz --sample_name="gaur" --intermediate_results_dir=PEPPERv4/dv_intermediate_outputs/ --num_shards=24 --make_examples_extra_args="alt_aligned_pileup=rows,realign_reads=false,sort_by_haplotypes=true,parse_sam_aux_fields=true,add_hp_channel=false,hp_tag_for_assembly_polishing=2,variant_caller=vcf_candidate_importer,proposed_variants=PEPPERv4/PEPPER_HP_OUTPUT_2.vcf.gz"  2>&1 | tee PEPPERv4/logs/4_DeepVariant.log
+
+
+
 # rule racon_polish:
 #     input:
 #         scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',
