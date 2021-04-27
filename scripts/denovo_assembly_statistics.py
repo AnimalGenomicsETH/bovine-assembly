@@ -219,6 +219,29 @@ def emph_haplotype(haplotype):
     else:
         return haplotype
 
+
+def generate_csv_summary(assemblers,haplotypes):
+    summary_str = ''
+    for asm, hap in product(assemblers,haplotypes):
+        global assembler
+        assembler = asm
+        global haplotype
+        hap = haplotype
+
+        asm_metrics = load_auNCurves('contigs')[1]
+        aln_metrics = load_NGA()[1]
+        scaff_metrics = load_auNCurves('scaffolds')[1]
+        lineage, busco_string = busco_report()
+
+        kmer_stats = kmer_QV('full' if haplotype in ('asm','hap1','hap2') else 'simple')
+        QV = f'{float(kmer_stats["QV"]):.1f}'
+
+        summary_str += ','.join((assembler,haplotype,f'{asm_metrics["SZ"]/1e9:.2f}',f'{asm_metrics["NN"]:,}',f'{asm_metrics["N50"]/1e6:.2f}',kmer_stats['phased'].replace(',',''),QV,busco_string[2:7])) + '\n'
+
+    return summary_str
+
+
+
 def generate_markdown_string(summary_str,build_str=None):
     asm_metrics = load_auNCurves('contigs')[1]
     aln_metrics = load_NGA()[1]
@@ -333,10 +356,18 @@ def main(direct_input=None):
     parser.add_argument('--keepfig', action='store_true')
     parser.add_argument('--css', default='report.css', type=str)
     parser.add_argument('--multi', action='store_true')
+    parser.add_argument('--summary', action='store_true')
 
     args = parser.parse_args(direct_input)
 
     css_path = args.css if Path(args.css).is_file() else None
+
+    if args.summary:
+        summary_str = generate_csv_summary(args.samples,['hap1','hap2'])
+        with open(args.outfile,'w') as fout:
+            fout.write('assembler,haplotype,size,contigs,NG50,P50,QV,BUSCO\n')
+            fout.write(summary_str)
+        return
 
     if args.multi:
         summary_str = generate_multiple_statistics(args)
