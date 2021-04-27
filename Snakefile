@@ -334,6 +334,16 @@ rule samtools_index_bam:
     shell:
         'samtools index -@ {threads} {input}'
 
+rule summarise_statistics_row:
+    input:
+        capture_logic
+    output:
+        get_dir('summary','assembly_statistics.csv')
+    run:
+        with open(output[0],'w') as fout:
+            fout.write('assembler,haplotype,size,contigs,NG50,P50,QV,BUSCO\n')
+            
+
 rule analysis_report:
     input:
         capture_logic
