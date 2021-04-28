@@ -71,15 +71,27 @@ rule winnowmap_align:
         reads = lambda wildcards: config['data'][wildcards.read][wildcards.haplotype],
         rep = get_dir('work','{haplotype}_repetitive_k15.txt')
     output:
-        temp(get_dir('work','{haplotype}.{read}.wm.bam'))
+        temp(get_dir('work','{haplotype}.{read}.unsrt.wm.bam'))
     params:
         lambda wildcards: 'map-pb' if wildcards.read == 'hifi' else 'map-ont'
-    threads: 32
+    threads: 18
     resources:
-        mem_mb = 3000,
-        walltime = '24:00'
+        mem_mb = 5000,
+        walltime = '96:00'
     shell:
-        'winnowmap -t {threads} -W {input.rep} -ax {params} {input.asm} {input.reads} | samtools view -@ 2 -b -o {output} -'
+        'winnowmap -t {threads} -W {input.rep} -ax {params} {input.asm} {input.reads} | samtools view -@ 4 -b -o {output} -'
+
+rule samtools_sort:
+    input:
+        get_dir('work','{haplotype}.{read}.unsrt.wm.bam')
+    output:
+        get_dir('work','{haplotype}.{read}.wm.bam')
+    threads: 12
+    resources:
+        mem_mb = 6000,
+        disk_scratch=300
+    shell:
+        'samtools sort -m 3000M -@ {threads} -T $TMPDIR -o {output} {input}'
 
 rule merge_sort_map_cells:
     input:
