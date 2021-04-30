@@ -110,6 +110,18 @@ rule generate_hapmers:
         $MERQURY/trio/hapmers.sh {params.sire} {params.dam} {params.child}
         '''
 
+rule meryl_lookup_exclude:
+    input:
+        reads = expand('data/offspring.read_R{N}.SR.fq.gz', N=(1,2)),
+        #get opposite parental hapmers
+        hapmer = lambda wildcards: f'data/{"dam" if wildcards.parent == "sire" else "sire"}.hapmer.meryl'
+    output:
+        reads = expand('data/offspring.{{parent}}.read_R{N}.SR.fq.gz', N=(1,2))
+    shell:
+        '''
+        meryl-lookup -exclude -sequence {input.reads} -mers {input.hapmer} -threads {threads} -output {output.reads}
+        '''
+
 rule hap_blob:
     input:
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
