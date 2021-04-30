@@ -334,11 +334,20 @@ rule samtools_index_bam:
     shell:
         'samtools index -@ {threads} {input}'
 
-        #/cluster/work/pausch/group_bin/plink --het --cow --allow-extra-chr --vcf hap2.unphased.BSW_hifiasm.pbmm2.vcf.gz
-        #bcftools view --threads 4 -g ^miss -U -v snps hap2.unphased.BSW_hifiasm.pbmm2.vcf.gz > temp.vcf
-        #grep -oE "([0-2]/[0-2])" temp.vcf | sort | uniq -c
+rule summarise_statistics_row:
+    input:
+        capture_logic
+    output:
+        get_dir('summary','assembly_statistics.csv')
+    run:
+        with open(output[0],'w') as fout:
+            fout.write('assembler,haplotype,size,contigs,NG50,P50,QV,BUSCO\n')
+            
+#/cluster/work/pausch/group_bin/plink --het --cow --allow-extra-chr --vcf hap2.unphased.BSW_hifiasm.pbmm2.vcf.gz
+#bcftools view --threads 4 -g ^miss -U -v snps hap2.unphased.BSW_hifiasm.pbmm2.vcf.gz > temp.vcf
+#grep -oE "([0-2]/[0-2])" temp.vcf | sort | uniq -c
 
-        #jupiter name=test ref=../../../../REF_DATA/ARS-UCD1.2_Btau5.0.1Y.fa fa=../hap1.scaffolds.fasta ng=100 m=1000000 #sam=...
+#jupiter name=test ref=../../../../REF_DATA/ARS-UCD1.2_Btau5.0.1Y.fa fa=../hap1.scaffolds.fasta ng=100 m=1000000 #sam=...
 
 rule analysis_report:
     input:
