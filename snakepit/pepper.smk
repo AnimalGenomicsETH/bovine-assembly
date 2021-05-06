@@ -38,16 +38,32 @@ def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
             else:
                 return model_location.format(f'deeptrio/pacbio/parent')
 
-rule extract_haplotags:
+def make_singularity_call(wildcards,extra_args='',tmp_bind='$TMPDIR',input_bind=True, output_bind=True, work_bind=True):
+    call = f'singularity exec {extra_args} '
+    if input_bind:
+        call += f'-B {":/".join([get_dir("input",**wildcards)]*2)} '
+    if output_bind:
+        call += f'-B {":/".join([get_dir("output",**wildcards)]*2)} '
+    if work_bind:
+        call += f'-B {":/".join([get_dir("work",**wildcards)]*2)} '
+    if tmp_bind:
+        call += f'-B {tmp_bind}:/tmp '
+    return call
+
+rule all:
     input:
-        ''
-    output:
-        ''
-    shell:
-        '''
-        zgrep -o ">\S*" {input.hap1} | cut -c 2- | awk '{print $0" H1}' > {output}
-        zgrep -o ">\S*" {input.hap2} | cut -c 2- | awk '{print $0" H2}' > {output}
-        '''
+        expand('output_GxP/intermediate_results_hap1_unphased_pbmm2_ARS/make_examples.tfrecord-{N}-of-{sharding}.gz',N=range(config['shards']),sharding=config['shards'])
+
+#rule extract_haplotags:
+#    input:
+#        'a'
+#    output:
+#        'b'
+#    shell:
+#        '''
+#        zgrep -o ">\S*" {input.hap1} | cut -c 2- | awk '{print $0" H1}' > {output}
+#        zgrep -o ">\S*" {input.hap2} | cut -c 2- | awk '{print $0" H2}' > {output}
+#        '''
 
 rule deepvariant_make_examples:
     input:
@@ -55,19 +71,15 @@ rule deepvariant_make_examples:
         bam = multiext(get_dir('input','{haplotype}.{phase}.{ref}.{model}.bam'),'','.bai'),
         vcf = get_dir('work','PEPPER_HP_OUTPUT_1.vcf.gz')
     output:
-        example = temp(get_dir('work','make_examples.tfrecord-{N}-of-{sharding}.gz')),
-        gvcf = temp(get_dir('work','gvcf.tfrecord-{N}-of-{sharding}.gz'))
+        example = temp(get_dir('work','make_examples.tfrecord-{N}-of-{sharding}.gz'))
     params:
         examples = lambda wildcards, output: PurePath(output[0]).with_name(f'make_examples.tfrecord@{config["shards"]}.gz'),
-        gvcf = lambda wildcards, output: PurePath(output[1]).with_name(f'gvcf.tfrecord@{config["shards"]}.gz'),
-        phase_args = lambda wildcards: '--parse_sam_aux_fields={i} --sort_by_haplotypes={i}'.format(i=('true' if wildcards.phase == 'phased' else 'false')),
-        model_args = lambda wildcards: '--add_hp_channel --alt_aligned_pileup diff_channels --realign_reads=false --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
     threads: 1
     resources:
         mem_mb = 6000,
-        walltime = '4:00',
+        walltime = '24:00',
         disk_scratch = 1,
         use_singularity = True
     shell:
@@ -93,15 +105,16 @@ rule deepvariant_make_examples:
 
 rule deepvariant_call_variants:
     input:
-        (get_dir('work', f'make_examples{{subset}}.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
+        (get_dir('work', f'make_examples.tfrecord-{N:05}-of-{config["shards"]:05}.gz') for N in range(config['shards']))
     output:
-        temp(get_dir('work','call_variants_output{subset}.tfrecord.gz'))
+        temp(get_dir('work','call_variants_output.tfrecord.gz'))
     params:
         examples = lambda wildcards: (f'make_examples.tfrecord@{config["shards"]}.gz'),
-        model = lambda wildcards: get_model(wildcards),
+        model = '/opt/dv_models/202012_polish_nohp_rows/model.ckpt-28400',#lambda wildcards: get_model(wildcards),
         dir_ = lambda wildcards: get_dir('work',**wildcards),
         singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
-        contain = lambda wildcards: config['DV_container']
+        contain = lambda wildcards: config['DV_container'],
+        vino = lambda wildcards: '--use_openvino'
     threads: 32
     resources:
         mem_mb = 1500,
