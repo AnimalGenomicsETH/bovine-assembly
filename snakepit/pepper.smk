@@ -97,12 +97,11 @@ rule deepvariant_call_variants:
     output:
         temp(get_dir('work','call_variants_output{subset}.tfrecord.gz'))
     params:
-        examples = lambda wildcards: (f'make_examples{wildcards.subset}.tfrecord@{config["shards"]}.gz'),
+        examples = lambda wildcards: (f'make_examples.tfrecord@{config["shards"]}.gz'),
         model = lambda wildcards: get_model(wildcards),
         dir_ = lambda wildcards: get_dir('work',**wildcards),
         singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
-        contain = lambda wildcards: config['DV_container'] if wildcards.subset == '' else config['DT_container'],
-        vino = lambda wildcards: '--use_openvino' if wildcards.subset == '' else ''
+        contain = lambda wildcards: config['DV_container']
     threads: 32
     resources:
         mem_mb = 1500,
@@ -113,11 +112,11 @@ rule deepvariant_call_variants:
         '''
         {params.singularity_call} \
         {params.contain} \
-        /bin/bash -c "cd {params.dir_}; /opt/deepvariant/bin/call_variants \
+        /opt/deepvariant/bin/call_variants \
         --outfile /{output} \
         --examples {params.examples} \
-        --checkpoint {params.model} \
-        {params.vino}"
+        --model_type=WGS \
+        --customized_model=/opt/dv_models/202012_polish_nohp_rows/model.ckpt-28400
         '''
 
 rule deepvariant_postprocess:

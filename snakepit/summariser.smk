@@ -66,7 +66,7 @@ rule extract_centr_telo_features:
                 return '186,56,44'
             else: #nominally OSSAT
                 return '140,50,200'
-            
+
         pattern = re.compile(params.regex)
         with open(output[0],'w') as fout:
             fout.write('track name="centro telo" visibility=2 itemRgb="On"\n')
@@ -87,3 +87,13 @@ rule bedtools_merge_centr_telo:
     shell:
         'bedtools merge -i {input} -header -c 4,5,6,7,8,9 -o distinct,first,first,min,max,first > {output}'
 
+rule heterozygosity:
+    input:
+        ''
+    output:
+        ''
+    shell:
+        '''
+        bcftools view --no-header --types snps asm.unphased.ARS.bwa.vcf.gz | grep -oE "([0-2]/[0-2])" | sort | uniq -c > temp.out
+
+        '''
