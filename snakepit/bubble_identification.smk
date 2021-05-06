@@ -27,6 +27,40 @@ rule all:
         expand(get_dir('SV','{asm}.path.{chr}.{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes']))
         #(get_dir('SV','{asm}.path.7.{L}.unmapped.bed',L=config['L'],asm=ASM) for ASM in list(config['assemblies'].keys())[1:])
 
+rule mash_sketch:
+    input:
+        lambda wildcards: config['assemblies'][wildcards.asm]
+    output:
+        get_dir('mash','{asm}.msh')
+    params:
+        out = lambda wildcards, output: PurePath(output[0]).with_suffix('')
+    threads: 4
+    resources:
+        mem_mb = 3000
+    shell:
+        'mash sketch -p {threads} {input} -o {params.out}'
+
+rule mash_dist:
+    input:
+        ref = lambda wildcards: config['assemblies'][wildcards.ref],
+        asm = lambda wildcards: config['assemblies'][wildcards.asm]
+    output:
+        get_dir('mash','{ref}_{asm}.dist')
+    threads: 4
+    resources:
+        mem_mb = 3000
+    shell:
+        'mash dist -p {threads} {input} > {output}'
+
+rule determine_mash_ordering:
+    input:
+        expand(get_dir('mash','{ref}_{asm}'),ref=list(config['assemblies'].keys())[0],asm=list(config['assemblies'].keys())[1:])
+    output:
+        get_dir('mash','order.txt')
+    shell:
+        'sort'
+
+
 rule make_unique_names:
     input:
         lambda wildcards: config['assemblies'][wildcards.asm]
