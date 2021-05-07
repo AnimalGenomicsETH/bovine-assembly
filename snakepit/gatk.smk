@@ -12,6 +12,8 @@ def get_dir(base='work',ext='', **kwargs):
         base_dir = 'output_{animal}'
     elif base == 'work':
         base_dir = get_dir('output','intermediate_results',**kwargs)
+    elif base == 'main':
+        base_dir = ''
     else:
         raise Exception('Base not found')
     return str(Path(base_dir.format_map(Default(kwargs))) / ext.format_map(Default(kwargs)))
@@ -65,6 +67,7 @@ for dir_ in ('input','output','work'):
 
 rule all:
     input:
+        get_dir('main','cohort.vcf.gz'),
         expand(get_dir('output','{animal}.bwa.vcf.gz',**config),animal=config['animals'].keys(),ref=config['references'].keys()) if not config['trio'] else [],
         expand(get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.{ext}',**config),ext=('vcf.gz','mendelian.log'),animal=config['animals'].keys(),ref=config['references'].keys()) if config['trio'] else []
 
@@ -245,80 +248,40 @@ rule deepvariant_postprocess:
         --ref {params.ref} \
         --infile {input.variants} \
         --outfile {output.vcf} \
+        --gvcf_outfile {output.gvcf} \
+        --nonvariant_site_tfrecord_path {params.gvcf}
         '''
 
-rule deeptrio_make_examples:
+rule GLnexus_merge:
     input:
-        ref = lambda wildcards: multiext(config['references'][wildcards.ref],'','.fai'),
-        bam = multiext(get_dir('input','{haplotype}.{phase}.{ref}.{model}.bam'),'','.bai'),
-        bam_p1 = lambda wildcards: multiext(get_dir('input','parent1.{phase}.{ref}.{model}.bam'),'','.bai') if 'parent1' in config['animals'][wildcards.animal] else [],
-        bam_p2 = lambda wildcards: multiext(get_dir('input','parent2.{phase}.{ref}.{model}.bam'),'','.bai') if 'parent2' in config['animals'][wildcards.animal] else []
+        expand(get_dir('output','{animal}.bwa.g.vcf.gz'),animal=config['animals'])
     output:
-        example = temp(get_dir('work',f'make_examples{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2')),
-        gvcf = temp(get_dir('work',f'gvcf{S}.tfrecord-{{N}}-of-{{sharding}}.gz') for S in ('_child','_parent1','_parent2'))
+        get_dir('main','cohort.vcf.gz')
     params:
-        examples = lambda wildcards, output: PurePath(output[0]).with_name(f'make_examples.tfrecord@{config["shards"]}.gz'),
-        gvcf = lambda wildcards, output: PurePath(output[1]).with_name(f'gvcf.tfrecord@{config["shards"]}.gz'),
-        phase_args = lambda wildcards: '--{i}parse_sam_aux_fields --{i}sort_by_haplotypes'.format(i=('no' if wildcards.phase == 'unphased' else '')),
-        model_args = lambda wildcards: '--alt_aligned_pileup diff_channels --norealign_reads --vsc_min_fraction_indels 0.12' if wildcards.model == 'pbmm2' else '',
-        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
-        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
-    threads: 1
-    resources:
-        mem_mb = 4000,
-        disk_scratch = 1,
-        use_singularity = True,
-        walltime = '24:00'
-    shell:
-        '''
-        {params.singularity_call} \
-        {config[DT_container]} \
-        /opt/deepvariant/bin/deeptrio/make_examples \
-        --mode calling \
-        --ref {params.ref} \
-        --reads {input.bam[0]} \
-        --reads_parent1 {input.bam_p1[0]} \
-        --reads_parent2 {input.bam_p2[0]} \
-        --sample_name offspring \
-        --sample_name_parent1 parent1 \
-        --sample_name_parent2 parent2 \
-        --examples {params.examples} \
-        --gvcf {params.gvcf} \
-        {params.model_args} \
-        {params.phase_args} \
-        --pileup_image_height_child 100 \
-        --pileup_image_height_parent 100 \
-        --task {wildcards.N}
-        '''
-
-rule deeptrio_GLnexus_merge:
-    input:
-        (get_dir('output',f'{{haplotype}}{S}.{{phase}}.{{ref}}.{{model}}.g.vcf.gz') for S in ('_child','_parent1','_parent2'))
-    output:
-        get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.vcf.gz')
-    params:
-        gvcfs = lambda wildcards, input: list(f'/output/{PurePath(fpath).name}' for fpath in input),
-        out = lambda wildcards, output: f'/output/{PurePath(output[0]).name}',
+        gvcfs = lambda wildcards, input: list('/data/' / PurePath(fpath) for fpath in input),
+        out = lambda wildcards, output: f'/data/{PurePath(output[0]).name}',
         DB = lambda wildcards, output: f'/tmp/GLnexus.DB',
-        singularity_call = lambda wildcards: make_singularity_call(wildcards),
+        singularity_call = lambda wildcards: make_singularity_call(wildcards,'-B .:/data', input_bind=False, output_bind=False, work_bind=False),
         mem = lambda wildcards,threads,resources: threads*resources['mem_mb']/1000
-    threads: 12 #force using 4 threads for bgziping
+    threads: 24 #force using 4 threads for bgziping
     resources:
         mem_mb = 5000,
-        disk_scratch = 50,
+        disk_scratch = 100,
         use_singularity = True
     shell:
         '''
         {params.singularity_call} \
         {config[GL_container]} \
-        /usr/local/bin/glnexus_cli \
+        /bin/bash -c " /usr/local/bin/glnexus_cli \
         --dir {params.DB} \
         --config DeepVariantWGS \
         --threads {threads} \
-        --mem_gbytes {params.mem}
+        --mem-gbytes {params.mem} \
         {params.gvcfs} \
-        | bcftools view - | bgzip -@ 4 -c > {params.out}
+        | bcftools view - | bgzip -@ 4 -c > {params.out}"
         '''
+        #| bcftools view - | bgzip -@ 4 -c > {params.out}
+        #'''
         #--trim-uncalled-alleles
 
 rule rtg_pedigree:
