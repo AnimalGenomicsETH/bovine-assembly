@@ -7,13 +7,11 @@ class Default(dict):
 
 def get_dir(base='work',ext='', **kwargs):
     if base == 'input':
-        base_dir = 'PEPPERv4'
+        base_dir = 'PEPPER_{haplotype}'
     elif base == 'output':
-        base_dir = 'PEPPERv4'
+        base_dir = 'PEPPER_{haplotype}'
     elif base == 'DV':
         base_dir = get_dir('output','dv_intermediate_outputs_{hap}',**kwargs)
-    elif base == 'polished':
-        base_dir = 'polished'
     else:
         raise Exception(f'Base: {base} was not found!')
     return str(Path(base_dir.format_map(Default(kwargs))) / ext.format_map(Default(kwargs)))
@@ -22,7 +20,8 @@ wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
      haplotype = r'asm|hap1|hap2|parent1|parent2',
      phase = r'unphased|phased',
-     model = r'pbmm2|hybrid|bwa'
+     model = r'pbmm2|hybrid|bwa',
+     ext = r'|_1|_2'
 
 def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
     model_location = f'{base}/{{}}/{ext}'
@@ -52,24 +51,58 @@ def make_singularity_call(wildcards,extra_args='',tmp_bind='$TMPDIR',input_bind=
 
 rule all:
     input:
-        expand('output_GxP/intermediate_results_hap1_unphased_pbmm2_ARS/make_examples.tfrecord-{N}-of-{sharding}.gz',N=range(config['shards']),sharding=config['shards'])
+        expand(get_dir('output','Assembly.pepperv4.{hap}.fasta'),haplotype=config['haplotype'],hap=('hap1','hap2')) if not config['trio'] else \
+        get_dir('output','Assembly.pepperv4.{hap}.fasta',haplotype=config['haplotype'],hap=config['haplotype'])
 
 
-#pepper_snp call_variant -b /data/Assembly_ONT_reads.sorted.bam -f /data/Assembly.fasta -t 24 -m /opt/pepper_models/PEPPER_SNP_R941_ONT_V4.pkl -o /data/PEPPERv4/pepper_snp/ -s gaur -w 4 -bs 64 --ont
 
 
 
-#pepper_hp call_variant -b /data/asm.tagged.bam -f /data/Assembly.fasta -t 36 -m /opt/pepper_models/PEPPER_HP_R941_ONT_V4.pkl -o /data/PEPPERv5/pepper_hp/ -s gaur -w 4 -bs 64 --ont_asm
+rule map_ONT_reads:
+    input:
+        reads = config['reads']['all'],
+        asm = config['assembly']
+    output:
+        temp(get_dir('input','ONT_reads.unsorted.mm2.bam'))
+    threads: 16
+    resources:
+        mem_mb = 4500,
+        walltime = '24:00'
+    shell:
+        'minimap2 -ax map-ont -t {threads} {input.asm} {input.reads} | samtools view -@ 2 -hb -F 0x904 -o {output}'
 
+rule sort_bam:
+    input:
+        get_dir('input','ONT_reads.unsorted.mm2.bam')
+    output:
+        temp(get_dir('input','ONT_reads.mm2.bam'))
+    threads: 12
+    resources:
+        mem_mb = 6000,
+        disk_scratch = 200
+    shell:
+        'samtools sort {input} -m 3000M -@ {threads} -T $TMPDIR -o {output}'
+
+rule samtools_index_bam:
+    input:
+        '{bam}.bam'
+    output:
+        '{bam}.bam.bai'
+    threads: 8
+    resources:
+        mem_mb = 4000
+    shell:
+        'samtools index -@ {threads} {input}'
 
 rule pepper_make_images:
     input:
         asm = config['assembly'],
-        bam = lambda wildcards: multiext(get_dir('input','ONT.sorted.mm2.bam') if wildcard.mode == 'snp' else get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam'),'','.bai')
+        bam = lambda wildcards: multiext(get_dir('input','ONT_reads.mm2.bam') if wildcards.mode == 'snp' else get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam'),'','.bai')
     output:
         directory(get_dir('output','pepper_{mode}/images'))
     params:
-        pepper_mode = lambda wildcards: 'pepper_hp' if wildcard.mode == 'hp' else 'pepper_snp'
+        singularity_call = lambda wildcards: make_singularity_call(wildcards),
+        pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp'
     threads: 24
     resources:
         mem_mb = 4000
@@ -90,135 +123,129 @@ rule pepper_run_inference:
     output:
         directory(get_dir('output','pepper_{mode}/predictions'))
     params:
-        pepper_mode = lambda wildcards: 'pepper_hp' if wildcard.mode == 'hp' else 'pepper_snp',
-        model = lambda wildcards: f'/opt/pepper_models/PEPPER_{wildcard.mode.upper()}_R941_ONT_V4.pkl'
+        singularity_call = lambda wildcards: make_singularity_call(wildcards),
+        pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp',
+        model = lambda wildcards: f'/opt/pepper_models/PEPPER_{wildcards.mode.upper()}_R941_ONT_V4.pkl'
     shell:
         '''
         {params.singularity_call} \
         {config[DV_container]} \
         {params.pepper_mode} run_inference \
-        -i {input.images} \
-        -m {param.model} \
-        -o {ouput} \
-        -s {wildcards.sample} \
+        -i {input} \
+        -m {params.model} \
+        -o {output} \
+        -s {config[sample]} \
         -w 4 \
         -bs 64 \
         -t {threads}
         '''
 
-rule pepper_find_candidates:
+rule pepper_snp_find_candidates:
     input:
-        predictions = get_dir('output','pepper_{mode}/predictions'),
-        bam = get_dir('input','bam'),
+        predictions = get_dir('output','pepper_snp/predictions'),
+        bam = get_dir('input','ONT_reads.mm2.bam'),
         asm = config['assembly']
     output:
-        get_dir('output','pepper_{mode}/PEPPER_SNP_OUPUT.vcf.gz')
+        get_dir('output','pepper_snp/PEPPER_SNP_OUPUT.vcf.gz')
     params:
-        pepper_mode = lambda wildcards: 'pepper_hp' if wildcard.mode == 'hp' else 'pepper_snp',
-        mode = lambda wildcards: '--ont_asm' if wildcards.mode == 'hp' else '--ont'
+        singularity_call = lambda wildcards: make_singularity_call(wildcards)
     shell:
         '''
         {params.singularity_call} \
         {config[DV_container]} \
-        {params.pepper_mode} find_candidates \
+        pepper_snp find_candidates \
         -i {input.predictions} \
         -b {input.bam} \
         -f {input.asm} \
-        -s {wildcards.sample} \
+        -s {config[sample]} \
         -o {output} \
         -t {threads} \
-        {param.mode}
+        --ont
+        '''
+
+rule pepper_hp_find_candidates:
+    input:
+        predictions = get_dir('output','pepper_hp/predictions'),
+        bam = get_dir('input','ONT_reads.mm2.bam'),
+        asm = config['assembly']
+    output:
+        (get_dir('output',f'pepper_hp/PEPPER_HP_OUPUT_{N}.vcf.gz') for N in (1,2))
+    params:
+        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+    shell:
+        '''
+        {params.singularity_call} \
+        {config[DV_container]} \
+        pepper_hp find_candidates \
+        -i {input.predictions} \
+        -b {input.bam} \
+        -f {input.asm} \
+        -s {config[sample]} \
+        -o {output} \
+        -t {threads} \
+        --ont_asm
         '''
 
 rule pepper_post_vcf:
     input:
-        get_dir('output','pepper_snp/PEPPER_SNP_OUPUT.vcf.gz')
+        lambda wildcards: get_dir('output',f'pepper_{wildcards.mode.lower()}/PEPPER_{{mode}}_OUPUT{{ext}}.vcf.gz')
     output:
-        get_dir('output','PEPPER_SNP_OUPUT.vcf.gz')
+        get_dir('output','PEPPER_{mode}_OUTPUT{ext}.vcf.gz')
     shell:
         '''
         bgzip -@ 4 -c {input} > {output}
         tabix -p vcf {output}
         '''
 
-rule pepper_margin:
-    input:
-        bam = '',
-        asm = config['assembly'],
-        vcf = get_dir('output','PEPPER_SNP_OUPUT.vcf.gz')
-    output:
-        get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam')
-    params:
-        json = '/opt/margin_dir/params/misc/allParams.ont_haplotag.json'        
-    shell:
-        '''
-        {params.singularity_call} \
-        {config[DV_container]} \
-        margin phase {input.bam} {input.asm} {input.vcf} {params.json} -t {threads} -V -o {output}
-        '''
+if not config['trio']:  
+    rule pepper_margin:
+        input:
+            bam = get_dir('input',f'ONT_reads.mm2.bam'),
+            asm = config['assembly'],
+            vcf = get_dir('output','PEPPER_SNP_OUTPUT.vcf.gz')
+        output:
+            get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam')
+        params:
+            singularity_call = lambda wildcards: make_singularity_call(wildcards),
+            json = '/opt/margin_dir/params/misc/allParams.ont_haplotag.json'        
+        shell:
+            '''
+            {params.singularity_call} \
+            {config[DV_container]} \
+            margin phase {input.bam} {input.asm} {input.vcf} {params.json} -t {threads} -V -o {output}
+            '''
+else:   
+    rule pepper_tag_bam:
+        input:
+            bam = get_dir('input',f'ONT_reads.mm2.bam'),
+            tags = get_dir('output','reads.haplotags')
+        output:
+            get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam')
+        params:
+            singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        shell:
+            '''
+            {params.singularity_call} \
+            {config[DV_container]} \
+            tagBam \
+            {input.bam} \
+            {input.tags} \
+            {output}
+            '''
 
-rule pepper_margin_post:
-    input:
-        ''
-    output:
-        ''
-    shell:
-        '''
-        mv PEPPERv4/*.bam PEPPERv4/MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam;
-        samtools index -@24 PEPPERv4/MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam
-        '''
-
-rule pepper_hp_post:
-    input:
-        ''
-    output:
-        ''
-    shell:
-        '''
-        
-        bgzip PEPPERv4/PEPPER_HP_OUTPUT_1.vcf;
-        bgzip PEPPERv4/PEPPER_HP_OUTPUT_2.vcf;
-        tabix -p vcf PEPPERv4/PEPPER_HP_OUTPUT_1.vcf.gz;
-        tabix -p vcf PEPPERv4/PEPPER_HP_OUTPUT_2.vcf.gz;
-        rm -rf PEPPERv4/pepper_hp/;
-        '''
-
-#pepper_hp make_images [-h] -b BAM -f FASTA -t THREADS [-r REGION] [-o OUTPUT_DIR]
-#pepper_hp run_inference -i /data/PEPPERv4/pepper_hp/images_04262021_165011 -t 18 -m /opt/pepper_models/PEPPER_HP_R941_ONT_V4.pkl -o /data/PEPPERv4/pepper_hp/predictions_04262021_165011 -s gaur -w 4 -bs 64
-#pepper_hp find_candidates -i /data/PEPPERv4/pepper_hp/predictions_04262021_165011 -b /data/Assembly_ONT_reads.sorted.bam -f /data/Assembly.fasta -s gaur -o /data/PEPPERv4/pepper_hp -t 16 --ont_asm
-
-
-
-rule pepper_tag_bam:
-    input:
-        bam = '',
-        tags = get_dir('output','reads.haplotags')
-    output:
-        get_dir('output','haplotagged.bam')
-    shell:
-        '''
-        {params.singularity_call} \
-        {config[DV_container]} \
-        tagBam \
-        {input.bam} \
-        {input.tags} \
-        {output}
-        '''
-
-#rule extract_haplotags:
-#    input:
-#        unknown = config['reads']['unknown'],
-#        hap1 = config['reads']['hap1'],
-#        hap2 = config['reads']['hap2'],
-#        reads = config['reads']['all']
-#    output:
-#        get_dir('output','reads.haplotags')
-#    shell:
-#        '''
-#        zgrep -o ">\S*" {input.unknown} | cut -c 2- | awk '{print $0" H0}' > {output}
-#        zgrep -o ">\S*" {input.hap1} | cut -c 2- | awk '{print $0" H1}' >> {output}
-#        zgrep -o ">\S*" {input.hap2} | cut -c 2- | awk '{print $0" H2}' >> {output}
-#        '''
+    rule extract_haplotags:
+        input:
+            unknown = config['reads']['unknown'],
+            hap1 = config['reads']['hap1'],
+            hap2 = config['reads']['hap2']
+        output:
+            get_dir('output','reads.haplotags')
+        shell:
+            '''
+            zgrep -o ">\S*" {input.unknown} | cut -c 2- | awk '{{print $0" H0}}' > {output}
+            zgrep -o ">\S*" {input.hap1} | cut -c 2- | awk '{{print $0" H1}}' >> {output}
+            zgrep -o ">\S*" {input.hap2} | cut -c 2- | awk '{{print $0" H2}}' >> {output}
+            '''
 
 rule deepvariant_make_examples:
     input:
@@ -264,7 +291,7 @@ rule deepvariant_call_variants:
     output:
         temp(get_dir('DV','call_variants_output.tfrecord.gz'))
     params:
-        examples = f'make_examples.tfrecord@{config["shards"]}.gz',
+        examples = lambda wildcards, input: PurePath(input[0]).with_name(f'make_examples.tfrecord@{config["shards"]}.gz'),
         model = '/opt/dv_models/202012_polish_nohp_rows/model.ckpt-28400',#lambda wildcards: get_model(wildcards),
         singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
         contain = lambda wildcards: config['DV_container'],
@@ -312,19 +339,24 @@ rule deepvariant_postprocess:
 
 rule bcftools_consensus:
     input:
-        asm = config['assembly'],
+        ref = lambda wildcards: multiext(config['assembly'],'','.fai'),
         vcf = get_dir('output','PEPPER_MARGIN_DEEPVARIANT_ASM_POLISHED_HAP{hap}.vcf.gz')
     output:
-        get_dir('polished','Assembly.pepperv4.hap{hap}.fasta')
+        get_dir('output','Assembly.pepperv4.hap{hap}.fasta')
     params:
-        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B .:/reference'),
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/',tmp_bind=False,work_bind=False),
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}',
         contain = lambda wildcards: config['DV_container']
+    threads: 1
+    resources:
+        mem_mb = 5000,
+        use_singularity = True
     shell:
         '''
         {params.singularity_call} \
         {params.contain} \
         bcftools consensus \
-        -f {input.asm}
+        -f {params.ref} \
         -H 2 \
         -s {wildcards.hap} \
         -o {output} \
