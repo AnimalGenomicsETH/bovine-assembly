@@ -140,12 +140,59 @@ rule extract_unmapped_regions:
     shell:
         '''
         awk '{{print $1"\t"$2}}' {input.fai} > {output.genome}
-        awk '/^7_hifiasm/ {{print $1"\t"$3"\t"$4}}' {input.gaf} | sort -n -k 2,2 > {output.gaf_bed}
+        awk '/^{wildcards.chr}_{wildcards.asm}/ {{print $1"\t"$3"\t"$4}}' {input.gaf} | sort -n -k 2,2 > {output.gaf_bed}
+        awk '$6=="." {{print "{wildcards.chr}_{wildcards.asm}\t"$2"\t"$3}}' {input.bed} >> {output.gaf_bed}
+
         #also bed file regions that aren't "."
         #merge?
         bedtools complement -i {output.gaf_bed} -g {output.genome} > {output.unmapped}
         '''
 
+
+def get_bubble_links(bed,bubbles,mode):
+
+    name,ext = get_name(bed,mode)
+
+    with open(bed,'r') as fin:
+        for line in fin:
+            source,sink,links = line.rstrip().split()[3:6]
+
+            if links[0] == '.':
+                continue
+            elif links[0] == '*':
+                bubbles[name].append(f'{source[1:]}_DEL{ext}')
+            else:
+                for edge in links.split(':')[0].split('>')[1:]:
+                    bubbles[name].append(f'{edge}{ext}')
+
+def get_name(full_name,mode='both'):
+    name = PurePath(full_name).name.split('.')[0]
+    if mode == 'both':
+        return name,''
+    else:
+        breed,read = name.split('_')
+        if mode == 'breed':
+            return breed,read
+        else:
+            return read,breed
+
+rule colour_shared_bubbles:
+    input:
+        (get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=ASM) for ASM in list(config['assemblies'].keys())[1:])
+    output:
+        get_dir('SV','{chr}.L{L}.bubbles.{mode}.png')
+    run:
+        from upsetplot import from_contents, plot
+        from matplotlib import pyplot as plt
+        from collections import defaultdict
+        bubbles = defaultdict(list)
+
+        for infile in input:
+            get_bubble_links(infile,bubbles,wildcards.mode)
+        df = from_contents(bubbles)
+        plot(df,sort_by='cardinality')
+        plt.savefig(output[0])
+        df.to_csv('test.df')
 
 rule samtools_faidx:
     input:
