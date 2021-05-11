@@ -20,7 +20,7 @@ wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
      haplotype = r'asm|hap1|hap2|parent1|parent2',
      phase = r'unphased|phased',
-     model = r'pbmm2|hybrid|bwa'
+     model = r'pbmm2|hybrid|bwa|mm2'
 
 def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
     model_location = f'{base}/{{}}/{ext}'
@@ -30,6 +30,8 @@ def get_model(wildcards,base='/opt/models',ext='model.ckpt'):
         elif wildcards['model'] == 'hybrid':
             return model_location.format('hybrid_pacbio_illumina')
         elif wildcards['model'] == 'bwa':
+            return model_location.format('wgs')
+        elif wildcards['model'] == 'mm2':
             return model_location.format('wgs')
     else:
         if wildcards['model'] == 'pbmm2':
@@ -202,7 +204,7 @@ rule deepvariant_call_variants:
         vino = lambda wildcards: '--use_openvino' if wildcards.subset == '' else ''
     threads: 32
     resources:
-        mem_mb = 1500,
+        mem_mb = 4000,
         disk_scratch = 1,
         use_singularity = True,
         walltime = lambda wildcards: '4:00' if wildcards.subset == '' else '24:00'
@@ -232,7 +234,7 @@ rule deepvariant_postprocess:
         contain = lambda wildcards: config['DV_container'] if wildcards.subset == '' else config['DT_container']
     threads: 1
     resources:
-        mem_mb = 30000,
+        mem_mb = 60000,
         disk_scratch = 1,
         use_singularity = True
     shell:
@@ -265,10 +267,10 @@ rule deeptrio_make_examples:
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
     threads: 1
     resources:
-        mem_mb = 4000,
+        mem_mb = 6000,
         disk_scratch = 1,
         use_singularity = True,
-        walltime = '24:00'
+        walltime = '4:00'
     shell:
         '''
         {params.singularity_call} \
@@ -310,12 +312,12 @@ rule deeptrio_GLnexus_merge:
         '''
         {params.singularity_call} \
         {config[GL_container]} \
-        /usr/local/bin/glnexus_cli \
+        /bin/bash -c "/usr/local/bin/glnexus_cli \
         --dir {params.DB} \
         --config DeepVariantWGS \
         --threads {threads} \
         {params.gvcfs} \
-        | bcftools view - | bgzip -@ 4 -c > {params.out}
+        | bcftools view - | bgzip -@ 4 -c > {params.out}"
         '''
         #--trim-uncalled-alleles
 
