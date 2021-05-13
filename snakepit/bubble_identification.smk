@@ -194,6 +194,12 @@ rule colour_shared_bubbles:
         plt.savefig(output[0])
         df.to_csv('test.df')
 
+#df = pd.read_csv('/Users/alexleonard/Documents/Tiergenomik/DATA/test.df',index_col=[0,1,2,3,4])
+#us = upsetplot.UpSet(df)
+#dist['N_O']=us.intersections[:,True,False,:,:].sum() + us.intersections[:,False,True,:,:].sum()
+# z=hierarchy.linkage(dist.values(), 'single')
+#dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=['PM','N','O','BSW','G'])
+#
 rule samtools_faidx:
     input:
         '{fasta}.{fa_ext}'
