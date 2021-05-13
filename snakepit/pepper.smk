@@ -60,10 +60,10 @@ rule all:
 
 rule map_ONT_reads:
     input:
-        reads = config['reads']['all'],
+        reads = lambda wildcards: config['reads'][wildcards.hap],
         asm = config['assembly']
     output:
-        temp(get_dir('input','ONT_reads.unsorted.mm2.bam'))
+        temp(get_dir('input','ONT_reads.{hap}.unsorted.mm2.bam'))
     threads: 16
     resources:
         mem_mb = 4500,
@@ -73,15 +73,26 @@ rule map_ONT_reads:
 
 rule sort_bam:
     input:
-        get_dir('input','ONT_reads.unsorted.mm2.bam')
+        get_dir('input','ONT_reads.{hap}.unsorted.mm2.bam')
     output:
-        temp(get_dir('input','ONT_reads.mm2.bam'))
+        temp(get_dir('input','ONT_reads.{hap}.mm2.bam'))
     threads: 12
     resources:
         mem_mb = 6000,
         disk_scratch = 200
     shell:
         'samtools sort {input} -m 3000M -@ {threads} -T $TMPDIR -o {output}'
+
+rule samtools_merge:
+    input:
+        (get_dir('input','ONT_reads.{hap}.mm2.bam',hap=HAP) for HAP in config['reads'])
+    output:
+        get_dir('input','ONT_reads.mm2.bam')
+    threads: 16
+    resources:
+        mem_mb = 5000
+    shell:
+        'samtools merge --threads {threads} {output} {input}'
 
 rule samtools_index_bam:
     input:
@@ -222,7 +233,12 @@ else:
         output:
             get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam')
         params:
-            singularity_call = lambda wildcards: make_singularity_call(wildcards)
+            singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False)
+        threads: 1
+        resources:
+            mem_mb = 10000,
+            disk_scratch = 1,
+            walltime = '4:00'
         shell:
             '''
             {params.singularity_call} \
@@ -240,11 +256,13 @@ else:
             hap2 = config['reads']['hap2']
         output:
             get_dir('output','reads.haplotags')
+        params:
+            read_tag = '2' if ('.fa' in PurePath(config['reads']['hap1']).suffixes or '.fasta' in PurePath(config['reads']['hap1']).suffixes) else '4' 
         shell:
             '''
-            zgrep -o ">\S*" {input.unknown} | cut -c 2- | awk '{{print $0" H0}}' > {output}
-            zgrep -o ">\S*" {input.hap1} | cut -c 2- | awk '{{print $0" H1}}' >> {output}
-            zgrep -o ">\S*" {input.hap2} | cut -c 2- | awk '{{print $0" H2}}' >> {output}
+            awk 'NR%{params.read_tag}==1 {print $1"\tnone"}' <(zcat {input.uknown}) | cut -c 2- >> {output}
+            awk 'NR%{params.read_tag}==1 {print $1"\tH1"}' <(zcat {input.hap1}) | cut -c 2- >> {output}
+            awk 'NR%{params.read_tag}==1 {print $1"\tH2"}' <(zcat {input.hap2}) | cut -c 2- >> {output}
             '''
 
 rule deepvariant_make_examples:
