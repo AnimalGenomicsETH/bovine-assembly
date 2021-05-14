@@ -1,4 +1,4 @@
-localrules: mash_dist, determine_mash_ordering, make_unique_names, extract_chromosome, extract_unmapped_regions, samtools_faidx
+localrules: determine_mash_ordering, mash_dist, make_unique_names, extract_chromosome, extract_unmapped_regions, samtools_faidx
 
 from pathlib import PurePath, Path
 
@@ -81,6 +81,10 @@ rule extract_chromosome:
         multiext(get_dir('SV','{asm}.fasta'),'','.fai')
     output:
         temp(get_dir('SV','{asm}.{chr}.fasta'))
+    threads: 1
+    resources:
+        mem_mb = 1500,
+        walltime = '5'
     shell:
         'samtools faidx {input[0]} {wildcards.chr}_{wildcards.asm} > {output}'
 
@@ -205,5 +209,9 @@ rule samtools_faidx:
         '{fasta}.{fa_ext}'
     output:
         '{fasta}.{fa_ext,fa|fasta}.fai'
+    threads: 1
+    resources:
+        mem_mb = 1500,
+        walltime = '5'
     shell:
         'samtools faidx {input}'
