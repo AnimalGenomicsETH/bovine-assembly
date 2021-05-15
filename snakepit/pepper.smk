@@ -107,23 +107,24 @@ rule samtools_index_bam:
 
 rule pepper_make_images:
     input:
-        asm = config['assembly'],
+        ref = config['assembly'],
         bam = lambda wildcards: multiext(get_dir('input','ONT_reads.mm2.bam') if wildcards.mode == 'snp' else get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam'),'','.bai')
     output:
         directory(get_dir('output','pepper_{mode}/images'))
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards),
-        pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp'
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
+        pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp',
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
     threads: 24
     resources:
-        mem_mb = 4000
+        mem_mb = 6000
     shell:
         '''
         {params.singularity_call} \
         {config[DV_container]} \
         {params.pepper_mode} make_images \
         -b {input.bam} \
-        -f {input.asm} \
+        -f {params.ref} \
         -t {threads} \
         -o {output}
         '''
@@ -134,7 +135,7 @@ rule pepper_run_inference:
     output:
         directory(get_dir('output','pepper_{mode}/predictions'))
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards),
+        singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False),
         pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp',
         model = lambda wildcards: f'/opt/pepper_models/PEPPER_{wildcards.mode.upper()}_R941_ONT_V4.pkl'
     shell:
@@ -155,11 +156,12 @@ rule pepper_snp_find_candidates:
     input:
         predictions = get_dir('output','pepper_snp/predictions'),
         bam = get_dir('input','ONT_reads.mm2.bam'),
-        asm = config['assembly']
+        ref = config['assembly']
     output:
         get_dir('output','pepper_snp/PEPPER_SNP_OUPUT.vcf.gz')
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
     shell:
         '''
         {params.singularity_call} \
@@ -167,7 +169,7 @@ rule pepper_snp_find_candidates:
         pepper_snp find_candidates \
         -i {input.predictions} \
         -b {input.bam} \
-        -f {input.asm} \
+        -f {params.ref} \
         -s {config[sample]} \
         -o {output} \
         -t {threads} \
@@ -178,11 +180,12 @@ rule pepper_hp_find_candidates:
     input:
         predictions = get_dir('output','pepper_hp/predictions'),
         bam = get_dir('input','ONT_reads.mm2.bam'),
-        asm = config['assembly']
+        ref = config['assembly']
     output:
         (get_dir('output',f'pepper_hp/PEPPER_HP_OUPUT_{N}.vcf.gz') for N in (1,2))
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
     shell:
         '''
         {params.singularity_call} \
@@ -190,7 +193,7 @@ rule pepper_hp_find_candidates:
         pepper_hp find_candidates \
         -i {input.predictions} \
         -b {input.bam} \
-        -f {input.asm} \
+        -f {params.ref} \
         -s {config[sample]} \
         -o {output} \
         -t {threads} \
@@ -217,7 +220,8 @@ if not config['trio']:
         output:
             get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam')
         params:
-            singularity_call = lambda wildcards: make_singularity_call(wildcards),
+            singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/refer    ence/'),
+            ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}',
             json = '/opt/margin_dir/params/misc/allParams.ont_haplotag.json'        
         shell:
             '''
@@ -238,7 +242,7 @@ else:
         resources:
             mem_mb = 10000,
             disk_scratch = 1,
-            walltime = '4:00'
+            walltime = '24:00'
         shell:
             '''
             {params.singularity_call} \
