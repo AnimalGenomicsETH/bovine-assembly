@@ -115,9 +115,10 @@ rule pepper_make_images:
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
         pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp',
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
-    threads: 24
+    threads: 18
     resources:
-        mem_mb = 6000
+        mem_mb = 15000,
+        disk_scratch = 10
     shell:
         '''
         {params.singularity_call} \
@@ -138,6 +139,10 @@ rule pepper_run_inference:
         singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False),
         pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp',
         model = lambda wildcards: f'/opt/pepper_models/PEPPER_{wildcards.mode.upper()}_R941_ONT_V4.pkl'
+    threads: 24
+    resources:
+        mem_mb = 6000,
+        disk_scratch = 10
     shell:
         '''
         {params.singularity_call} \
@@ -162,6 +167,10 @@ rule pepper_snp_find_candidates:
     params:
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
+    threads: 24
+    resources:
+        mem_mb = 6000,
+        disk_scratch = 10
     shell:
         '''
         {params.singularity_call} \
@@ -186,6 +195,10 @@ rule pepper_hp_find_candidates:
     params:
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
+    threads: 24
+    resources:
+        mem_mb = 6000,
+        disk_scratch = 10
     shell:
         '''
         {params.singularity_call} \
@@ -205,6 +218,10 @@ rule pepper_post_vcf:
         lambda wildcards: get_dir('output',f'pepper_{wildcards.mode.lower()}/PEPPER_{{mode}}_OUPUT{{ext}}.vcf.gz')
     output:
         get_dir('output','PEPPER_{mode}_OUTPUT{ext}.vcf.gz')
+    threads: 4
+    resources:
+        mem_mb = 4000,
+        walltime = '1:00'
     shell:
         '''
         bgzip -@ 4 -c {input} > {output}
@@ -223,6 +240,10 @@ if not config['trio']:
             singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/refer    ence/'),
             ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}',
             json = '/opt/margin_dir/params/misc/allParams.ont_haplotag.json'        
+        threads: 24
+        resources:
+            mem_mb = 5000,
+            disk_scratch = 10
         shell:
             '''
             {params.singularity_call} \
@@ -262,6 +283,10 @@ else:
             get_dir('output','reads.haplotags')
         params:
             read_tag = '2' if ('.fa' in PurePath(config['reads']['hap1']).suffixes or '.fasta' in PurePath(config['reads']['hap1']).suffixes) else '4' 
+        threads: 1
+        resources:
+            mem_mb = 5000,
+            walltime = '1:00'
         shell:
             '''
             awk 'NR%{params.read_tag}==1 {{print $1"\tnone"}}' <(zcat {input.unknown}) | cut -c 2- >> {output}
