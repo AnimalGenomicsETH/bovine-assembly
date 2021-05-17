@@ -100,7 +100,7 @@ rule minigraph_ggs:
         asm = '-g250k -r250k -j0.05 -l250k'
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 1
     resources:
-        mem_mb = 10000,
+        mem_mb = 15000,
         walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '4:00'
     shell:
         'minigraph -xggs -t {threads} -L {wildcards.L} {params.backbone} {params.ordered_input} > {output}'
@@ -127,7 +127,7 @@ rule minigraph_align:
         lambda wildcards: '--call' if wildcards.ext == 'bed' else '--show-unmap=yes'
     threads: lambda wildcards: 12 if wildcards.chr == 'all' else 1
     resources:
-        mem_mb = 8000,
+        mem_mb = 20000,
         walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '30'
     shell:
         'minigraph {params} -xasm -t {threads} -l 300k  {input.gfa} {input.fasta} > {output}'
@@ -196,7 +196,7 @@ rule colour_shared_bubbles:
         df = from_contents(bubbles)
         plot(df,sort_by='cardinality')
         plt.savefig(output[0])
-        df.to_csv('test.df')
+        df.to_csv(f'{wildcards.chr}.df')
 
 #df = pd.read_csv('/Users/alexleonard/Documents/Tiergenomik/DATA/test.df',index_col=[0,1,2,3,4])
 #us = upsetplot.UpSet(df)
