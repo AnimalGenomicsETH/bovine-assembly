@@ -60,10 +60,10 @@ rule all:
 
 rule map_ONT_reads:
     input:
-        reads = config['reads']['all'],
+        reads = lambda wildcards: config['reads'][wildcards.hap],
         asm = config['assembly']
     output:
-        temp(get_dir('input','ONT_reads.unsorted.mm2.bam'))
+        temp(get_dir('input','ONT_reads.{hap}.unsorted.mm2.bam'))
     threads: 16
     resources:
         mem_mb = 4500,
@@ -73,15 +73,26 @@ rule map_ONT_reads:
 
 rule sort_bam:
     input:
-        get_dir('input','ONT_reads.unsorted.mm2.bam')
+        get_dir('input','ONT_reads.{hap}.unsorted.mm2.bam')
     output:
-        temp(get_dir('input','ONT_reads.mm2.bam'))
+        temp(get_dir('input','ONT_reads.{hap}.mm2.bam'))
     threads: 12
     resources:
         mem_mb = 6000,
         disk_scratch = 200
     shell:
         'samtools sort {input} -m 3000M -@ {threads} -T $TMPDIR -o {output}'
+
+rule samtools_merge:
+    input:
+        (get_dir('input','ONT_reads.{hap}.mm2.bam',hap=HAP) for HAP in config['reads'])
+    output:
+        get_dir('input','ONT_reads.mm2.bam')
+    threads: 16
+    resources:
+        mem_mb = 5000
+    shell:
+        'samtools merge --threads {threads} {output} {input}'
 
 rule samtools_index_bam:
     input:
@@ -96,23 +107,25 @@ rule samtools_index_bam:
 
 rule pepper_make_images:
     input:
-        asm = config['assembly'],
+        ref = config['assembly'],
         bam = lambda wildcards: multiext(get_dir('input','ONT_reads.mm2.bam') if wildcards.mode == 'snp' else get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam'),'','.bai')
     output:
         directory(get_dir('output','pepper_{mode}/images'))
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards),
-        pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp'
-    threads: 24
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
+        pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp',
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
+    threads: 18
     resources:
-        mem_mb = 4000
+        mem_mb = 15000,
+        disk_scratch = 10
     shell:
         '''
         {params.singularity_call} \
         {config[DV_container]} \
         {params.pepper_mode} make_images \
         -b {input.bam} \
-        -f {input.asm} \
+        -f {params.ref} \
         -t {threads} \
         -o {output}
         '''
@@ -123,9 +136,13 @@ rule pepper_run_inference:
     output:
         directory(get_dir('output','pepper_{mode}/predictions'))
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards),
+        singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False),
         pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp',
         model = lambda wildcards: f'/opt/pepper_models/PEPPER_{wildcards.mode.upper()}_R941_ONT_V4.pkl'
+    threads: 24
+    resources:
+        mem_mb = 6000,
+        disk_scratch = 10
     shell:
         '''
         {params.singularity_call} \
@@ -144,11 +161,16 @@ rule pepper_snp_find_candidates:
     input:
         predictions = get_dir('output','pepper_snp/predictions'),
         bam = get_dir('input','ONT_reads.mm2.bam'),
-        asm = config['assembly']
+        ref = config['assembly']
     output:
         get_dir('output','pepper_snp/PEPPER_SNP_OUPUT.vcf.gz')
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
+    threads: 24
+    resources:
+        mem_mb = 6000,
+        disk_scratch = 10
     shell:
         '''
         {params.singularity_call} \
@@ -156,7 +178,7 @@ rule pepper_snp_find_candidates:
         pepper_snp find_candidates \
         -i {input.predictions} \
         -b {input.bam} \
-        -f {input.asm} \
+        -f {params.ref} \
         -s {config[sample]} \
         -o {output} \
         -t {threads} \
@@ -167,11 +189,16 @@ rule pepper_hp_find_candidates:
     input:
         predictions = get_dir('output','pepper_hp/predictions'),
         bam = get_dir('input','ONT_reads.mm2.bam'),
-        asm = config['assembly']
+        ref = config['assembly']
     output:
         (get_dir('output',f'pepper_hp/PEPPER_HP_OUPUT_{N}.vcf.gz') for N in (1,2))
     params:
-        singularity_call = lambda wildcards: make_singularity_call(wildcards)
+        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
+    threads: 24
+    resources:
+        mem_mb = 6000,
+        disk_scratch = 10
     shell:
         '''
         {params.singularity_call} \
@@ -179,7 +206,7 @@ rule pepper_hp_find_candidates:
         pepper_hp find_candidates \
         -i {input.predictions} \
         -b {input.bam} \
-        -f {input.asm} \
+        -f {params.ref} \
         -s {config[sample]} \
         -o {output} \
         -t {threads} \
@@ -191,6 +218,10 @@ rule pepper_post_vcf:
         lambda wildcards: get_dir('output',f'pepper_{wildcards.mode.lower()}/PEPPER_{{mode}}_OUPUT{{ext}}.vcf.gz')
     output:
         get_dir('output','PEPPER_{mode}_OUTPUT{ext}.vcf.gz')
+    threads: 4
+    resources:
+        mem_mb = 4000,
+        walltime = '1:00'
     shell:
         '''
         bgzip -@ 4 -c {input} > {output}
@@ -206,8 +237,13 @@ if not config['trio']:
         output:
             get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam')
         params:
-            singularity_call = lambda wildcards: make_singularity_call(wildcards),
+            singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/refer    ence/'),
+            ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}',
             json = '/opt/margin_dir/params/misc/allParams.ont_haplotag.json'        
+        threads: 24
+        resources:
+            mem_mb = 5000,
+            disk_scratch = 10
         shell:
             '''
             {params.singularity_call} \
@@ -222,7 +258,12 @@ else:
         output:
             get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam')
         params:
-            singularity_call = lambda wildcards: make_singularity_call(wildcards)
+            singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False)
+        threads: 1
+        resources:
+            mem_mb = 10000,
+            disk_scratch = 1,
+            walltime = '24:00'
         shell:
             '''
             {params.singularity_call} \
@@ -240,11 +281,17 @@ else:
             hap2 = config['reads']['hap2']
         output:
             get_dir('output','reads.haplotags')
+        params:
+            read_tag = '2' if ('.fa' in PurePath(config['reads']['hap1']).suffixes or '.fasta' in PurePath(config['reads']['hap1']).suffixes) else '4' 
+        threads: 1
+        resources:
+            mem_mb = 5000,
+            walltime = '1:00'
         shell:
             '''
-            zgrep -o ">\S*" {input.unknown} | cut -c 2- | awk '{{print $0" H0}}' > {output}
-            zgrep -o ">\S*" {input.hap1} | cut -c 2- | awk '{{print $0" H1}}' >> {output}
-            zgrep -o ">\S*" {input.hap2} | cut -c 2- | awk '{{print $0" H2}}' >> {output}
+            awk 'NR%{params.read_tag}==1 {{print $1"\tnone"}}' <(zcat {input.unknown}) | cut -c 2- >> {output}
+            awk 'NR%{params.read_tag}==1 {{print $1"\tH1"}}' <(zcat {input.hap1}) | cut -c 2- >> {output}
+            awk 'NR%{params.read_tag}==1 {{print $1"\tH2"}}' <(zcat {input.hap2}) | cut -c 2- >> {output}
             '''
 
 rule deepvariant_make_examples:

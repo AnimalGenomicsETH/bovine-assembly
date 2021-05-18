@@ -171,7 +171,8 @@ rule deepvariant_make_examples:
         phase_args = lambda wildcards: '--parse_sam_aux_fields={i} --sort_by_haplotypes={i}'.format(i=('true' if False else 'false')),
         model_args = lambda wildcards: '--add_hp_channel --alt_aligned_pileup diff_channels --realign_reads=false --vsc_min_fraction_indels 0.12' if 'bwa' == 'pbmm2' else '',
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
-        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
+        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}',
+        regions = lambda wildcards: ' '.join(map(str,range(1,30)))
     threads: 1
     resources:
         mem_mb = 6000,
@@ -186,6 +187,7 @@ rule deepvariant_make_examples:
         --mode calling \
         --ref {params.ref} \
         --reads {input.bam[0]} \
+        --regions {params.regions} \
         --examples {params.examples} \
         --gvcf {params.gvcf} \
         {params.model_args} \
@@ -280,62 +282,4 @@ rule GLnexus_merge:
         {params.gvcfs} \
         | bcftools view - | bgzip -@ 4 -c > {params.out}"
         '''
-        #| bcftools view - | bgzip -@ 4 -c > {params.out}
-        #'''
-        #--trim-uncalled-alleles
 
-rule rtg_pedigree:
-    output:
-        get_dir('input','trio.ped')
-    params:
-        gender = 1 if config['gender'] == 'male' else 2
-    shell:
-        '''
-        FILE={output}
-cat <<EOM >$FILE
-#PED format pedigree
-#
-#fam-id/ind-id/pat-id/mat-id: 0=unknown
-#sex: 1=male; 2=female; 0=unknown
-#phenotype: -9=missing, 0=missing; 1=unaffected; 2=affected
-#
-#fam-id ind-id pat-id mat-id sex phen
-1 offspring parent1 parent2 {params.gender} 0
-1 parent1 0 0 1 0
-1 parent2 0 0 2 0
-EOM
-        '''
-
-rule rtg_format:
-    input:
-        ref = lambda wildcards: multiext(config['references'][wildcards.ref],'','.fai')
-    output:
-        sdf = directory(get_dir('input','{ref}.sdf'))
-    params:
-        singularity_call = lambda wildcards,input: make_singularity_call(wildcards,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/',tmp_bind=False,output_bind=False,work_bind=False),
-        ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}',
-    shell:
-        '''
-        {params.singularity_call} \
-        {config[RTG_container]} \
-        rtg format -o {output.sdf} {params.ref}
-        '''
-
-rule rtg_mendelian_concordance:
-    input:
-        sdf = get_dir('input','{ref}.sdf'),
-        vcf = get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.vcf.gz'),
-        pedigree = get_dir('input','trio.ped')
-    output:
-        vcf = get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.annotated.vcf.gz'),
-        log = get_dir('output','{haplotype}.trio.merged.{phase}.{ref}.{model}.mendelian.log')
-    params:
-        vcf_in = lambda wildcards, input: '/output/' + PurePath(input.vcf).name,
-        vcf_annotated = lambda wildcards, output: '/output/' + PurePath(output.vcf).name,
-        singularity_call = lambda wildcards: make_singularity_call(wildcards,tmp_bind=False,work_bind=False)
-    shell:
-        '''
-        {params.singularity_call} \
-        {config[RTG_container]} \
-        rtg mendelian -i {params.vcf_in} -o {params.vcf_annotated} --pedigree={input.pedigree} -t {input.sdf} > {output.log}
-        '''

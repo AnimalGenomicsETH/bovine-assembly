@@ -1,4 +1,4 @@
-localrules: mash_dist, determine_mash_ordering, make_unique_names, extract_chromosome, extract_unmapped_regions, samtools_faidx
+localrules: determine_mash_ordering, mash_dist, make_unique_names, extract_chromosome, extract_unmapped_regions, samtools_faidx
 
 from pathlib import PurePath, Path
 
@@ -81,6 +81,10 @@ rule extract_chromosome:
         multiext(get_dir('SV','{asm}.fasta'),'','.fai')
     output:
         temp(get_dir('SV','{asm}.{chr}.fasta'))
+    threads: 1
+    resources:
+        mem_mb = 1500,
+        walltime = '5'
     shell:
         'samtools faidx {input[0]} {wildcards.chr}_{wildcards.asm} > {output}'
 
@@ -96,7 +100,7 @@ rule minigraph_ggs:
         asm = '-g250k -r250k -j0.05 -l250k'
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 1
     resources:
-        mem_mb = 10000,
+        mem_mb = 15000,
         walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '4:00'
     shell:
         'minigraph -xggs -t {threads} -L {wildcards.L} {params.backbone} {params.ordered_input} > {output}'
@@ -123,7 +127,7 @@ rule minigraph_align:
         lambda wildcards: '--call' if wildcards.ext == 'bed' else '--show-unmap=yes'
     threads: lambda wildcards: 12 if wildcards.chr == 'all' else 1
     resources:
-        mem_mb = 8000,
+        mem_mb = 20000,
         walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '30'
     shell:
         'minigraph {params} -xasm -t {threads} -l 300k  {input.gfa} {input.fasta} > {output}'
@@ -210,8 +214,9 @@ rule plot_dendrogram:
         z = hierarchy.linkage([float(i) for i in dist.values()], 'average')
         dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=names)
         plt.savefig(output[0])
+        df.to_csv(f'{wildcards.chr}.df')
 
-        
+
 #df = pd.read_csv('/Users/alexleonard/Documents/Tiergenomik/DATA/test.df',index_col=[0,1,2,3,4])
 #us = upsetplot.UpSet(df)
 #dist['N_O']=us.intersections[:,True,False,:,:].sum() + us.intersections[:,False,True,:,:].sum()
@@ -237,5 +242,9 @@ rule samtools_faidx:
         '{fasta}.{fa_ext}'
     output:
         '{fasta}.{fa_ext,fa|fasta}.fai'
+    threads: 1
+    resources:
+        mem_mb = 1500,
+        walltime = '5'
     shell:
         'samtools faidx {input}'
