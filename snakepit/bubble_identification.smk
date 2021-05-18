@@ -184,7 +184,8 @@ rule colour_shared_bubbles:
     input:
         (get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=ASM) for ASM in list(config['assemblies'].keys())[1:])
     output:
-        get_dir('SV','{chr}.L{L}.bubbles.{mode}.png')
+        plot = get_dir('SV','{chr}.L{L}.bubbles.{mode}.png'),
+        df = get_dir('SV','{chr}.L{L}.bubbles.{mode}.df')
     run:
         from upsetplot import from_contents, plot
         from matplotlib import pyplot as plt
@@ -195,15 +196,47 @@ rule colour_shared_bubbles:
             get_bubble_links(infile,bubbles,wildcards.mode)
         df = from_contents(bubbles)
         plot(df,sort_by='cardinality')
+        plt.savefig(output.plot)
+        df.to_csv(output.df)
+
+rule plot_dendrogram:
+    input:
+        (get_dir('SV','{chr}.L{L}.bubbles.{mode}.df',chr=CHR) for CHR in valid_chromosomes(config['chromosomes'])
+    output:
+        get_dir('SV','dendrogram.L{L}.{mode}.png')
+    params:
+        cols = lambda wildcards: list(range(5 if wildcards.mode == 'breed' else 10))
+    run:
+        import pandas as pd
+
+        dfs = pd.concat([pd.read_csv(fpath,index_col=params.cols) for fpath in input])
+        names, dist = combine(dfs)
+        z = hierarchy.linkage([float(i) for i in dist.values()], 'average')
+        dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=names)
         plt.savefig(output[0])
         df.to_csv(f'{wildcards.chr}.{wildcards.mode}.df')
+
 
 #df = pd.read_csv('/Users/alexleonard/Documents/Tiergenomik/DATA/test.df',index_col=[0,1,2,3,4])
 #us = upsetplot.UpSet(df)
 #dist['N_O']=us.intersections[:,True,False,:,:].sum() + us.intersections[:,False,True,:,:].sum()
-# z=hierarchy.linkage(dist.values(), 'single')
+# z=hierarchy.linkage([float(i) for i in dist.values()], 'average')
 #dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=['PM','N','O','BSW','G'])
 #
+
+def combine(data):
+    names = data.index.names
+    print(names)
+    intersections = upsetplot.UpSet(data).intersections
+    condensed_dist = dict()
+    for i in range(len(names)-1):
+        for j in range(i+1,len(names)):
+            try:
+                condensed_dist[f'{names[i]}_{names[j]}'] = intersections.xs(True,level=names[i]).xs(False,level=names[j]).sum()+intersections.xs(False,level=names[i]).xs(True,level=names[j]).sum()
+            except:
+                condensed_dist[f'{names[i]}_{names[j]}'] = 0
+    return names, condensed_dist
+
 rule samtools_faidx:
     input:
         '{fasta}.{fa_ext}'
