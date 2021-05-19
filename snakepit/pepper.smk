@@ -139,9 +139,10 @@ rule pepper_run_inference:
         singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False),
         pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp',
         model = lambda wildcards: f'/opt/pepper_models/PEPPER_{wildcards.mode.upper()}_R941_ONT_V4.pkl'
-    threads: 24
+    threads: 12
     resources:
-        mem_mb = 6000,
+        mem_mb = 12000,
+        walltime = '24:00',
         disk_scratch = 10
     shell:
         '''
@@ -167,9 +168,10 @@ rule pepper_snp_find_candidates:
     params:
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
-    threads: 24
+    threads: 12
     resources:
-        mem_mb = 6000,
+        mem_mb = 12000,
+        walltime = '24:00'
         disk_scratch = 10
     shell:
         '''
@@ -188,11 +190,12 @@ rule pepper_snp_find_candidates:
 rule pepper_hp_find_candidates:
     input:
         predictions = get_dir('output','pepper_hp/predictions'),
-        bam = get_dir('input','ONT_reads.mm2.bam'),
+        bam = get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam'),
         ref = config['assembly']
     output:
         (get_dir('output',f'pepper_hp/PEPPER_HP_OUPUT_{N}.vcf.gz') for N in (1,2))
     params:
+        out = lambda wildcards: get_dir('output','pepper_hp',**wildcards),
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
     threads: 24
@@ -208,7 +211,7 @@ rule pepper_hp_find_candidates:
         -b {input.bam} \
         -f {params.ref} \
         -s {config[sample]} \
-        -o {output} \
+        -o {params.out} \
         -t {threads} \
         --ont_asm
         '''
