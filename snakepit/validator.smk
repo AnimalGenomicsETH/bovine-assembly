@@ -52,6 +52,16 @@ rule bcftools_isec:
         mv {params}/0002.vcf {params}/shared.vcf
         '''
 
+rule average_quality:
+    input:
+        'intersection_{{norm}}_{{collapse}}/{N}.vcf'
+    output:
+        'intersection_{{norm}}_{{collapse}}/{N}.qc'
+    shell:
+        '''
+        awk '!/#/ {{c+=$6;j+=1}} END {{print c/j}}' {input} > {output}
+        '''
+        
 rule format_record_tsv:
     input:
         'intersection_{norm}_{collapse}/{callset}.vcf'
@@ -80,8 +90,26 @@ rule count_matches:
         parallel --pipepart -a {input.variants} --jobs {threads} --block 1M LC_ALL=C fgrep -F -c -f {input.truth} | awk '{{c+=$1}}END{{print c}}' > {output}
         '''
 
-#rule truth_only_positions:
-#    'parallel --pipepart -a ../truth.pos_only.tsv --block 1M LC_ALL=C fgrep -F -v -f all.unique > truth_only.tsv'
+rule truth_only_positions:
+    input:
+        variants = expand('intersection_{{norm}}_{{collapse}}/{callset}.{{cols}}.snp.tsv',callset=('shared','DV','GATK')),
+        truth = lambda wildcards: config['truth'][wildcards.cols]
+    output:
+        'intersection_{norm}_{collapse}/missing_truth.{cols}.snp.tsv'
+    threads: 8
+    resources:
+        mem_mb = 3000,
+        walltime = '60'
+    shell:
+        '''
+        for i in {{1..29}}; do
+          awk -v i=$i '$1 == i' {input.variants[0]} >> temp.var
+          awk -v i=$i '$1 == i' {input.variants[1]} >> temp.var
+          awk -v i=$i '$1 == i' {input.variants[2]} >> temp.var
+          awk -v i=$i '$1 == i' {input.truth} > temp.truth
+          parallel --pipepart -a temp.truth --jobs {threads} --block 100k LC_ALL=C fgrep -F -v -f temp.var >> {output}
+        done
+        '''
 
 rule summarise_matches:
     input:
@@ -96,22 +124,37 @@ rule summarise_matches:
         echo $(wc -l {input.tsvs[2]}) $(cat {input.counts[2]}) | awk '{{print "shared "$3/$1}}' >> {output}
         '''
 
+from collections import defaultdict
+
+def get_density_counts(f_path,window):
+    v_counts = defaultdict(int)
+    with open(f_path,'r') as fin:
+        for line in fin:
+            chr, pos = line.rstrip().split()
+            v_counts[(int(chr),int(pos)//window)] += 1
+    return v_counts
+
 rule variant_density:
     input:
-        'intersection_{norm}_{collapse}/{callset}.pos_only.{var}.tsv'
+        lambda wildcards: 'intersection_{norm}_{collapse}/{mode}.pos_only.{var}.tsv' if wildcards.mode != 'exlusive' else ('intersection_{norm}_{collapse}/DV.pos_only.{var}.tsv','intersection_{norm}_{collapse}/GATK.pos_only.{var}.tsv')
     output:
-        'intersection_{norm}_{collapse}/{callset}.pos_only.{var}.bed'
+        'intersection_{norm}_{collapse}/{mode}.{var}.ideogram.tsv'
     run:
-        from collections import defaultdict
-        with open(output[0],'w') as fout, open(input[0],'r') as fin:
-            fout.write('\t'.join(('Chr','Start','End','Value')) + '\n')
-            window = 100000
+        window = 100000
+        with open(output[0],'w') as fout:
+            if wildcards.mode == 'shared':
+                fout.write('\t'.join(('Chr','Start','End','Value','Color')) + '\n')
+                counts = get_density_counts(input[0],window)
+                for (chr,pos),value in counts.items():
+                    pos *= window
+                    fout.write('\t'.join(map(str,(chr,pos,pos+window,value,'17A589'))) + '\n')
 
-            v_counts = defaultdict(int)
-            for line in fin:
-                chr, pos = line.rstrip().split()
-                v_counts[f'{chr}_{int(pos)//window}'] += 1
-            for key,value in v_counts.items():
-                chr, pos = key.split('_')
-                pos = int(pos) * window
-                fout.write('\t'.join(map(str,(chr,pos,pos+window,value))) + '\n')
+            else:
+                fout.write('\t'.join(('Chr','Start','End','Value_1','Color_1','Value_2','Color_2')) + '\n')
+                counts_1 = get_density_counts(input[0],window)
+                counts_2 = get_density_counts(input[1],window)
+                for key in sorted(counts_1.keys() | counts_2.keys()):
+                    chr,pos = key 
+                    pos *= window
+                    fout.write('\t'.join(map(str,(chr,pos,pos+window,counts_1[key],'2874A6',counts_2[key],'D4AC0D'))) + '\n')
+
