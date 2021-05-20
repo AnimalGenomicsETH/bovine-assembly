@@ -171,7 +171,7 @@ rule pepper_snp_find_candidates:
     threads: 12
     resources:
         mem_mb = 12000,
-        walltime = '24:00'
+        walltime = '24:00',
         disk_scratch = 10
     shell:
         '''
@@ -193,14 +193,15 @@ rule pepper_hp_find_candidates:
         bam = get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam'),
         ref = config['assembly']
     output:
-        (get_dir('output',f'pepper_hp/PEPPER_HP_OUPUT_{N}.vcf.gz') for N in (1,2))
+        (get_dir('output',f'pepper_hp/PEPPER_HP_OUPUT_{N}.vcf') for N in (1,2))
     params:
         out = lambda wildcards: get_dir('output','pepper_hp',**wildcards),
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
-    threads: 24
+    threads: 12
     resources:
-        mem_mb = 6000,
+        mem_mb = 12000,
+        walltime = '24:00',
         disk_scratch = 10
     shell:
         '''
@@ -218,7 +219,7 @@ rule pepper_hp_find_candidates:
 
 rule pepper_post_vcf:
     input:
-        lambda wildcards: get_dir('output',f'pepper_{wildcards.mode.lower()}/PEPPER_{{mode}}_OUPUT{{ext}}.vcf.gz')
+        lambda wildcards: get_dir('output',f'pepper_{wildcards.mode.lower()}/PEPPER_{{mode}}_OUTPUT{{ext}}.vcf')
     output:
         get_dir('output','PEPPER_{mode}_OUTPUT{ext}.vcf.gz')
     threads: 4
@@ -310,7 +311,7 @@ rule deepvariant_make_examples:
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
     threads: 1
     resources:
-        mem_mb = 6000,
+        mem_mb = 10000,
         walltime = '4:00',
         disk_scratch = 1,
         use_singularity = True
