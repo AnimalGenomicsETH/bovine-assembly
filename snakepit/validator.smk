@@ -158,3 +158,26 @@ rule variant_density:
                     pos *= window
                     fout.write('\t'.join(map(str,(chr,pos,pos+window,counts_1[key],'2874A6',counts_2[key],'D4AC0D'))) + '\n')
 
+
+rule picard_concordance:
+    input:
+        DV = 'DV.normed.vcf.gz',
+        GATK = 'GATK.normed.vcf.gz'
+    output:
+        'concordance/{sample}.conc'
+    shell:
+        '''
+        #picard GenotypeConcordance CALL_VCF={input.GATK} TRUTH_VCF={input.DV} CALL_SAMPLE={wildcards.sample} TRUTH_SAMPLE={wildcards.sample} O={wildcards.sample}
+        tail -n 4 concordance/{wildcards.sample}.genotype_concordance_summary_metrics | awk 'NF {{print $2"\t"$1"\t"2*$4*$5/($4+$5)"\t"2*$7*$8/($7+$8)"\t"2*$10*$11/($10+$11)"\t"$13"\t"$14}}' > {output}
+        '''
+
+rule aggreate_concordance:
+    input:
+        expand('concordance/{sample}.conc',sample=config['samples'])
+    output:
+        'concordance/summary.txt'
+    shell:
+        '''
+        echo -e "sample\tvar\tHET F1\tHOMV F1\tVAR F1\tGC\tnR-GC" > {output}
+        sort -k 13,13nr -k 11,11nr {input} >> {output}
+        '''
