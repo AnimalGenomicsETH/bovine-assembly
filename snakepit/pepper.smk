@@ -311,7 +311,7 @@ rule deepvariant_make_examples:
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
     threads: 1
     resources:
-        mem_mb = 10000,
+        mem_mb = 30000,
         walltime = '4:00',
         disk_scratch = 1,
         use_singularity = True
