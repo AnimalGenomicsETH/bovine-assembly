@@ -57,13 +57,13 @@ rule ragtag_scaffold:
         WORK_PATH + '{haplotype}.scaffolds.fasta'
     params:
         WORK_PATH + '{haplotype}_scaf'
-    threads: 24
+    threads: 12
     resources:
-        mem_mb = 2000
+        mem_mb = 3000
     shell:
         '''
-        ragtag.py scaffold {config[ref_genome]} {input} -o {params} -t {threads} --mm2-params "-c -x asm5" -r -m 1000000
-        cp {params}/ragtag.scaffolds.fasta {output}
+        ragtag.py scaffold {config[ref_genome]} {input} -o {params} -t {threads} --unimap-params "-c -x asm5 -t {threads}" --aligner unimap -r -m 1000000
+        cp {params}/ragtag.scaffold.fasta {output}
         '''
 
 rule prep_window:
@@ -101,9 +101,9 @@ rule chromosome_coverage:
 
 rule megadepth_coverage:
     input:
-        multiext(get_dir('work','{haplotype}_scaffolds_{type}_reads.mm2.bam'),'','.bai')
+        multiext(get_dir('work','{haplotype}.{type}.{mapper}.bam'),'','.bai')
     output:
-        get_dir('work','{haplotype}.scaffolds.{type}.coverage.mm2.all.bw')
+        get_dir('result','.coverage.{type}.{mapper}.all.bw')
     params:
         out = lambda wilcards, output: PurePath(output[0]).with_suffix('').with_suffix(''),
         opt = lambda wildcards: '--longreads' if wildcards.type == 'hifi' else ''
@@ -130,7 +130,7 @@ checkpoint split_chromosomes:
         grep ">" {params.asm} | cut -c 2- > {params.headers}
         grep -P "^[YX\d]" {params.headers} | seqtk subseq {params.asm} - > {params.chrm}
         grep "^{config[ref_tig]}" {params.headers} | seqtk subseq {params.asm} - > {params.ur_tigs}
-        grep -v -P "^([XY\d]|config[ref_tig])" {params.headers} | seqtk subseq {params.asm} - > {params.ua_tigs}
+        grep -v -P "^([XY\d]|{config[ref_tig]})" {params.headers} | seqtk subseq {params.asm} - > {params.ua_tigs}
         awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> filename".chrm.fa"}}' {params.chrm}
 
         for val in ref asm; do
@@ -150,7 +150,7 @@ rule repeat_masker:
     threads: 6#lambda wildcards, input: 18 if input.size_mb < 100 else 24
     resources:
         mem_mb = 1000,
-        walltime = '24:00'
+        walltime = '14:00'
     shell:
         '''
         RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} -qq -no_is {input} #-species "Bos taurus"
