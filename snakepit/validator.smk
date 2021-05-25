@@ -164,20 +164,20 @@ rule picard_concordance:
         DV = 'DV.normed.vcf.gz',
         GATK = 'GATK.normed.vcf.gz'
     output:
-        'concordance/{sample}.conc'
+        'HD_concordance/{sample}.{caller}.conc'
     shell:
         '''
         #picard GenotypeConcordance CALL_VCF={input.GATK} TRUTH_VCF={input.DV} CALL_SAMPLE={wildcards.sample} TRUTH_SAMPLE={wildcards.sample} O={wildcards.sample}
-        tail -n 4 concordance/{wildcards.sample}.genotype_concordance_summary_metrics | awk 'NF {{print $2"\t"$1"\t"2*$4*$5/($4+$5)"\t"2*$7*$8/($7+$8)"\t"2*$10*$11/($10+$11)"\t"$13"\t"$14}}' > {output}
+        tail -n 4 HD_concordance/{wildcards.sample}_{wildcards.caller}.genotype_concordance_summary_metrics | awk '$1~/SNP/ {{print $2"\t{wildcards.caller}\t"$10"\t"$12"\t"2*$4*$5/($4+$5)"\t"2*$7*$8/($7+$8)"\t"2*$10*$11/($10+$11)"\t"$13"\t"$14}}' > {output}
         '''
 
 rule aggreate_concordance:
     input:
-        expand('concordance/{sample}.conc',sample=config['samples'])
+        expand('HD_concordance/{sample}.{caller}.conc',sample=('RM1894','RM1896','RM1899','BSWCHEF120071057962'),caller=('DV','GATK'))
     output:
-        'concordance/summary.txt'
+        'HD_concordance/summary.txt'
     shell:
         '''
-        echo -e "sample\tvar\tHET F1\tHOMV F1\tVAR F1\tGC\tnR-GC" > {output}
+        echo -e "sample\tcaller\tSensitivity\tSpecificity\tHET F1\tHOMV F1\tVAR F1\tGC\tnR-GC" > {output}
         sort -k 13,13nr -k 11,11nr {input} >> {output}
         '''
