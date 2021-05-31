@@ -1,59 +1,50 @@
-DIR='synteny/'
+localrules: plot_dot
 
-rule jupiter_prepare:
-    input:
-        ref = config['ref'],
-        fasta = config['fasta']
-    output:
-        ref = DIR + '{hap}_reference.fa',
-        fasta = DIR + '{hap}-agp.fa'
-    shell:
-        '''
-        jupiter name={wildcards.hap} ref={input.ref} fa={input.fasta} ng=95 m=1000000 g=100 gScaff=100 {wildcards.hap}.agp {wildcards.hap}_reference.karyotype 2> /dev/null
-        '''
+from pathlib import PurePath, Path
 
-rule minimap_align:
+class Default(dict):
+    def __missing__(self, key):
+        return '{'+key+'}'
+
+def get_dir(base,ext='',**kwargs):
+    if base == 'synteny':
+        base_dir = 'synteny_{ref}'
+    else:
+        raise Exception('Base not found')
+    if ext and ext[0] == '.':
+        return f'{base_dir}{ext}'.format_map(Default(kwargs))
+    return str(PurePath(base_dir.format_map(Default(kwargs))) / ext.format_map(Default(kwargs)))
+
+
+rule all:
     input:
-        ref = DIR + '{hap}_reference.fa',
-        fasta = DIR + '{hap}-agp.fa'
-    output:
-        DIR + '{hap}-agp.sam'
-    threads: 8
-    resources:
-        mem_mb = 4000,
-        walltime = '1:00'
-    shell:
-        'minimap2 -ax asm5 -t {threads} {input.ref} {input.fasta} > {output}'
+        (get_dir('synteny','{hap}.dot.png',ref=REF,hap=HAP) for REF in config['pairs'] for HAP in config['pairs'][REF])
 
 rule jupiter_plot:
     input:
-        DIR + '{hap}-agp.sam'
+        ref = lambda wildcards: config['references'][wildcards.ref],
+        fasta = lambda wildcards: config['pairs'][wildcards.ref][wildcards.hap]
     output:
-        '{hap}.png'
-    shell:
-        '''
-        jupiter name={wildcards.hap} ref=config[ref] fa=config[fasta] ng=95 m=1000000 g=100 gScaff=100 2> /dev/null
-        '''
-
-rule minimap_align:
-    input:
-        ref = config['ref'],
-        fasta = config['fasta']
-    output:
-        DIR + '{hap}_ref.paf'
+        paf = get_dir('synteny','{hap}-agp.paf'),
+        png = get_dir('synteny','{hap}.jupiter.png')
+    params:
+        lambda wildcards,output: PurePath(output.png).parent
     threads: 8
     resources:
         mem_mb = 4000,
-        walltime = '1:00'
+        walltime = '2:00'
     shell:
-        'minimap2 -cx asm5 -t {threads} {input.ref} {input.fasta} > {output}'
-
+        '''
+        mkdir -p {params} && cd {params}
+        jupiter name={wildcards.hap} ref=../{input.ref} fa=../{input.fasta} ng=100 maxScaff=30 m=20000000 g=99 gScaff=99 t=8
+        mv {wildcards.hap}.png ../{output.png}
+        '''
 
 rule plot_dot:
     input:
-        DIR + '{hap}_ref.paf'
+        get_dir('synteny','{hap}-agp.paf')
     output:
-        DIR + '{hap}_ref.png'
+        get_dir('synteny','{hap}.dot.png')
     shell:
         'minidot -L {input} | convert -density 150 - {output}'
 
