@@ -49,7 +49,7 @@ rule ragtag_correct:
         ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler}_{wildcards.sample} -R {input.reads} -T corr -t {threads} --mm2-params "-c -x asm20"
         #mv {wildcards.assembler}_{wildcards.sample}/ragtag.contigs.corrected {output}
         '''
-
+#ragtag.py patch hifiasmv15_100/asm.scaffolds.fasta shastamerfin_100/asm.scaffolds.fasta --aligner minimap2 --mm2-params "-cx asm5 -t 8" --fill-only -o asm_patch3
 rule ragtag_scaffold:
     input:
         WORK_PATH + '{haplotype}.contigs.fasta'
@@ -62,7 +62,7 @@ rule ragtag_scaffold:
         mem_mb = 3000
     shell:
         '''
-        ragtag.py scaffold {config[ref_genome]} {input} -o {params} -t {threads} --unimap-params "-c -x asm5 -t {threads}" --aligner unimap -r -m 1000000
+        ragtag.py scaffold {config[ref_genome]} {input} -o {params} -t {threads} -u --mm2-params "-cx asm5 -t {threads}" -r -m 1000000
         cp {params}/ragtag.scaffold.fasta {output}
         '''
 
@@ -150,7 +150,7 @@ rule repeat_masker:
     threads: 6#lambda wildcards, input: 18 if input.size_mb < 100 else 24
     resources:
         mem_mb = 1000,
-        walltime = '14:00'
+        walltime = '4:00'
     shell:
         '''
         RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} -qq -no_is {input} #-species "Bos taurus"
