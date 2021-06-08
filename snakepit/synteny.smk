@@ -18,7 +18,7 @@ def get_dir(base,ext='',**kwargs):
 
 rule all:
     input:
-        (get_dir('synteny','{hap}.dot.png',ref=REF,hap=HAP) for REF in config['pairs'] for HAP in config['pairs'][REF])
+        (get_dir('synteny','{hap}.jupiter.png',ref=REF,hap=HAP) for REF in config['pairs'] for HAP in config['pairs'][REF])
 
 rule jupiter_plot:
     input:
