@@ -1,4 +1,4 @@
-localrules: determine_mash_ordering, mash_dist, make_unique_names, extract_chromosome, extract_unmapped_regions, samtools_faidx
+localrules: determine_mash_ordering, make_unique_names
 
 from pathlib import PurePath, Path
 
@@ -26,7 +26,8 @@ def valid_chromosomes(chr_target):
 
 rule all:
     input:
-        expand(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes']))
+        expand(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes'])),
+        get_dir('SV','dendrogram.L{L}.{mode}.png',L=config['L'],mode='both')
         #(get_dir('SV','{asm}.path.7.{L}.unmapped.bed',L=config['L'],asm=ASM) for ASM in list(config['assemblies'].keys())[1:])
 
 rule mash_sketch:
@@ -36,9 +37,10 @@ rule mash_sketch:
         get_dir('mash','{asm}.msh')
     params:
         out = lambda wildcards, output: PurePath(output[0]).with_suffix('')
-    threads: 4
+    threads: 2
     resources:
-        mem_mb = 3000
+        mem_mb = 1000,
+        walltime = '30'
     shell:
         'mash sketch -p {threads} {input} -o {params.out}'
 
@@ -50,7 +52,8 @@ rule mash_dist:
         get_dir('mash','{asm}.{ref}.dist')
     threads: 1
     resources:
-        mem_mb = 3000
+        mem_mb = 100,
+        walltime = '5'
     shell:
         '''
         mash dist -p {threads} {input} | awk '{{print "{wildcards.asm} "$3" "$5}}' > {output}
@@ -80,13 +83,15 @@ rule extract_chromosome:
     input:
         multiext(get_dir('SV','{asm}.fasta'),'','.fai')
     output:
-        temp(get_dir('SV','{asm}.{chr}.fasta'))
+        temp(get_dir('SV','{asm}.{chr}.fasta',chr=CHR) for CHR in valid_chromosomes(config['chromosomes']))
     threads: 1
     resources:
-        mem_mb = 1500,
+        mem_mb = 5000,
         walltime = '5'
-    shell:
-        'samtools faidx {input[0]} {wildcards.chr}_{wildcards.asm} > {output}'
+    run:
+        for chromosome in valid_chromosomes(config['chromosomes']):
+            out_file = output[int(chromosome)-1]
+            shell(f'samtools faidx {{input[0]}} {chromosome}_{wildcards.asm} > {out_file}')
 
 rule minigraph_ggs:
     input:
@@ -134,7 +139,7 @@ rule minigraph_align:
 
 rule extract_unmapped_regions:
     input:
-        fai = get_dir('SV','{asm}.{chr}.fasta.fai'),
+        fai = get_dir('SV','{asm}.fasta.fai'),
         gaf = get_dir('SV','{asm}.path.{chr}.L{L}.gaf'),
         bed = get_dir('SV','{asm}.path.{chr}.L{L}.bed')
     output:
@@ -143,7 +148,7 @@ rule extract_unmapped_regions:
         unmapped = temp(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'))
     shell:
         '''
-        awk '{{print $1"\t"$2}}' {input.fai} > {output.genome}
+        awk '/^{wildcards.chr}_{wildcards.asm}/ {{print $1"\t"$2}}' {input.fai} > {output.genome}
         awk '/^{wildcards.chr}_{wildcards.asm}/ {{print $1"\t"$3"\t"$4}}' {input.gaf} | sort -n -k 2,2 > {output.gaf_bed}
         awk '$6=="." {{print "{wildcards.chr}_{wildcards.asm}\t"$2"\t"$3}}' {input.bed} >> {output.gaf_bed}
 
@@ -201,20 +206,20 @@ rule colour_shared_bubbles:
 
 rule plot_dendrogram:
     input:
-        (get_dir('SV','{chr}.L{L}.bubbles.{mode}.df',chr=CHR) for CHR in valid_chromosomes(config['chromosomes'])
+        (get_dir('SV','{chr}.L{L}.bubbles.{mode}.df',chr=CHR) for CHR in valid_chromosomes(config['chromosomes']))
     output:
         get_dir('SV','dendrogram.L{L}.{mode}.png')
     params:
         cols = lambda wildcards: list(range(5 if wildcards.mode == 'breed' else 10))
     run:
         import pandas as pd
-
+        from scipy.cluster import hierarchy
+        from matplotlib import pyplot as plt
         dfs = pd.concat([pd.read_csv(fpath,index_col=params.cols) for fpath in input])
         names, dist = combine(dfs)
         z = hierarchy.linkage([float(i) for i in dist.values()], 'average')
         dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=names)
         plt.savefig(output[0])
-        df.to_csv(f'{wildcards.chr}.{wildcards.mode}.df')
 
 
 #df = pd.read_csv('/Users/alexleonard/Documents/Tiergenomik/DATA/test.df',index_col=[0,1,2,3,4])
@@ -225,8 +230,8 @@ rule plot_dendrogram:
 #
 
 def combine(data):
+    import upsetplot
     names = data.index.names
-    print(names)
     intersections = upsetplot.UpSet(data).intersections
     condensed_dist = dict()
     for i in range(len(names)-1):
@@ -237,6 +242,14 @@ def combine(data):
                 condensed_dist[f'{names[i]}_{names[j]}'] = 0
     return names, condensed_dist
 
+#R plot
+#library(phylogram)
+#library(dendextend)
+# x <- read.dendrogram(text = "(gaur:0.389885,(nellore:0.118569,(bsw:0.0403885,(obv:0.0394899,pied:0.0394899):0.000898574):0.0781807):0.271316);")
+#y
+#dy <- ladder(y)
+#> dndlist <- dendextend::dendlist(dx,dy) %>% set("highlight_branches_col";)
+#tanglegram(dndlist, sort = TRUE, common_subtrees_color_lines = TRUE, highlight_distinct_edges  = TRUE,)
 rule samtools_faidx:
     input:
         '{fasta}.{fa_ext}'
