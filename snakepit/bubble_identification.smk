@@ -1,4 +1,4 @@
-localrules: determine_mash_ordering, make_unique_names
+localrules: determine_mash_ordering, make_unique_names, colour_shared_bubbles, plot_dendrogram
 
 from pathlib import PurePath, Path
 
@@ -204,11 +204,23 @@ rule colour_shared_bubbles:
         plt.savefig(output.plot)
         df.to_csv(output.df)
 
+def getNewick(node, newick, parentdist, leaf_names):
+    if node.is_leaf():
+        return f'{leaf_names[node.id]}:{parentdist-node.dist:.2f}{newick}'
+    if len(newick) > 0:
+        newick = f'):{parentdist-node.dist:.2f}{newick}'
+    else:
+        newick = ');'
+    newick = getNewick(node.get_left(), newick, node.dist, leaf_names)
+    newick = getNewick(node.get_right(), f',{newick}', node.dist, leaf_names)
+    return '(' + newick
+
 rule plot_dendrogram:
     input:
         (get_dir('SV','{chr}.L{L}.bubbles.{mode}.df',chr=CHR) for CHR in valid_chromosomes(config['chromosomes']))
     output:
-        get_dir('SV','dendrogram.L{L}.{mode}.png')
+        plot = get_dir('SV','dendrogram.L{L}.{mode}.png'),
+        newick = get_dir('SV','L{L}.{mode}.nw')
     params:
         cols = lambda wildcards: list(range(5 if wildcards.mode == 'breed' else 10))
     run:
@@ -219,7 +231,12 @@ rule plot_dendrogram:
         names, dist = combine(dfs)
         z = hierarchy.linkage([float(i) for i in dist.values()], 'average')
         dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=names)
-        plt.savefig(output[0])
+        plt.savefig(output['plot'])
+        tree = hierarchy.to_tree(z,False)
+        newick = getNewick(tree, "", tree.dist, names)
+        with open(output['newick'],'w') as fout:
+            fout.write(newick)
+
 
 
 #df = pd.read_csv('/Users/alexleonard/Documents/Tiergenomik/DATA/test.df',index_col=[0,1,2,3,4])
