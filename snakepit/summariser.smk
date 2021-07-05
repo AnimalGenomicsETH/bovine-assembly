@@ -79,6 +79,17 @@ rule extract_centr_telo_features:
                         if pattern.match(parts[9]):
                             fout.write('\t'.join(map(str,(parts[4],int(parts[5])-1,parts[6],parts[9],'.','-' if parts[8] == 'C' else '+',int(parts[5])-1,parts[6],get_colour(parts[9]))))+'\n')
 
+rule make_karyotype:
+    input:
+        get_dir('work','{haplotype}.scaffolds.fasta.fai')
+    output:
+        get_dir('result','.karyotype')
+    shell:
+        '''
+        echo -e "Chr\tStart\tEnd" > {output}
+        awk '{{print $1"\t0\t"$2}}' {input} >> {output}
+        '''
+
 rule bedtools_merge_centr_telo:
     input:
         get_dir('work','{haplotype}.centr_telo.unmerged.bed')

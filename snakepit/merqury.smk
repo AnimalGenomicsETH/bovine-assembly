@@ -213,9 +213,9 @@ rule merqury_phase_block:
         out = '{haplotype}',
         hapmers = lambda wildcards, input: tuple('..' / PurePath(fname) for fname in input['hapmers']),
         asm = lambda wildcards, input: PurePath(input['asm']).name
-    threads: 12
+    threads: 8
     resources:
-        mem_mb = 3500
+        mem_mb = 2000
     envmodules:
        'gcc/8.2.0',
        'r/4.0.2'
@@ -235,9 +235,10 @@ rule merqury_block_n_stats:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         out = '{haplotype}',
         asm_block = lambda wildcards,input: tuple(PurePath(i).name for i in input['asm_block'])
-    threads: 6
+    threads: 1
     resources:
-        mem_mb = 2500
+        mem_mb = 2000,
+        walltime = '10'
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
