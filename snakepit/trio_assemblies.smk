@@ -18,7 +18,7 @@ rule trio_hifiasm:
         reads = 'data/offspring.{sample}.hifi.fq.gz',
         mat = 'data/dam.yak',
         pat = 'data/sire.yak',
-        asm = get_dir('work','asm.contigs.fasta',assembler='hifiasm')
+        asm = get_dir('work','asm.p_ctg.gfa',assembler='hifiasm')
     output:
         expand('hifiasm_{{sample}}/hap{N}.p_ctg.gfa', N = (1,2))
     params:

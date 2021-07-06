@@ -10,7 +10,7 @@ if config['animal'] != 'test':
 #GLOBAL VAR
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: all, analysis_report, plot_dot, samtools_faidx, validation_auN, validation_refalign, validation_yak_completeness, validation_asmgene
+localrules: all, analysis_report, plot_dot, samtools_faidx, strip_canu_bubbles, validation_auN, validation_refalign, validation_yak_completeness, validation_asmgene
 
 for _dir in ['data','results']:
     Path(_dir).mkdir(exist_ok=True)
@@ -49,8 +49,10 @@ include: 'snakepit/variant_calling.smk'
 include: 'snakepit/mappers.smk'
 include: 'snakepit/capture_logic.smk'
 #include: 'snakepit/gap_closing.smk'
+include: 'snakepit/scaffolding.smk'
 include: 'snakepit/summariser.smk'
 include: 'snakepit/structural_variants.smk'
+include: 'snakepit/ont.smk'
 
 wildcard_constraints:
     assembler = r'[^\W_]+',
@@ -79,8 +81,8 @@ if 'hifiasm' in config['assemblers']:
             get_dir('work','asm.p_ctg.gfa',assembler='hifiasm')
         params:
             out = lambda wildcards, output: PurePath(output[0]).with_name('asm'),
-            settings = '-r 4 -a 5 -n 5'
-        threads: 36
+            settings = '-r 3 -a 5 -n 5'
+        threads: 34
         resources:
             mem_mb = lambda wildcards, input, threads: max(int(input.size_mb*1.75/threads),1500),
             walltime = '24:00'
@@ -151,13 +153,13 @@ if 'canuhifi' in config['assemblers']:
             mv {params.dir_}/{wildcards.parent}.contigs.fasta {output}
             '''
 
-    rule strip_canu_bubbles:
-        input:
-            get_dir('work','{haplotype}.contigs_all.fa',assembler='canuhifi')
-        output:
-            get_dir('work','{haplotype}.contigs_raw.fa',assembler='canuhifi')
-        shell:
-            'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 --no-group-separator > {output}'
+rule strip_canu_bubbles:
+    input:
+        get_dir('work','{haplotype}.contigs_all.fa')
+    output:
+        get_dir('work','{haplotype}.contigs_raw.fa')
+    shell:
+        'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 --no-group-separator > {output}'
 
 if 'flye' in config['assemblers']:
     rule assembler_flye:
