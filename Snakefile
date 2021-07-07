@@ -29,6 +29,8 @@ def get_dir(base,ext='',**kwargs):
         base_dir = 'results/{haplotype}_{sample}_{assembler}'
     elif base =='summary':
         base_dir = 'results'
+    elif base == 'comparison':
+        base_dir = 'comparison'
     elif base == 'data':
         base_dir = 'data'
     else:
@@ -78,7 +80,8 @@ if 'hifiasm' in config['assemblers']:
         input:
             'data/offspring.{sample}.hifi.fq.gz'
         output:
-            get_dir('work','asm.p_ctg.gfa',assembler='hifiasm')
+            #note can change to primary
+            get_dir('work','asm.bp.p_ctg.gfa',assembler='hifiasm')
         params:
             out = lambda wildcards, output: PurePath(output[0]).with_name('asm'),
             settings = '-r 3 -a 5 -n 5'
@@ -92,7 +95,7 @@ if 'hifiasm' in config['assemblers']:
     ##Requires gfatools installed
     rule assembler_hifiasm_conversion:
         input:
-            get_dir('work','{haplotype}.p_ctg.gfa',assembler='hifiasm')
+            lambda wildcards: get_dir('work','{haplotype}.p_ctg.gfa',assembler='hifiasm')#,dip='dip' if wildcards.haplotype!='asm' else 'bp')
         output:
             get_dir('work','{haplotype}.contigs.fasta',assembler='hifiasm')
         resources:

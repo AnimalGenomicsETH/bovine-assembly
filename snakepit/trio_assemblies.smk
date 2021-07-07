@@ -18,12 +18,12 @@ rule trio_hifiasm:
         reads = 'data/offspring.{sample}.hifi.fq.gz',
         mat = 'data/dam.yak',
         pat = 'data/sire.yak',
-        asm = get_dir('work','asm.p_ctg.gfa',assembler='hifiasm')
+        asm = get_dir('work','asm.bp.p_ctg.gfa',assembler='hifiasm')
     output:
         expand('hifiasm_{{sample}}/hap{N}.p_ctg.gfa', N = (1,2))
     params:
         out = get_dir('work','asm',assembler='hifiasm'),
-        old = expand('hifiasm_{{sample}}/asm.hap{N}.p_ctg.gfa', N = (1,2)),
+        old = expand('hifiasm_{{sample}}/asm.dip.hap{N}.p_ctg.gfa', N = (1,2)),
         new = expand('hifiasm_{{sample}}/hap{N}.p_ctg.gfa', N = (1,2)),
         settings = '-r 4 -a 5 -n 5'
     threads: 32
