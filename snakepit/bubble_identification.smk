@@ -26,8 +26,8 @@ def valid_chromosomes(chr_target):
 
 rule all:
     input:
-        expand(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes'])),
-        get_dir('SV','dendrogram.L{L}.{mode}.png',L=config['L'],mode='both')
+        #expand(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes'])),
+        get_dir('SV','dendrogram.L{L}.{mode}.png',L=config['L'],mode='breed')
         #(get_dir('SV','{asm}.path.7.{L}.unmapped.bed',L=config['L'],asm=ASM) for ASM in list(config['assemblies'].keys())[1:])
 
 rule mash_sketch:
@@ -236,15 +236,6 @@ rule plot_dendrogram:
         newick = getNewick(tree, "", tree.dist, names)
         with open(output['newick'],'w') as fout:
             fout.write(newick)
-
-
-
-#df = pd.read_csv('/Users/alexleonard/Documents/Tiergenomik/DATA/test.df',index_col=[0,1,2,3,4])
-#us = upsetplot.UpSet(df)
-#dist['N_O']=us.intersections[:,True,False,:,:].sum() + us.intersections[:,False,True,:,:].sum()
-# z=hierarchy.linkage([float(i) for i in dist.values()], 'average')
-#dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=['PM','N','O','BSW','G'])
-#
 
 def combine(data):
     import upsetplot
