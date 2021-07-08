@@ -1,6 +1,8 @@
-localrules: determine_mash_ordering, make_unique_names, colour_shared_bubbles, plot_dendrogram
+localrules: determine_ordering, make_unique_names, colour_shared_bubbles, plot_dendrogram
 
 from pathlib import PurePath, Path
+from collections import defaultdict
+from itertools import product
 
 class Default(dict):
     def __missing__(self, key):
@@ -8,9 +10,11 @@ class Default(dict):
 
 def get_dir(base,ext='',**kwargs):
     if base == 'SV':
-        base_dir = 'SVs'
+        base_dir = 'SVs_run_{run}'
     elif base == 'mash':
         base_dir = 'mash'
+    elif base == 'stochastic':
+        base_dir = 'run_{N}'
     else:
         raise Exception('Base not found')
     if ext and ext[0] == '.':
@@ -27,8 +31,8 @@ def valid_chromosomes(chr_target):
 rule all:
     input:
         #expand(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes'])),
-        get_dir('SV','dendrogram.L{L}.{mode}.png',L=config['L'],mode='breed')
-        #(get_dir('SV','{asm}.path.7.{L}.unmapped.bed',L=config['L'],asm=ASM) for ASM in list(config['assemblies'].keys())[1:])
+        #get_dir('SV','dendrogram.L{L}.{mode}.png',run='static',L=config['L'],mode='breed'),
+        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run='static',L=config['L'],mode='breed') for (c,n) in product([1,],[0]))#range(1,30),range(10)))
 
 rule mash_sketch:
     input:
@@ -59,14 +63,20 @@ rule mash_dist:
         mash dist -p {threads} {input} | awk '{{print "{wildcards.asm} "$3" "$5}}' > {output}
         '''
 
-rule determine_mash_ordering:
+checkpoint determine_ordering:
     input:
         expand(get_dir('mash','{asm}.{ref}.dist'),ref=list(config['assemblies'].keys())[0],asm=list(config['assemblies'].keys())[1:])
     output:
-        get_dir('mash','order.txt')
-    shell:
-        'cat {input} | sort -n -k 2,2 > {output}'
-
+        get_dir('SV','order.txt')
+    run:
+        if wildcards.run == 'static':
+            shell('sort -k2,2n {input} > {output}')
+        else:
+            import numpy as np
+            idx = np.random.randint(0,2,5)+range(1,10,2) #offset random samples to pick either HiFi or ONT
+            assemblies = np.array(config['assemblies'].keys())
+            with open(output[0],'w') as fout:
+                fout.write('\n'.join(assemblies[idx]))
 
 rule make_unique_names:
     input:
@@ -93,22 +103,40 @@ rule extract_chromosome:
             out_file = output[int(chromosome)-1]
             shell(f'samtools faidx {{input[0]}} {chromosome}_{wildcards.asm} > {out_file}')
 
+rule generate_random_order:
+    output:
+        get_dir('SV','{chr}.order.txt')
+    run:
+        import numpy as np
+        idx = list(np.random.randint(0,2,5)+range(1,10,2)) #offset random samples to pick either HiFi or ONT
+        return [get_dir('SV',f'{list(config["assemblies"].keys())[I]}.{wildcards.chr}.fasta',run=run) for I in idx]
+
+def assembly_input_order(**kwargs):
+    run = kwargs.get('run','static')
+    chromosome = kwargs['chr']
+    if run == 'static':
+        return [get_dir('SV',f'{line.split()[0]}.{chromosome}.fasta',run=run) for line in open(input.order)]
+
+
+
 rule minigraph_ggs:
     input:
-        fastas = (get_dir('SV',f'{asm}.{{chr}}.fasta') for asm in config['assemblies']),
-        distances = get_dir('mash','order.txt')
+        fastas = (get_dir('SV','{asm}.{chr}.fasta',asm=asm) for asm in config['assemblies']),
+        order = lambda wildcards: get_dir('SV','order.txt') if wildcards.run == 'static' else get_dir('SV','order.txt')
     output:
-        get_dir('SV','{chr}.L{L}.gfa')
+        gfa = get_dir('SV','{chr}.L{L}.gfa')
+        #order = get_dir('SV','{chr}.L{L}.order.txt')
     params:
-        backbone = lambda wildcards: get_dir('SV',f'{list(config["assemblies"].keys())[0]}.{wildcards.chr}.fasta'),
-        ordered_input = lambda wildcards, input: [get_dir('SV',f'{line.split()[0]}.{wildcards.chr}.fasta') for line in open(input.distances)],
+        backbone = lambda wildcards: get_dir('SV',f'{list(config["assemblies"].keys())[0]}.{wildcards.chr}.fasta',**wildcards),
+        input_order = lambda wildcards, input: [get_dir('SV',f'{line.split()[0]}.{chr}.fasta',run=run) for line in open(input.order)],
+        #[assembly_input_order(**wildcards,input_distances=input.distances)],
         asm = '-g250k -r250k -j0.05 -l250k'
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 1
     resources:
         mem_mb = 10000,
         walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '4:00'
     shell:
-        'minigraph -xggs -t {threads} -L {wildcards.L} {params.backbone} {params.ordered_input} > {output}'
+        'minigraph -xggs -t {threads} -L {wildcards.L} {params.backbone} {params.input_order} > {output}'
 
 rule gfatools_bubble:
     input:
@@ -159,9 +187,7 @@ rule extract_unmapped_regions:
 
 
 def get_bubble_links(bed,bubbles,mode):
-
     name,ext = get_name(bed,mode)
-
     with open(bed,'r') as fin:
         for line in fin:
             source,sink,links = line.rstrip().split()[3:6]
@@ -194,7 +220,7 @@ rule colour_shared_bubbles:
     run:
         from upsetplot import from_contents, plot
         from matplotlib import pyplot as plt
-        from collections import defaultdict
+
         bubbles = defaultdict(list)
 
         for infile in input:
@@ -215,6 +241,45 @@ def getNewick(node, newick, parentdist, leaf_names):
     newick = getNewick(node.get_right(), f',{newick}', node.dist, leaf_names)
     return '(' + newick
 
+def get_stochastic_order(wildcards):
+    checkpoint_output = PurePath(checkpoints.determine_ordering.get(**wildcards).output[0])
+    orders = []
+    for ASM in open(get_dir('SV','order.txt',**wildcards),'r'):
+        asm = PurePath(ASM.rstrip()).name.split('.')[0]
+        orders.append(get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=asm))
+    return orders
+
+rule stochastic_dendrogram:
+    input:
+        order = get_dir('SV','order.txt'),
+        beds = lambda wildcards: get_stochastic_order(wildcards),
+    output:
+        newick = get_dir('SV','{chr}.L{L}.{mode}.nw')
+    run:
+        from upsetplot import from_contents
+
+        bubbles = defaultdict(list)
+
+        for infile in input.beds:
+            get_bubble_links(infile,bubbles,wildcards.mode)
+        df = from_contents(bubbles)
+        newick = form_tree(df)
+
+        with open(output['newick'],'w') as fout:
+            fout.write(newick)
+
+def form_tree(data,no_plot=False):
+    names, dist = combine(data)
+    z = hierarchy.linkage([float(i) for i in dist.values()], 'average')
+    dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=names,no_plot=no_plot)
+    tree = hierarchy.to_tree(z,False)
+    newick = getNewick(tree, "", tree.dist, names)
+    return newick
+
+def get_pairs(tree):
+    inner_pair = tree.split('(')[-1].split(')')[0]
+    return (inner_pair.split(':')[0],inner_pair.split(',')[-1].split(':')[0])
+
 rule plot_dendrogram:
     input:
         (get_dir('SV','{chr}.L{L}.bubbles.{mode}.df',chr=CHR) for CHR in valid_chromosomes(config['chromosomes']))
@@ -228,12 +293,8 @@ rule plot_dendrogram:
         from scipy.cluster import hierarchy
         from matplotlib import pyplot as plt
         dfs = pd.concat([pd.read_csv(fpath,index_col=params.cols) for fpath in input])
-        names, dist = combine(dfs)
-        z = hierarchy.linkage([float(i) for i in dist.values()], 'average')
-        dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=names)
+        newick = form_tree(dfs,no_plot=False)
         plt.savefig(output['plot'])
-        tree = hierarchy.to_tree(z,False)
-        newick = getNewick(tree, "", tree.dist, names)
         with open(output['newick'],'w') as fout:
             fout.write(newick)
 
@@ -246,9 +307,11 @@ def combine(data):
         for j in range(i+1,len(names)):
             try:
                 condensed_dist[f'{names[i]}_{names[j]}'] = intersections.xs(True,level=names[i]).xs(False,level=names[j]).sum()+intersections.xs(False,level=names[i]).xs(True,level=names[j]).sum()
-            except:
+            except: #combination doesn't exist, so trivially 0
                 condensed_dist[f'{names[i]}_{names[j]}'] = 0
     return names, condensed_dist
+
+
 
 #R plot
 #library(phylogram)
