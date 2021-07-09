@@ -13,8 +13,6 @@ def get_dir(base,ext='',**kwargs):
         base_dir = 'SVs_run_{run}'
     elif base == 'mash':
         base_dir = 'mash'
-    elif base == 'stochastic':
-        base_dir = 'run_{N}'
     else:
         raise Exception('Base not found')
     if ext and ext[0] == '.':
@@ -211,7 +209,7 @@ def get_name(full_name,mode='both'):
         else:
             return read,breed
 
-rule colour_shared_bubbles:
+rule colour_shared_bubbles: #outdated?
     input:
         (get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=ASM) for ASM in list(config['assemblies'].keys())[1:])
     output:
@@ -241,20 +239,22 @@ def getNewick(node, newick, parentdist, leaf_names):
     newick = getNewick(node.get_right(), f',{newick}', node.dist, leaf_names)
     return '(' + newick
 
-def get_stochastic_order(wildcards):
+def get_order(wildcards):
     checkpoint_output = PurePath(checkpoints.determine_ordering.get(**wildcards).output[0])
     orders = []
     for ASM in open(get_dir('SV','order.txt',**wildcards),'r'):
         asm = PurePath(ASM.rstrip()).name.split('.')[0]
-        orders.append(get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=asm))
+        for chrom in (range(1,30) if wildcards.chr == 'all' else [wildcards.chr,]):
+            orders.append(get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=asm))
     return orders
 
-rule stochastic_dendrogram:
+rule generate_newick_tree:
     input:
         order = get_dir('SV','order.txt'),
-        beds = lambda wildcards: get_stochastic_order(wildcards),
+        beds = lambda wildcards: get_order(wildcards),
     output:
-        newick = get_dir('SV','{chr}.L{L}.{mode}.nw')
+        newick = get_dir('SV','{chr}.L{L}.{mode}.nw'),
+        df = get_dir('SV','{chr}.L{L}.{mode}.df')
     run:
         from upsetplot import from_contents
 
@@ -263,8 +263,9 @@ rule stochastic_dendrogram:
         for infile in input.beds:
             get_bubble_links(infile,bubbles,wildcards.mode)
         df = from_contents(bubbles)
-        newick = form_tree(df)
 
+        df.to_csv(output.df)
+        newick = form_tree(df)
         with open(output['newick'],'w') as fout:
             fout.write(newick)
 
@@ -280,7 +281,7 @@ def get_pairs(tree):
     inner_pair = tree.split('(')[-1].split(')')[0]
     return (inner_pair.split(':')[0],inner_pair.split(',')[-1].split(':')[0])
 
-rule plot_dendrogram:
+rule plot_dendrogram: #outdated
     input:
         (get_dir('SV','{chr}.L{L}.bubbles.{mode}.df',chr=CHR) for CHR in valid_chromosomes(config['chromosomes']))
     output:
