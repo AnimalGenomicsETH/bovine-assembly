@@ -81,5 +81,7 @@ rule pepper_stitch:
         mem_mb = 23000,
         walltime = '24:00'
     shell:
-        'pepper stitch -i {input} -o {output} -t {threads}'
-
+        '''
+        pepper stitch -i {input} -o {output} -t {threads}
+        mv {output}_pepper_polished.fa {output}
+        '''
