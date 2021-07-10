@@ -13,6 +13,8 @@ def get_dir(base,ext='',**kwargs):
         base_dir = 'SVs_run_{run}'
     elif base == 'mash':
         base_dir = 'mash'
+    elif base == 'fasta':
+        base_dir = 'fasta'
     else:
         raise Exception('Base not found')
     if ext and ext[0] == '.':
@@ -30,7 +32,7 @@ rule all:
     input:
         #expand(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes'])),
         #get_dir('SV','dendrogram.L{L}.{mode}.png',run='static',L=config['L'],mode='breed'),
-        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run='static',L=config['L'],mode='breed') for (c,n) in product([1,],[0]))#range(1,30),range(10)))
+        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),range(20)))
 
 rule mash_sketch:
     input:
@@ -71,27 +73,29 @@ checkpoint determine_ordering:
             shell('sort -k2,2n {input} > {output}')
         else:
             import numpy as np
-            idx = np.random.randint(0,2,5)+range(1,10,2) #offset random samples to pick either HiFi or ONT
-            assemblies = np.array(config['assemblies'].keys())
+            rng = np.random.default_rng()
+            idx = rng.integers(0,2,5)*5+[1,2,3,4,5]#np.random.randint(0,2,5)+range(1,10,2) #offset random samples to pick either HiFi or ONT
+            rng.shuffle(idx)
+            assemblies = np.array(list(config['assemblies'].keys()))
             with open(output[0],'w') as fout:
                 fout.write('\n'.join(assemblies[idx]))
 
-rule make_unique_names:
-    input:
-        lambda wildcards: config['assemblies'][wildcards.asm]
-    output:
-        temp(get_dir('SV','{asm}.fasta'))
-    shell:
-        '''
-        sed 's/_RagTag//g' {input} > {output}
-        sed -i '/^>/ s/$/_{wildcards.asm}/' {output}
-        '''
+#rule make_unique_names:
+    #input:
+    #    lambda wildcards: config['assemblies'][wildcards.asm]
+    #output:
+    #    temp(get_dir('fasta','{asm}.fasta'))
+    #shell:
+    #    '''
+    #    sed 's/_RagTag//g' {input} > {output}
+    #    sed -i '/^>/ s/$/_{wildcards.asm}/' {output}
+    #    '''
 
 rule extract_chromosome:
     input:
-        multiext(get_dir('SV','{asm}.fasta'),'','.fai')
+        multiext(get_dir('fasta','{asm}.fasta'),'','.fai')
     output:
-        temp(get_dir('SV','{asm}.{chr}.fasta',chr=CHR) for CHR in valid_chromosomes(config['chromosomes']))
+        temp(get_dir('fasta','{asm}.{chr}.fasta',chr=CHR) for CHR in valid_chromosomes(config['chromosomes']))
     threads: 1
     resources:
         mem_mb = 5000,
@@ -107,27 +111,24 @@ rule generate_random_order:
     run:
         import numpy as np
         idx = list(np.random.randint(0,2,5)+range(1,10,2)) #offset random samples to pick either HiFi or ONT
-        return [get_dir('SV',f'{list(config["assemblies"].keys())[I]}.{wildcards.chr}.fasta',run=run) for I in idx]
+        return [get_dir('fasta',f'{list(config["assemblies"].keys())[I]}.{wildcards.chr}.fasta',run=run) for I in idx]
 
 def assembly_input_order(**kwargs):
     run = kwargs.get('run','static')
     chromosome = kwargs['chr']
     if run == 'static':
-        return [get_dir('SV',f'{line.split()[0]}.{chromosome}.fasta',run=run) for line in open(input.order)]
-
+        return [get_dir('fasta',f'{line.split()[0]}.{chromosome}.fasta',run=run) for line in open(input.order)]
 
 
 rule minigraph_ggs:
     input:
-        fastas = (get_dir('SV','{asm}.{chr}.fasta',asm=asm) for asm in config['assemblies']),
-        order = lambda wildcards: get_dir('SV','order.txt') if wildcards.run == 'static' else get_dir('SV','order.txt')
+        #fastas = (get_dir('fasta','{asm}.{chr}.fasta',asm=asm) for asm in config['assemblies']),
+        order = get_dir('SV','order.txt')
     output:
         gfa = get_dir('SV','{chr}.L{L}.gfa')
-        #order = get_dir('SV','{chr}.L{L}.order.txt')
     params:
-        backbone = lambda wildcards: get_dir('SV',f'{list(config["assemblies"].keys())[0]}.{wildcards.chr}.fasta',**wildcards),
-        input_order = lambda wildcards, input: [get_dir('SV',f'{line.split()[0]}.{chr}.fasta',run=run) for line in open(input.order)],
-        #[assembly_input_order(**wildcards,input_distances=input.distances)],
+        backbone = lambda wildcards: get_dir('fasta',f'{list(config["assemblies"].keys())[0]}.{wildcards.chr}.fasta',**wildcards),
+        input_order = lambda wildcards, input: [get_dir('fasta',f'{line.split()[0]}.{{chr}}.fasta',**wildcards) for line in open(input.order)],
         asm = '-g250k -r250k -j0.05 -l250k'
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 1
     resources:
@@ -151,7 +152,7 @@ rule gfatools_bubble:
 rule minigraph_align:
     input:
         gfa = get_dir('SV','{chr}.L{L}.gfa'),
-        fasta = get_dir('SV','{asm}.{chr}.fasta')
+        fasta = get_dir('fasta','{asm}.{chr}.fasta')
     output:
         get_dir('SV','{asm}.path.{chr}.L{L,\d+}.{ext,gaf|bed}')
     params:
@@ -165,7 +166,7 @@ rule minigraph_align:
 
 rule extract_unmapped_regions:
     input:
-        fai = get_dir('SV','{asm}.fasta.fai'),
+        fai = get_dir('fasta','{asm}.fasta.fai'),
         gaf = get_dir('SV','{asm}.path.{chr}.L{L}.gaf'),
         bed = get_dir('SV','{asm}.path.{chr}.L{L}.bed')
     output:
@@ -243,7 +244,7 @@ def get_order(wildcards):
     checkpoint_output = PurePath(checkpoints.determine_ordering.get(**wildcards).output[0])
     orders = []
     for ASM in open(get_dir('SV','order.txt',**wildcards),'r'):
-        asm = PurePath(ASM.rstrip()).name.split('.')[0]
+        asm = ASM.split()[0]
         for chrom in (range(1,30) if wildcards.chr == 'all' else [wildcards.chr,]):
             orders.append(get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=asm))
     return orders
@@ -251,10 +252,12 @@ def get_order(wildcards):
 rule generate_newick_tree:
     input:
         order = get_dir('SV','order.txt'),
-        beds = lambda wildcards: get_order(wildcards),
+        beds = lambda wildcards: get_order(wildcards)
     output:
         newick = get_dir('SV','{chr}.L{L}.{mode}.nw'),
         df = get_dir('SV','{chr}.L{L}.{mode}.df')
+    resources:
+        walltime = '5'
     run:
         from upsetplot import from_contents
 
@@ -270,6 +273,7 @@ rule generate_newick_tree:
             fout.write(newick)
 
 def form_tree(data,no_plot=False):
+    from scipy.cluster import hierarchy
     names, dist = combine(data)
     z = hierarchy.linkage([float(i) for i in dist.values()], 'average')
     dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=names,no_plot=no_plot)
