@@ -34,9 +34,9 @@ rule assembler_shasta:
         dir_ = get_dir('work','shasta_{haplotype}',assembler='shasta')
     params:
         Path('config/shasta_config.conf').resolve() #get full path as required by shasta
-    threads: 42
+    threads: 24
     resources:
-        mem_mb = 18000,
+        mem_mb = 17000,
         walltime = '4:00'
     shell:
         '''
@@ -54,9 +54,9 @@ rule polish_shasta:
     shell:
         '''
         cd {input}
-        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/polishers.smk --config reads={params.data} --profile "lsf_nt" --quiet
-        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/deepvariant.smk --configfile /cluster/work/pausch/alex/assembly/BSWCHEM120151536851/config/shasta_DV.yaml --profile "lsf_nt" --quiet
-        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/merfin.smk --configfile /cluster/work/pausch/alex/assembly/BSWCHEM120151536851/config/shasta_merfin.yaml --profile "lsf_nt" --quiet
+        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/polishers.smk --config reads={params.data} --profile "lsf_nt" --quiet --nolock
+        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/deepvariant.smk --configfile /cluster/work/pausch/alex/assembly/BSWCHEM120151536851/config/shasta_DV.yaml --profile "lsf_nt" --quiet --nolock
+        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/merfin.smk --configfile /cluster/work/pausch/alex/assembly/BSWCHEM120151536851/config/shasta_merfin.yaml --profile "lsf_nt" --quiet --nolock
         cp merfin_NxB/polishing_asm_hifi/asm.merfin.fasta ../../{output}
         '''
 
