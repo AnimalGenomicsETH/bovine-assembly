@@ -10,7 +10,7 @@ class Default(dict):
 
 def get_dir(base,ext='',**kwargs):
     if base == 'SV':
-        base_dir = 'SVs_run_{run}'
+        base_dir = 'SVs_run_{run}_' + list(config['assemblies'].keys())[0]
     elif base == 'mash':
         base_dir = 'mash'
     elif base == 'fasta':
@@ -28,12 +28,15 @@ def valid_chromosomes(chr_target):
     else:
         return chr_target
 
+target_names = ['static','hifiasm','shasta'] + list(range(config['runs']))
+
 rule all:
     input:
         #expand(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes'])),
         #get_dir('SV','dendrogram.L{L}.{mode}.png',run='static',L=config['L'],mode='breed'),
-        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),range(20)))
-
+        #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run='static',L=config['L'],mode='breed') for c in range(1,30)),
+        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),target_names)),
+        
 rule mash_sketch:
     input:
         lambda wildcards: config['assemblies'][wildcards.asm]
@@ -74,22 +77,24 @@ checkpoint determine_ordering:
         else:
             import numpy as np
             rng = np.random.default_rng()
-            idx = rng.integers(0,2,5)*5+[1,2,3,4,5]#np.random.randint(0,2,5)+range(1,10,2) #offset random samples to pick either HiFi or ONT
+            idx = list(range(1,11))
+            rng.shuffle(idx)
+            #idx = rng.integers(0,2,5)*5+[1,2,3,4,5]#np.random.randint(0,2,5)+range(1,10,2) #offset random samples to pick either HiFi or ONT
             rng.shuffle(idx)
             assemblies = np.array(list(config['assemblies'].keys()))
             with open(output[0],'w') as fout:
                 fout.write('\n'.join(assemblies[idx]))
 
-#rule make_unique_names:
-    #input:
-    #    lambda wildcards: config['assemblies'][wildcards.asm]
-    #output:
-    #    temp(get_dir('fasta','{asm}.fasta'))
-    #shell:
-    #    '''
-    #    sed 's/_RagTag//g' {input} > {output}
-    #    sed -i '/^>/ s/$/_{wildcards.asm}/' {output}
-    #    '''
+rule make_unique_names:
+    input:
+        lambda wildcards: config['assemblies'][wildcards.asm]
+    output:
+        temp(get_dir('fasta','{asm}.fasta'))
+    shell:
+        '''
+        sed 's/_RagTag//g' {input} > {output}
+        sed -i '/^>/ s/$/_{wildcards.asm}/' {output}
+        '''
 
 rule extract_chromosome:
     input:
@@ -105,24 +110,9 @@ rule extract_chromosome:
             out_file = output[int(chromosome)-1]
             shell(f'samtools faidx {{input[0]}} {chromosome}_{wildcards.asm} > {out_file}')
 
-rule generate_random_order:
-    output:
-        get_dir('SV','{chr}.order.txt')
-    run:
-        import numpy as np
-        idx = list(np.random.randint(0,2,5)+range(1,10,2)) #offset random samples to pick either HiFi or ONT
-        return [get_dir('fasta',f'{list(config["assemblies"].keys())[I]}.{wildcards.chr}.fasta',run=run) for I in idx]
-
-def assembly_input_order(**kwargs):
-    run = kwargs.get('run','static')
-    chromosome = kwargs['chr']
-    if run == 'static':
-        return [get_dir('fasta',f'{line.split()[0]}.{chromosome}.fasta',run=run) for line in open(input.order)]
-
-
 rule minigraph_ggs:
     input:
-        #fastas = (get_dir('fasta','{asm}.{chr}.fasta',asm=asm) for asm in config['assemblies']),
+        fastas = (get_dir('fasta','{asm}.{chr}.fasta',asm=asm) for asm in config['assemblies']),
         order = get_dir('SV','order.txt')
     output:
         gfa = get_dir('SV','{chr}.L{L}.gfa')
@@ -159,7 +149,7 @@ rule minigraph_align:
         lambda wildcards: '--call' if wildcards.ext == 'bed' else '--show-unmap=yes'
     threads: lambda wildcards: 12 if wildcards.chr == 'all' else 1
     resources:
-        mem_mb = 8000,
+        mem_mb = 12000,
         walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '60'
     shell:
         'minigraph {params} -xasm -t {threads} -l 300k  {input.gfa} {input.fasta} > {output}'
