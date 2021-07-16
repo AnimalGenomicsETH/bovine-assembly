@@ -53,12 +53,12 @@ rule paf_variants:
 
 rule dipcall_variants:
     input:
-        hifiasm = get_dir('work','{haplotype}.contigs.fasta',assembler='hifiasmv152',sample=100),
-        shasta = get_dir('work','{haplotype}.contigs.fasta',assembler='shastamerfintigs',sample=100)
+        hifiasm = get_dir('work','hap2.contigs.fasta',assembler='hifiasm'),
+        shasta = get_dir('work','asm.contigs.fasta',assembler='shasta')
     output:
-        mak = temp(get_dir('comparison','{haplotype}.hifiasm.shasta.dipcall.mak')),
-        vcf = get_dir('comparison', '{haplotype}.hifiasm.shasta.dipcall.dip.vcf.gz'),
-        bed = get_dir('comparison', '{haplotype}.hifiasm.shasta.dipcall.dip.bed')
+        mak = temp(get_dir('comparison','{haplotype}.{sample}.hifiasm.shasta.dipcall.mak')),
+        vcf = get_dir('comparison', '{haplotype}.{sample}.hifiasm.shasta.dipcall.dip.vcf.gz'),
+        bed = get_dir('comparison', '{haplotype}.{sample}.hifiasm.shasta.dipcall.dip.bed')
     params:
         lambda wildcards, output: PurePath(output['mak']).with_suffix('')
     threads: 16
@@ -68,7 +68,7 @@ rule dipcall_variants:
         '''
         /cluster/work/pausch/alex/software/dipcall/run-dipcall -a -t {threads} {params} {config[ref_genome]} {input.hifiasm} {input.shasta} > {output.mak}
         make -j2 -f {output.mak}
-        awk -F'\t' 'BEGIN{SUM=0}{ SUM+=$3-$2 }END{print SUM}' {output.bed}
+        awk -F'\t' 'BEGIN{{SUM=0}}{{ SUM+=$3-$2 }}END{{print SUM}}' {output.bed}
         '''
 
 rule nucmer:
