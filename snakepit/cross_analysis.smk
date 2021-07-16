@@ -34,38 +34,6 @@ rule count_scaffold_gaps:
                 #     map(lambda s: str(len(s)), F(scaffold.sequence))
                 fout.write('\t'.join((scaffold.name,str(len(contig_lengths)-1),','.join(map(str,contig_lengths)),','.join(map(str,gap_lengths))))+'\n')
 
-#ragtag.py correct, full reads mapping, c_mapping
-rule ragtag_correct:
-    input:
-        asm = WORK_PATH + '{haplotype}.contigs.fasta',
-        reads = 'data/offspring.cleaned.hifi.fq.gz'
-    output:
-        WORK_PATH + '{haplotype}.contigs.corrected.fasta'
-    threads: 24
-    resources:
-        mem_mb = 3000
-    shell:
-        '''
-        ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler}_{wildcards.sample} -R {input.reads} -T corr -t {threads} --mm2-params "-c -x asm20"
-        #mv {wildcards.assembler}_{wildcards.sample}/ragtag.contigs.corrected {output}
-        '''
-#ragtag.py patch hifiasmv15_100/asm.scaffolds.fasta shastamerfin_100/asm.scaffolds.fasta --aligner minimap2 --mm2-params "-cx asm5 -t 8" --fill-only -o asm_patch3
-rule ragtag_scaffold:
-    input:
-        WORK_PATH + '{haplotype}.contigs.fasta'
-    output:
-        WORK_PATH + '{haplotype}.scaffolds.fasta'
-    params:
-        WORK_PATH + '{haplotype}_scaf'
-    threads: 12
-    resources:
-        mem_mb = 3000
-    shell:
-        '''
-        ragtag.py scaffold {config[ref_genome]} {input} -o {params} -t {threads} -u --mm2-params "-cx asm5 -t {threads}" -r -m 1000000
-        cp {params}/ragtag.scaffold.fasta {output}
-        '''
-
 rule prep_window:
     input:
         get_dir('work','{haplotype}.scaffolds.fasta.fai')
