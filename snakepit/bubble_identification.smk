@@ -36,7 +36,8 @@ rule all:
         #get_dir('SV','dendrogram.L{L}.{mode}.png',run='static',L=config['L'],mode='breed'),
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run='static',L=config['L'],mode='breed') for c in range(1,30)),
         (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),target_names)),
-        
+        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='both') for (c,n) in product(range(1,30),target_names)),
+        (get_dir('SV','all.L{L}.{mode}.nw',run=n,L=config['L'],mode='breed') for n in ('static',))
 rule mash_sketch:
     input:
         lambda wildcards: config['assemblies'][wildcards.asm]
@@ -85,16 +86,16 @@ checkpoint determine_ordering:
             with open(output[0],'w') as fout:
                 fout.write('\n'.join(assemblies[idx]))
 
-rule make_unique_names:
-    input:
-        lambda wildcards: config['assemblies'][wildcards.asm]
-    output:
-        temp(get_dir('fasta','{asm}.fasta'))
-    shell:
-        '''
-        sed 's/_RagTag//g' {input} > {output}
-        sed -i '/^>/ s/$/_{wildcards.asm}/' {output}
-        '''
+#rule make_unique_names:
+#    input:
+#        lambda wildcards: config['assemblies'][wildcards.asm]
+#    output:
+#        temp(get_dir('fasta','{asm}.fasta'))
+#    shell:
+#        '''
+#        sed 's/_RagTag//g' {input} > {output}
+#        sed -i '/^>/ s/$/_{wildcards.asm}/' {output}
+#        '''
 
 rule extract_chromosome:
     input:
@@ -190,13 +191,13 @@ def get_bubble_links(bed,bubbles,mode):
                     bubbles[name].append(f'{edge}{ext}')
 
 def get_name(full_name,mode='both'):
-    name = PurePath(full_name).name.split('.')[0]
+    (name,_,chromosome,*_) = PurePath(full_name).name.split('.')
     if mode == 'both':
-        return name,''
+        return name,f'_{chromosome}'
     else:
         breed,read = name.split('_')
         if mode == 'breed':
-            return breed,read
+            return breed,f'{read}_{chromosome}'
         else:
             return read,breed
 
@@ -236,7 +237,7 @@ def get_order(wildcards):
     for ASM in open(get_dir('SV','order.txt',**wildcards),'r'):
         asm = ASM.split()[0]
         for chrom in (range(1,30) if wildcards.chr == 'all' else [wildcards.chr,]):
-            orders.append(get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=asm))
+            orders.append(get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=asm,chr=chrom))
     return orders
 
 rule generate_newick_tree:
