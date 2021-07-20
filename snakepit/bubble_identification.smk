@@ -37,7 +37,8 @@ rule all:
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run='static',L=config['L'],mode='breed') for c in range(1,30)),
         (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),target_names)),
         (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='both') for (c,n) in product(range(1,30),target_names)),
-        (get_dir('SV','all.L{L}.{mode}.nw',run=n,L=config['L'],mode='breed') for n in ('static',))
+        (get_dir('SV','all.L{L}.{mode}.nw',run=n,L=config['L'],mode='both') for n in target_names)
+
 rule mash_sketch:
     input:
         lambda wildcards: config['assemblies'][wildcards.asm]
