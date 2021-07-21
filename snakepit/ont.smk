@@ -15,7 +15,7 @@ rule sample_hap:
     input:
         config['ont_reads']
     output:
-        'data/offspring.{sample}.pion.fasta'
+        'data/hap2.{sample}.hifi.fa.gz'
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
@@ -27,20 +27,32 @@ rule sample_hap:
         seqtk seq -A -f $(bc <<<"scale=2;{wildcards.sample}/100") {input} | pigz -p {threads} > {output}
         '''
 
+rule sample_ont:
+    input:
+        config['ont_reads']
+    output:
+        'data/hap2.{sample}.pion.fasta'
+    resources:
+        mem_mb = 3000
+    shell:
+        '''
+        seqtk seq -A -f $(bc <<<"scale=2;{wildcards.sample}/100") {input} > {output}
+        '''
+
 rule assembler_shasta:
     input:
-        'data/offspring.{sample}.pion.fasta'
+        'data/hap2.{sample}.pion.fasta'
     output:
-        dir_ = get_dir('work','shasta_{haplotype}',assembler='shasta')
+        dir_ = directory(get_dir('work','shasta_{haplotype}',assembler='shasta'))
     params:
         Path('config/shasta_config.conf').resolve() #get full path as required by shasta
-    threads: 24
+    threads: 12
     resources:
-        mem_mb = 17000,
+        mem_mb = 25000,
         walltime = '4:00'
     shell:
         '''
-        shasta --input /cluster/scratch//alleonard/offspring.{wildcards.sample}.pion.fasta --threads {threads} --assemblyDirectory={output.dir_} --config {params}
+        shasta --input {input} --threads {threads} --assemblyDirectory={output.dir_} --config {params}
         '''
 
 rule polish_shasta:
