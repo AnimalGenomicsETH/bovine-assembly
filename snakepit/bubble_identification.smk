@@ -121,7 +121,7 @@ rule minigraph_ggs:
     params:
         backbone = lambda wildcards: get_dir('fasta',f'{list(config["assemblies"].keys())[0]}.{wildcards.chr}.fasta',**wildcards),
         input_order = lambda wildcards, input: [get_dir('fasta',f'{line.split()[0]}.{{chr}}.fasta',**wildcards) for line in open(input.order)],
-        asm = '-g250k -r250k -j0.05 -l250k'
+        asm = ''#'-g250k -r250k -j0.05 -l250k'
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 1
     resources:
         mem_mb = 10000,
@@ -176,7 +176,7 @@ rule extract_unmapped_regions:
         bedtools complement -i {output.gaf_bed} -g {output.genome} > {output.unmapped}
         '''
 
-
+import re
 def get_bubble_links(bed,bubbles,mode):
     name,ext = get_name(bed,mode)
     with open(bed,'r') as fin:
@@ -184,12 +184,22 @@ def get_bubble_links(bed,bubbles,mode):
             source,sink,links = line.rstrip().split()[3:6]
 
             if links[0] == '.':
-                continue
+                bubbles[name].append(f'{source[1:]}_MISDEL{ext}')
             elif links[0] == '*':
-                bubbles[name].append(f'{source[1:]}_DEL{ext}')
+                if (int(sink[2:])-int(source[2:])) == 1:
+                    bubbles[name].append(f'{source[1:]}_REFDEL{ext}')
+                else:
+                    bubbles[name].append(f's{int(source[2:])+1}_NOVDEL{ext}')
+                #note, if source and sink are continuous numbers, then it is a "non-ref" deletion
+                #if they are +2, then it is a deletion unique to the additional assemblies
+                #bubbles[name].append(f'{source[1:]}_DEL{ext}')
             else:
-                for edge in links.split(':')[0].split('>')[1:]:
-                    bubbles[name].append(f'{edge}{ext}')
+                linkage = links.split(':')[0]
+                nodes = re.split('>|<',linkage)[1:]
+                inversions = re.findall('>|<',linkage)
+                for edge, inv in zip(nodes,inversions):
+                    inv_ext = '_INV' if inv == '<' else ''
+                    bubbles[name].append(f'{edge}{ext}{inv_ext}')
 
 def get_name(full_name,mode='both'):
     (name,_,chromosome,*_) = PurePath(full_name).name.split('.')
@@ -241,6 +251,20 @@ def get_order(wildcards):
             orders.append(get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=asm,chr=chrom))
     return orders
 
+def add_bubble_lengths(df,wildcards):
+    size_map = dict()
+
+    for chrom in (range(1,30) if wildcards.chr == 'all' else [wildcards.chr,]):
+        for line in open(get_dir('SV','{chrom}.L{L}.gfa',**wildcards,chrom=chrom),'r'):
+            if line[0] != 'S':
+                continue
+            (_,node,_,length_code,*_) = line.split()
+            identifier = f'{node}_{chrom}' #if wildcards.chr == 'all' else node
+            size_map[identifier] = int(length_code.split(':')[-1])
+    
+    df['length'] = [size_map[n.replace('_INV','')] if 'DEL' not in n else 0 for n in df['id']]
+    return df
+
 rule generate_newick_tree:
     input:
         order = get_dir('SV','order.txt'),
@@ -258,7 +282,8 @@ rule generate_newick_tree:
         for infile in input.beds:
             get_bubble_links(infile,bubbles,wildcards.mode)
         df = from_contents(bubbles)
-
+        #df37[~df37.id.str.contains("REFDEL")]
+        df = add_bubble_lengths(df,wildcards)
         df.to_csv(output.df)
         newick = form_tree(df)
         with open(output['newick'],'w') as fout:
