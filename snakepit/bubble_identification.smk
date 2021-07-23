@@ -28,16 +28,25 @@ def valid_chromosomes(chr_target):
     else:
         return chr_target
 
-target_names = ['static','hifiasm','shasta'] + list(range(config['runs']))
+order_functions = dict()
+for r_range, func in config['runs'].items():
+    #unique function
+    if '-' not in r_range:
+        order_functions[r_range] = func
+    #repeat function
+    else:
+        l,h = (int(i) for i in r_range.split('-'))
+        for n in range(l,h):
+            order_functions[str(n)] = func
 
 rule all:
     input:
         #expand(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes'])),
         #get_dir('SV','dendrogram.L{L}.{mode}.png',run='static',L=config['L'],mode='breed'),
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run='static',L=config['L'],mode='breed') for c in range(1,30)),
-        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),target_names)),
-        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='both') for (c,n) in product(range(1,30),target_names)),
-        (get_dir('SV','all.L{L}.{mode}.nw',run=n,L=config['L'],mode='both') for n in target_names)
+        #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),target_names)),
+        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='both') for (c,n) in product(range(1,30),order_functions.keys())),
+        (get_dir('SV','all.L{L}.{mode}.nw',run=n,L=config['L'],mode='both') for n in order_functions.keys())
 
 rule mash_sketch:
     input:
@@ -68,24 +77,25 @@ rule mash_dist:
         mash dist -p {threads} {input} | awk '{{print "{wildcards.asm} "$3" "$5}}' > {output}
         '''
 
+import random
 checkpoint determine_ordering:
     input:
         expand(get_dir('mash','{asm}.{ref}.dist'),ref=list(config['assemblies'].keys())[0],asm=list(config['assemblies'].keys())[1:])
     output:
         get_dir('SV','order.txt')
     run:
+        print("creating path", Path(output[0]).parent)
+        Path(output[0]).parent.mkdir(exist_ok=True,parents=True)
         if wildcards.run == 'static':
             shell('sort -k2,2n {input} > {output}')
         else:
-            import numpy as np
-            rng = np.random.default_rng()
-            idx = list(range(1,11))
-            rng.shuffle(idx)
+            idx = list(range(len(input)))
             #idx = rng.integers(0,2,5)*5+[1,2,3,4,5]#np.random.randint(0,2,5)+range(1,10,2) #offset random samples to pick either HiFi or ONT
-            rng.shuffle(idx)
-            assemblies = np.array(list(config['assemblies'].keys()))
+            choices = eval(order_functions[wildcards.run])
+
+            assemblies = list(config['assemblies'].keys())[1:]
             with open(output[0],'w') as fout:
-                fout.write('\n'.join(assemblies[idx]))
+                fout.write('\n'.join([assemblies[i] for i in choices]))
 
 #rule make_unique_names:
 #    input:
@@ -121,7 +131,7 @@ rule minigraph_ggs:
     params:
         backbone = lambda wildcards: get_dir('fasta',f'{list(config["assemblies"].keys())[0]}.{wildcards.chr}.fasta',**wildcards),
         input_order = lambda wildcards, input: [get_dir('fasta',f'{line.split()[0]}.{{chr}}.fasta',**wildcards) for line in open(input.order)],
-        asm = ''#'-g250k -r250k -j0.05 -l250k'
+        asm = ' --gg-match-pen 5' #'-g250k -r250k -j0.05 -l250k'
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 1
     resources:
         mem_mb = 10000,
@@ -285,7 +295,10 @@ rule generate_newick_tree:
         #df37[~df37.id.str.contains("REFDEL")]
         df = add_bubble_lengths(df,wildcards)
         df.to_csv(output.df)
-        newick = form_tree(df)
+        
+        df_pruned = df[~df.id.str.contains('REFDEL')]
+        df_pruned = df_pruned[~df_pruned.id.str.contains('MISDEL')]
+        newick = form_tree(df_pruned)
         with open(output['newick'],'w') as fout:
             fout.write(newick)
 
