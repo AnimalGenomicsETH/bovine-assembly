@@ -40,6 +40,18 @@ rule convert_sam_to_paf:
     shell:
         'paftools.js sam2paf {input} > {output}'
 
+rule map_mm2fast:
+    input:
+        lambda wildcards: 'data/hap2' + 'r'*(wildcards.assembler.count('repeat')) + f'.{wildcards.sample}.hifi.fa.gz' 
+    output:
+        get_dir('work','{haplotype}_sample.bam')
+    threads: 16
+    resources:
+        mem_mb = 5500,
+        disk_scratch=200
+    shell:
+        'mm2-fast -t {threads} -ax asm20 {config[ref_genome]} {input} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'
+
 rule map_minigraph:
     input:
         get_dir('work','{haplotype}.contigs.fasta')

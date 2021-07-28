@@ -69,12 +69,12 @@ rule chromosome_coverage:
 
 rule megadepth_coverage:
     input:
-        multiext(get_dir('work','{haplotype}.{type}.{mapper}.bam'),'','.bai')
+        multiext(get_dir('work','{haplotype}_sample.bam'),'','.bai')
     output:
-        get_dir('result','.coverage.{type}.{mapper}.all.bw')
+        get_dir('result','.coverage.sample.all.bw')
     params:
         out = lambda wilcards, output: PurePath(output[0]).with_suffix('').with_suffix(''),
-        opt = lambda wildcards: '--longreads' if wildcards.type == 'hifi' else ''
+        opt = lambda wildcards: '--longreads' #if wildcards.type == 'hifi' else ''
     threads: 4
     resources:
         mem_mb = 7000
