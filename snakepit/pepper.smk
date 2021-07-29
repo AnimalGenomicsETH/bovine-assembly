@@ -7,9 +7,9 @@ class Default(dict):
 
 def get_dir(base='work',ext='', **kwargs):
     if base == 'input':
-        base_dir = 'PEPPER_{haplotype}'
+        base_dir = 'PEPPER'
     elif base == 'output':
-        base_dir = 'PEPPER_{haplotype}'
+        base_dir = 'PEPPER'
     elif base == 'DV':
         base_dir = get_dir('output','dv_intermediate_outputs_{hap}',**kwargs)
     else:
@@ -19,6 +19,7 @@ def get_dir(base='work',ext='', **kwargs):
 wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
      haplotype = r'asm|hap1|hap2|parent1|parent2',
+     hap = r'1|2',
      phase = r'unphased|phased',
      model = r'pbmm2|hybrid|bwa',
      ext = r'|_1|_2'
@@ -51,19 +52,16 @@ def make_singularity_call(wildcards,extra_args='',tmp_bind='$TMPDIR',input_bind=
 
 rule all:
     input:
-        expand(get_dir('output','Assembly.pepperv4.{hap}.fasta'),haplotype=config['haplotype'],hap=('hap1','hap2')) if not config['trio'] else \
-        get_dir('output','Assembly.pepperv4.{hap}.fasta',haplotype=config['haplotype'],hap=config['haplotype'])
-
-
-
+        expand(get_dir('output','Assembly.pepperv4.hap{hap}.fasta'),haplotype=config['haplotype'],hap=('1','2')) if not config['trio'] else \
+        get_dir('output','Assembly.pepperv4.hap{hap}.fasta',haplotype=config['haplotype'],hap=config['haplotype'])
 
 
 rule map_ONT_reads:
     input:
-        reads = lambda wildcards: config['reads'][wildcards.hap],
+        reads = lambda wildcards: config['reads']['hap'+wildcards.hap],
         asm = config['assembly']
     output:
-        temp(get_dir('input','ONT_reads.{hap}.unsorted.mm2.bam'))
+        temp(get_dir('input','ONT_reads.hap{hap}.unsorted.mm2.bam'))
     threads: 16
     resources:
         mem_mb = 4500,
@@ -73,9 +71,9 @@ rule map_ONT_reads:
 
 rule sort_bam:
     input:
-        get_dir('input','ONT_reads.{hap}.unsorted.mm2.bam')
+        get_dir('input','ONT_reads.hap{hap}.unsorted.mm2.bam')
     output:
-        temp(get_dir('input','ONT_reads.{hap}.mm2.bam'))
+        temp(get_dir('input','ONT_reads.hap{hap}.mm2.bam'))
     threads: 12
     resources:
         mem_mb = 6000,
@@ -85,7 +83,7 @@ rule sort_bam:
 
 rule samtools_merge:
     input:
-        (get_dir('input','ONT_reads.{hap}.mm2.bam',hap=HAP) for HAP in config['reads'])
+        (get_dir('input','ONT_reads.hap{hap}.mm2.bam',hap=HAP) for HAP in (1,2))#config['reads'])
     output:
         get_dir('input','ONT_reads.mm2.bam')
     threads: 16
@@ -115,9 +113,9 @@ rule pepper_make_images:
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
         pepper_mode = lambda wildcards: 'pepper_hp' if wildcards.mode == 'hp' else 'pepper_snp',
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}'
-    threads: 18
+    threads: 24
     resources:
-        mem_mb = 15000,
+        mem_mb = 12000,
         disk_scratch = 10
     shell:
         '''
@@ -193,7 +191,7 @@ rule pepper_hp_find_candidates:
         bam = get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam'),
         ref = config['assembly']
     output:
-        (get_dir('output',f'pepper_hp/PEPPER_HP_OUPUT_{N}.vcf') for N in (1,2))
+        (get_dir('output',f'pepper_hp/PEPPER_HP_OUTPUT_{N}.vcf') for N in (1,2))
     params:
         out = lambda wildcards: get_dir('output','pepper_hp',**wildcards),
         singularity_call = lambda wildcards,input: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
@@ -241,7 +239,7 @@ if not config['trio']:
         output:
             get_dir('output','MARGIN_PHASED.PEPPER_SNP_MARGIN.haplotagged.bam')
         params:
-            singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/refer    ence/'),
+            singularity_call = lambda wildcards: make_singularity_call(wildcards,work_bind=False,extra_args=f'-B {PurePath(input.ref[0]).parent}:/reference/'),
             ref = lambda wildcards,input: f'/reference/{PurePath(input.ref).name}',
             json = '/opt/margin_dir/params/misc/allParams.ont_haplotag.json'        
         threads: 24
@@ -280,7 +278,6 @@ else:
 
     rule extract_haplotags:
         input:
-            unknown = config['reads']['unknown'],
             hap1 = config['reads']['hap1'],
             hap2 = config['reads']['hap2']
         output:
@@ -290,10 +287,9 @@ else:
         threads: 1
         resources:
             mem_mb = 5000,
-            walltime = '1:00'
+            walltime = '2:00'
         shell:
             '''
-            awk 'NR%{params.read_tag}==1 {{print $1"\tnone"}}' <(zcat {input.unknown}) | cut -c 2- >> {output}
             awk 'NR%{params.read_tag}==1 {{print $1"\tH1"}}' <(zcat {input.hap1}) | cut -c 2- >> {output}
             awk 'NR%{params.read_tag}==1 {{print $1"\tH2"}}' <(zcat {input.hap2}) | cut -c 2- >> {output}
             '''
@@ -311,8 +307,8 @@ rule deepvariant_make_examples:
         ref = lambda wildcards,input: f'/reference/{PurePath(input.ref[0]).name}'
     threads: 1
     resources:
-        mem_mb = 30000,
-        walltime = '4:00',
+        mem_mb = 20000,
+        walltime = '24:00',
         disk_scratch = 1,
         use_singularity = True
     shell:
@@ -347,12 +343,12 @@ rule deepvariant_call_variants:
         singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
         contain = lambda wildcards: config['DV_container'],
         vino = lambda wildcards: '--use_openvino'
-    threads: 32
+    threads: 24
     resources:
         mem_mb = 3000,
         disk_scratch = 1,
         use_singularity = True,
-        walltime = lambda wildcards: '24:00'
+        walltime = lambda wildcards: '120:00'
     shell:
         '''
         {params.singularity_call} \
