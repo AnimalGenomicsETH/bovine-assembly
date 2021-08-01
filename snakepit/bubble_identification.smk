@@ -10,7 +10,7 @@ class Default(dict):
 
 def get_dir(base,ext='',**kwargs):
     if base == 'SV':
-        base_dir = 'SVs_run_{run}_' + list(config['assemblies'].keys())[0]
+        base_dir = 'SV_run_{run}_' + list(config['assemblies'].keys())[0]
     elif base == 'mash':
         base_dir = 'mash'
     elif base == 'fasta':
@@ -45,7 +45,7 @@ rule all:
         #get_dir('SV','dendrogram.L{L}.{mode}.png',run='static',L=config['L'],mode='breed'),
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run='static',L=config['L'],mode='breed') for c in range(1,30)),
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),target_names)),
-        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='both') for (c,n) in product(range(1,30),order_functions.keys())),
+        #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='both') for (c,n) in product(range(1,30),order_functions.keys())),
         (get_dir('SV','all.L{L}.{mode}.nw',run=n,L=config['L'],mode='both') for n in order_functions.keys())
 
 rule mash_sketch:
@@ -97,16 +97,16 @@ checkpoint determine_ordering:
             with open(output[0],'w') as fout:
                 fout.write('\n'.join([assemblies[i] for i in choices]))
 
-#rule make_unique_names:
-#    input:
-#        lambda wildcards: config['assemblies'][wildcards.asm]
-#    output:
-#        temp(get_dir('fasta','{asm}.fasta'))
-#    shell:
-#        '''
-#        sed 's/_RagTag//g' {input} > {output}
-#        sed -i '/^>/ s/$/_{wildcards.asm}/' {output}
-#        '''
+rule make_unique_names:
+    input:
+        lambda wildcards: config['assemblies'][wildcards.asm]
+    output:
+        temp(get_dir('fasta','{asm}.fasta'))
+    shell:
+        '''
+        sed 's/_RagTag//g' {input} > {output}
+        sed -i '/^>/ s/$/_{wildcards.asm}/' {output}
+        '''
 
 rule extract_chromosome:
     input:
@@ -161,8 +161,8 @@ rule minigraph_align:
         lambda wildcards: '--call' if wildcards.ext == 'bed' else '--show-unmap=yes'
     threads: lambda wildcards: 12 if wildcards.chr == 'all' else 1
     resources:
-        mem_mb = 12000,
-        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '60'
+        mem_mb = 8000,
+        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '4:00'
     shell:
         'minigraph {params} -xasm -t {threads} -l 300k  {input.gfa} {input.fasta} > {output}'
 
@@ -222,25 +222,6 @@ def get_name(full_name,mode='both'):
         else:
             return read,breed
 
-rule colour_shared_bubbles: #outdated?
-    input:
-        (get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=ASM) for ASM in list(config['assemblies'].keys())[1:])
-    output:
-        plot = get_dir('SV','{chr}.L{L}.bubbles.{mode}.png'),
-        df = get_dir('SV','{chr}.L{L}.bubbles.{mode}.df')
-    run:
-        from upsetplot import from_contents, plot
-        from matplotlib import pyplot as plt
-
-        bubbles = defaultdict(list)
-
-        for infile in input:
-            get_bubble_links(infile,bubbles,wildcards.mode)
-        df = from_contents(bubbles)
-        plot(df,sort_by='cardinality')
-        plt.savefig(output.plot)
-        df.to_csv(output.df)
-
 def getNewick(node, newick, parentdist, leaf_names):
     if node.is_leaf():
         return f'{leaf_names[node.id]}:{parentdist-node.dist:.2f}{newick}'
@@ -292,7 +273,6 @@ rule generate_newick_tree:
         for infile in input.beds:
             get_bubble_links(infile,bubbles,wildcards.mode)
         df = from_contents(bubbles)
-        #df37[~df37.id.str.contains("REFDEL")]
         df = add_bubble_lengths(df,wildcards)
         df.to_csv(output.df)
         
@@ -315,24 +295,6 @@ def get_pairs(tree):
     inner_pair = tree.split('(')[-1].split(')')[0]
     return (inner_pair.split(':')[0],inner_pair.split(',')[-1].split(':')[0])
 
-rule plot_dendrogram: #outdated
-    input:
-        (get_dir('SV','{chr}.L{L}.bubbles.{mode}.df',chr=CHR) for CHR in valid_chromosomes(config['chromosomes']))
-    output:
-        plot = get_dir('SV','dendrogram.L{L}.{mode}.png'),
-        newick = get_dir('SV','L{L}.{mode}.nw')
-    params:
-        cols = lambda wildcards: list(range(5 if wildcards.mode == 'breed' else 10))
-    run:
-        import pandas as pd
-        from scipy.cluster import hierarchy
-        from matplotlib import pyplot as plt
-        dfs = pd.concat([pd.read_csv(fpath,index_col=params.cols) for fpath in input])
-        newick = form_tree(dfs,no_plot=False)
-        plt.savefig(output['plot'])
-        with open(output['newick'],'w') as fout:
-            fout.write(newick)
-
 def combine(data):
     import upsetplot
     names = data.index.names
@@ -346,7 +308,14 @@ def combine(data):
                 condensed_dist[f'{names[i]}_{names[j]}'] = 0
     return names, condensed_dist
 
-
+from collections import defaultdict
+def join_breed_haplotypes(dist):
+    joined_breeds = defaultdict(int)
+    for k,v in dist.items():
+        (p1,_,p2,_) = k.split('_')
+        if p1 == p2:
+            continue
+    joined_breeds[tuple(sorted((p1,p2)))] += v
 
 #R plot
 #library(phylogram)
