@@ -2,14 +2,17 @@
 import subprocess
 from itertools import product
 import pandas as pd
+import sys
+from pathlib import Path
 
 taur_h = list('_'.join(p) for p in product(('O','B','P'),('peregrine','hicanu','hifiasm')))
 taur_s = list('_'.join(p) for p in product(('O','B','P'),('shasta','flye','raven')))
 
-run_n = 11
+run_n = int(sys.argv[1])
 root = f'SV_run_{run_n}_ARS/'
+Path(f'{root}repeat_nodes').mkdir(exist_ok=True)
 
-g=pd.read_csv(root+'all.L50.both.df',index_col=list(range(10)))
+g=pd.read_csv(root+'all.L50.both.df',index_col=list(range(6)))
 gc = g[~g.id.str.contains('REFDEL')]
 gc = gc[~gc.id.str.contains('MISDEL')]
 gc = gc[~gc.id.str.contains('INV')]

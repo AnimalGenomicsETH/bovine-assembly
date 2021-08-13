@@ -1,4 +1,4 @@
-localrules: determine_ordering, make_unique_names, colour_shared_bubbles, plot_dendrogram
+localrules: determine_ordering, make_unique_names, colour_shared_bubbles, plot_dendrogram, merge_unmapped
 
 from pathlib import PurePath, Path
 from collections import defaultdict
@@ -11,6 +11,8 @@ class Default(dict):
 def get_dir(base,ext='',**kwargs):
     if base == 'SV':
         base_dir = 'SV_run_{run}_' + list(config['assemblies'].keys())[0]
+    elif base == 'repeat':
+        base_dir = get_base('SV','bubble_repeats',**kwargs)
     elif base == 'mash':
         base_dir = 'mash'
     elif base == 'fasta':
@@ -131,7 +133,7 @@ rule minigraph_ggs:
     params:
         backbone = lambda wildcards: get_dir('fasta',f'{list(config["assemblies"].keys())[0]}.{wildcards.chr}.fasta',**wildcards),
         input_order = lambda wildcards, input: [get_dir('fasta',f'{line.split()[0]}.{{chr}}.fasta',**wildcards) for line in open(input.order)],
-        asm = ' --gg-match-pen 5' #'-g250k -r250k -j0.05 -l250k'
+        asm = ' --gg-match-pen 5' #NOTE not currently set in the shell #'-g250k -r250k -j0.05 -l250k'
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 1
     resources:
         mem_mb = 10000,
@@ -175,16 +177,24 @@ rule extract_unmapped_regions:
         genome = temp(get_dir('SV','{asm}.path.{chr}.L{L}.genome')),
         gaf_bed = temp(get_dir('SV','{asm}.path.{chr}.L{L}.aligned.bed')),
         unmapped = temp(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'))
+    threads: 1
+    resources:
+        walltime = '5'
     shell:
         '''
-        awk '/^{wildcards.chr}_{wildcards.asm}/ {{print $1"\t"$2}}' {input.fai} > {output.genome}
-        awk '/^{wildcards.chr}_{wildcards.asm}/ {{print $1"\t"$3"\t"$4}}' {input.gaf} | sort -n -k 2,2 > {output.gaf_bed}
-        awk '$6=="." {{print "{wildcards.chr}_{wildcards.asm}\t"$2"\t"$3}}' {input.bed} >> {output.gaf_bed}
-
-        #also bed file regions that aren't "."
-        #merge?
-        bedtools complement -i {output.gaf_bed} -g {output.genome} > {output.unmapped}
+        awk '/^{wildcards.chr}_{wildcards.asm}/ {{print "{wildcards.chr}\\t"$2}}' {input.fai} > {output.genome}
+        awk '/^{wildcards.chr}_{wildcards.asm}/ {{print "{wildcards.chr}\\t"$3"\\t"$4}}' {input.gaf} | sort -k2,2n | bedtools complement -i - -g {output.genome} | awk '{{print $0"\\tunaligned"}}' > {output.gaf_bed}
+        awk '$6=="." {{print "{wildcards.chr}\\t"$2"\\t"$3}}' {input.bed} | awk '{{print $0"\\tuncalled"}}' >> {output.gaf_bed}
+        sort -k2,2n {output.gaf_bed} | bedtools merge -d 10000 -c 4 -o distinct > {output.unmapped}
         '''
+
+rule merge_unmapped:
+    input:
+        (get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed',chr=CHR) for CHR in range(1,30))
+    output:
+        get_dir('SV','{asm}.path.L{L}.unmapped.bed')
+    shell:
+        'cat {input} > {output}'
 
 import re
 def get_bubble_links(bed,bubbles,mode):
