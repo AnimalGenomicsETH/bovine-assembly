@@ -1,4 +1,4 @@
-localrules: determine_ordering, make_unique_names, colour_shared_bubbles, plot_dendrogram, merge_unmapped
+localrules: determine_ordering, make_unique_names, colour_shared_bubbles, plot_dendrogram, merge_unmapped, group_unmapped
 
 from pathlib import PurePath, Path
 from collections import defaultdict
@@ -48,6 +48,7 @@ rule all:
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run='static',L=config['L'],mode='breed') for c in range(1,30)),
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),target_names)),
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='both') for (c,n) in product(range(1,30),order_functions.keys())),
+        (get_dir('SV','unmapped.L{L}.bed',run=n,L=config['L']) for n in order_functions.keys()),
         (get_dir('SV','all.L{L}.{mode}.nw',run=n,L=config['L'],mode='both') for n in order_functions.keys())
 
 rule mash_sketch:
@@ -92,7 +93,6 @@ checkpoint determine_ordering:
             shell('sort -k2,2n {input} > {output}')
         else:
             idx = list(range(len(input)))
-            #idx = rng.integers(0,2,5)*5+[1,2,3,4,5]#np.random.randint(0,2,5)+range(1,10,2) #offset random samples to pick either HiFi or ONT
             choices = eval(order_functions[wildcards.run])
 
             assemblies = list(config['assemblies'].keys())[1:]
@@ -185,7 +185,8 @@ rule extract_unmapped_regions:
         awk '/^{wildcards.chr}_{wildcards.asm}/ {{print "{wildcards.chr}\\t"$2}}' {input.fai} > {output.genome}
         awk '/^{wildcards.chr}_{wildcards.asm}/ {{print "{wildcards.chr}\\t"$3"\\t"$4}}' {input.gaf} | sort -k2,2n | bedtools complement -i - -g {output.genome} | awk '{{print $0"\\tunaligned"}}' > {output.gaf_bed}
         awk '$6=="." {{print "{wildcards.chr}\\t"$2"\\t"$3}}' {input.bed} | awk '{{print $0"\\tuncalled"}}' >> {output.gaf_bed}
-        sort -k2,2n {output.gaf_bed} | bedtools merge -d 10000 -c 4 -o distinct > {output.unmapped}
+        #sort -k2,2n {output.gaf_bed} | bedtools merge -d 10000 -c 4 -o distinct > {output.unmapped}
+        sort -k2,2n {output.gaf_bed} > {output.unmapped}
         '''
 
 rule merge_unmapped:
@@ -193,6 +194,15 @@ rule merge_unmapped:
         (get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed',chr=CHR) for CHR in range(1,30))
     output:
         get_dir('SV','{asm}.path.L{L}.unmapped.bed')
+    shell:
+        'cat {input} > {output}'
+
+rule group_unmapped:
+    input:
+        lambda wildcards: get_order(wildcards)
+        #beds = lambda wildcards: (PurePath(f).with_suffix('').with_suffix('').with_suffix('').with_suffix(f'L{config["L"]}.unmapped.bed') for f in get_order(wildcards))
+    output:
+        get_dir('SV','unmapped.L{L}.bed')
     shell:
         'cat {input} > {output}'
 
@@ -248,8 +258,12 @@ def get_order(wildcards):
     orders = []
     for ASM in open(get_dir('SV','order.txt',**wildcards),'r'):
         asm = ASM.split()[0]
-        for chrom in (range(1,30) if wildcards.chr == 'all' else [wildcards.chr,]):
-            orders.append(get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=asm,chr=chrom))
+        
+        if 'chr' in wildcards.keys():
+            for chrom in (range(1,30) if wildcards.chr == 'all' else [wildcards.chr,]):
+                orders.append(get_dir('SV','{asm}.path.{chr}.L{L}.bed',asm=asm,chr=chrom))
+        else:
+            orders.append(get_dir('SV','{asm}.path.L{L}.unmapped.bed',asm=asm))
     return orders
 
 def add_bubble_lengths(df,wildcards):
