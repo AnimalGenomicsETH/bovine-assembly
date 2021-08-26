@@ -1,6 +1,14 @@
-
+if [ $# -ne 4 ]
+then
+echo "run as haplotype assembler name samples"
+fi
 for s in ${@:4};
 do
+    samtools faidx -f ../$2_${s}/$1.scaffolds.fasta
+    awk -v a=$s -v b=$3 'NR<31 {c+=$2} END {print b","a",auto_size,"c}' ../$2_${s}/$1.scaffolds.fasta.fai
+    continue
+    awk -v a=$s -v b=$3 '$1=="SZ" {print b","a",size,"$2}' $1_${s}_$2.contigs.auN.txt
+    continue
     for i in {1..29};
     do
        awk '/Satellite/ {print $3}' ../$2_${s}/$1_split_chrm/${i}.chrm.fa.tbl; done | awk -v a=$s -v b=$3 '{c+=$1}END{print b","a",satellite,"c}'
