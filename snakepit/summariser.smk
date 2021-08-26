@@ -90,6 +90,35 @@ rule make_karyotype:
         awk '{{print $1"\t0\t"$2}}' {input} >> {output}
         '''
 
+from collections import defaultdict
+def label_stretches(fin):
+    seens = defaultdict(bool)
+    colours = ['0','50']
+    with open(fin,'r') as f_i, open(fin+'.m','w') as f_o:
+        for row in f_i:
+            chrom = row.split()[0]
+            f_o.write(f'{row.rstrip()}\t{colours[seens[chrom]]}\n')
+            seens[chrom] = not seens[chrom]
+
+import tempfile
+rule make_ideogram_csv:
+    input:
+        fasta = multiext(get_dir('work','{haplotype}.scaffolds.fasta'),'','.fai'),
+        tbl = (get_dir('work','{haplotype}_split_chrm/{chr}.chrm.fa.out',chr=CHR) for CHR in PRIMARY_CHR)
+    output:
+        gaps = get_dir('result','.ideogram.csv'),
+        cent = get_dir('result','.cent.csv')
+    run:
+        with tempfile.NamedTemporaryFile() as temp_gap, tempfile.NamedTemporaryFile() as temp_seq:
+            shell("seqtk cutN -g -n 0 {input.fasta[0]} | awk '{{print $0\"\\t\"100}}' > " + temp_gap.name)
+            shell("bedtools complement -g {input.fasta[1]} -i " + f"{temp_gap.name} > {temp_seq.name}")
+            label_stretches(temp_seq.name)
+            
+            shell(f"cat {temp_gap.name} {temp_seq.name+'.m'} | sort -k1,1n > {output.gaps}")
+
+            shell("grep -h Satellite {input.tbl} | awk '{{print $5\"\\t\"$6\"\\t\"$7\"\\t\"100}}' | bedtools merge -d 10000 -c 4 -o max | awk '($3-$2)>10000' > {output.cent}")
+
+
 rule bedtools_merge_centr_telo:
     input:
         get_dir('work','{haplotype}.centr_telo.unmerged.bed')
