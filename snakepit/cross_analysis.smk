@@ -4,19 +4,20 @@ rule count_telomers:
     input:
         WORK_PATH + '{haplotype}.scaffolds.fasta'
     output:
-        RESULT_PATH + '.telo.txt'
+        RESULT_PATH + '.telo.{size}.txt'
     run:
         import re, screed
         from scipy.stats import binom
-        region = 1000
+        region = int(wildcards.size) * 1000
         telomere = re.compile("TTAGGG", re.IGNORECASE)
-
         with open(output[0],'w') as fout:
             fout.write('name\trepeat_count\tprobability\n')
             for seq in screed.open(input[0]):
-                c_repeats = len(telomere.findall(seq.sequence[region:]))
+                c_repeats = len(telomere.findall(seq.sequence[-1*region:]))
                 fout.write(f'{seq.name}\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
-
+                c_repeats = len(telomere.findall(seq.sequence[:region]))
+                fout.write(f'{seq.name}\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
+               
 rule count_scaffold_gaps:
     input:
         WORK_PATH + '{haplotype}.scaffolds.fasta'
