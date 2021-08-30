@@ -1,4 +1,4 @@
-localrules: determine_ordering, make_unique_names, colour_shared_bubbles, plot_dendrogram, merge_unmapped, group_unmapped
+localrules: determine_ordering, make_unique_names,  merge_unmapped, group_unmapped
 
 from pathlib import PurePath, Path
 from collections import defaultdict
@@ -48,8 +48,11 @@ rule all:
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run='static',L=config['L'],mode='breed') for c in range(1,30)),
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='breed') for (c,n) in product(range(1,30),target_names)),
         #(get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='both') for (c,n) in product(range(1,30),order_functions.keys())),
-        (get_dir('SV','unmapped.L{L}.bed',run=n,L=config['L']) for n in order_functions.keys()),
-        (get_dir('SV','all.L{L}.{mode}.nw',run=n,L=config['L'],mode='both') for n in order_functions.keys())
+        #(get_dir('SV','unmapped.L{L}.bed',run=n,L=config['L']) for n in order_functions.keys()),
+        #(get_dir('SV','all.L{L}.{mode}.nw',run=n,L=config['L'],mode='both') for n in order_functions.keys())
+        #(get_dir('SV','{c}.L{L}.gfa',c=C,run=n,L=config['L']) for C,n in product(range(1,30),order_functions.keys()))
+        (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='join') for (c,n) in product(range(1,30),order_functions.keys()))
+
 
 rule mash_sketch:
     input:
@@ -240,7 +243,7 @@ def get_name(full_name,mode='both'):
         if mode == 'breed':
             return breed,f'{read}_{chromosome}'
         else:
-            return read,breed
+            return name,f'_{chromosome}'#read,breed
 
 def getNewick(node, newick, parentdist, leaf_names):
     if node.is_leaf():
@@ -302,13 +305,15 @@ rule generate_newick_tree:
         
         df_pruned = df[~df.id.str.contains('REFDEL')]
         df_pruned = df_pruned[~df_pruned.id.str.contains('MISDEL')]
-        newick = form_tree(df_pruned)
+        newick = form_tree(df_pruned,mode=wildcards.mode)
         with open(output['newick'],'w') as fout:
             fout.write(newick)
 
-def form_tree(data,no_plot=False):
+def form_tree(data,no_plot=False,mode=None):
     from scipy.cluster import hierarchy
     names, dist = combine(data)
+    if mode == 'join':
+        names, dist = join_breed_haplotypes(names,dist)
     z = hierarchy.linkage([float(i) for i in dist.values()], 'average')
     dn1 = hierarchy.dendrogram(z, above_threshold_color='y',orientation='top',labels=names,no_plot=no_plot)
     tree = hierarchy.to_tree(z,False)
@@ -333,13 +338,15 @@ def combine(data):
     return names, condensed_dist
 
 from collections import defaultdict
-def join_breed_haplotypes(dist):
+def join_breed_haplotypes(names,dist):
     joined_breeds = defaultdict(int)
     for k,v in dist.items():
         (p1,_,p2,_) = k.split('_')
         if p1 == p2:
             continue
-    joined_breeds[tuple(sorted((p1,p2)))] += v
+        joined_breeds[tuple(sorted((p1,p2)))] += v
+    joined_names = list(dict.fromkeys(i.split('_')[0] for i in names))
+    return joined_names, joined_breeds
 
 #R plot
 #library(phylogram)
