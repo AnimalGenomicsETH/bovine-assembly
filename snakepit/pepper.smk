@@ -19,7 +19,7 @@ def get_dir(base='work',ext='', **kwargs):
 wildcard_constraints:
      subset = r'|_child|_parent1|_parent2',
      haplotype = r'asm|hap1|hap2|parent1|parent2',
-     hap = r'1|2',
+     hap = r'1|2|u',
      phase = r'unphased|phased',
      model = r'pbmm2|hybrid|bwa',
      ext = r'|_1|_2'
@@ -56,6 +56,14 @@ rule all:
         get_dir('output','Assembly.pepperv4.hap{hap}.fasta',haplotype=config['haplotype'],hap=config['haplotype'])
 
 
+rule samtools_faidx:
+    input:
+        '{reference}'
+    output:
+        '{reference}.fai'
+    shell:
+        'samtools faidx {input}'
+
 rule map_ONT_reads:
     input:
         reads = lambda wildcards: config['reads']['hap'+wildcards.hap],
@@ -83,7 +91,7 @@ rule sort_bam:
 
 rule samtools_merge:
     input:
-        (get_dir('input','ONT_reads.hap{hap}.mm2.bam',hap=HAP) for HAP in (1,2))#config['reads'])
+        (get_dir('input','ONT_reads.hap{hap}.mm2.bam',hap=HAP) for HAP in (1,2,'u'))#config['reads'])
     output:
         get_dir('input','ONT_reads.mm2.bam')
     threads: 16
@@ -279,7 +287,8 @@ else:
     rule extract_haplotags:
         input:
             hap1 = config['reads']['hap1'],
-            hap2 = config['reads']['hap2']
+            hap2 = config['reads']['hap2'],
+            hapu = config['reads']['hapu']
         output:
             get_dir('output','reads.haplotags')
         params:
@@ -292,6 +301,7 @@ else:
             '''
             awk 'NR%{params.read_tag}==1 {{print $1"\tH1"}}' <(zcat {input.hap1}) | cut -c 2- >> {output}
             awk 'NR%{params.read_tag}==1 {{print $1"\tH2"}}' <(zcat {input.hap2}) | cut -c 2- >> {output}
+            awk 'NR%{params.read_tag}==1 {{print $1"\tH0"}}' <(zcat {input.hapu}) | cut -c 2- >> {output}
             '''
 
 rule deepvariant_make_examples:
@@ -371,8 +381,9 @@ rule deepvariant_postprocess:
         contain = lambda wildcards: config['DV_container']
     threads: 1
     resources:
-        mem_mb = 30000,
+        mem_mb = 90000,
         disk_scratch = 1,
+        walltime = '24:00',
         use_singularity = True
     shell:
         '''
@@ -397,6 +408,7 @@ rule bcftools_consensus:
     threads: 1
     resources:
         mem_mb = 5000,
+        walltime = '24:00',
         use_singularity = True
     shell:
         '''
