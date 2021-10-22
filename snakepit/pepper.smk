@@ -301,7 +301,7 @@ else:
             '''
             awk 'NR%{params.read_tag}==1 {{print $1"\tH1"}}' <(zcat {input.hap1}) | cut -c 2- >> {output}
             awk 'NR%{params.read_tag}==1 {{print $1"\tH2"}}' <(zcat {input.hap2}) | cut -c 2- >> {output}
-            awk 'NR%{params.read_tag}==1 {{print $1"\tH0"}}' <(zcat {input.hapu}) | cut -c 2- >> {output}
+            awk 'NR%{params.read_tag}==1 {{print $1"\tnone"}}' <(zcat {input.hapu}) | cut -c 2- >> {output}
             '''
 
 rule deepvariant_make_examples:

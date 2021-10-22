@@ -44,9 +44,9 @@ rule meryl_count_reads:
         lambda wildcards: config['reads'][wildcards.read]
     output:
         directory(get_dir('main','{haplotype}.readmers.{read}.meryl'))
-    threads: 16
+    threads: 24
     resources:
-        mem_mb = 4000
+        mem_mb = 5000
     params:
         mem = lambda wildcards,resources,threads: resources['mem_mb']*threads/config['mem_adj']
     shell:
@@ -103,7 +103,7 @@ rule merfin_vmer:
         coverage = lambda wildcards, input: float([line for line in open(input.model)][8].split()[1])
     threads: 12
     resources:
-        mem_mb = 6000
+        mem_mb = 8000
     shell:
         'merfin -vmer -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -vcf {input.vcf} -output {params.out}'
 
@@ -120,7 +120,7 @@ rule merfin_hist:
         coverage = lambda wildcards, input: float([line for line in open(input.model)][8].split()[1])
     threads: 16
     resources:
-        mem_mb = lambda wildcards: 5500 if wildcards.merfin_op != 'dump' else 15000,
+        mem_mb = lambda wildcards: 7500 if wildcards.merfin_op != 'dump' else 15000,
         walltime = '4:00'
     shell:
         'merfin -{wildcards.merfin_op} -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -output {output}'
@@ -132,6 +132,10 @@ rule bcftools_polish:
     output:
         vcf = temp(multiext(get_dir('work','merfin.polish.vcf.gz'),'','.csi')),
         fasta = get_dir('work','{haplotype}.merfin.fasta')
+    threads: 1
+    resources:
+        mem_mb = 2000,
+        walltime = '24:00'
     shell:
         '''
         bcftools view -Oz {input.vcf} > {output.vcf[0]}

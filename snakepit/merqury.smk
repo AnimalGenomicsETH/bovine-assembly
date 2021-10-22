@@ -248,7 +248,7 @@ rule merqury_block_n_stats:
     threads: 1
     resources:
         mem_mb = 2000,
-        walltime = '10'
+        walltime = '30'
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'

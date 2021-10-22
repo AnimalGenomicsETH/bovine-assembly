@@ -27,7 +27,7 @@ rule ragtag_scaffold:
         mem_mb = 3000
     shell:
         '''
-        ragtag.py scaffold {config[ref_genome]} {input} -o {params} -u --mm2-params "-cx asm5 -t {threads}" -r -m 1000000
+        ragtag.py scaffold {config[ref_genome]} {input} -o {params} --mm2-params "-cx asm5 -t {threads}" -r -m 1000000
         sed 's/_RagTag//g' {params}/ragtag.scaffold.fasta > {output}
         '''
 
