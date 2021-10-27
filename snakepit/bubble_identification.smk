@@ -10,7 +10,7 @@ class Default(dict):
 
 def get_dir(base,ext='',**kwargs):
     if base == 'SV':
-        base_dir = 'SV_run_{run}_' + list(config['assemblies'].keys())[0]
+        base_dir = list(config['assemblies'].keys())[0] + '_run_{run}'
     elif base == 'repeat':
         base_dir = get_base('SV','bubble_repeats',**kwargs)
     elif base == 'mash':
@@ -140,21 +140,49 @@ rule minigraph_ggs:
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 1
     resources:
         mem_mb = 10000,
-        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '4:00'
+        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '1:00'
     shell:
         'minigraph -xggs -t {threads} -L {wildcards.L} {params.backbone} {params.input_order} > {output}'
 
 rule gfatools_bubble:
     input:
-        get_dir('SV','{chr}.L{L}.gfa')
+        gfa = get_dir('SV','{chr}.L{L}.gfa')
     output:
-        get_dir('SV','bubble.L{L}.bed')
+        bubble = get_dir('SV','{chr}.L{L}.bubble.bed')
+    resources:
+        walltime = '5'
+    shell:
+        '''
+        gfatools bubble {input} | sed 's/_ARS//g' > {output}
+        '''
+
+rule overlap_annotations:
+    input:
+        bubbles = get_dir('SV','{chr}.L{L}.bubble.bed'),
+        beds = lambda wildcards: get_order(wildcards)
+    output:
+        overlap = get_dir('SV','{chr}.{annotation}.overlap.L{L}.bed'),
+        solid = get_dir('SV','{chr}.{annotation}.solid.L{L}.bed')
+    params:
+        size = lambda wildcards: len(get_order(wildcards))
     threads: 1
     resources:
         mem_mb = 5000,
-        walltime = '10'
+        walltime = '30'
     shell:
-        'gfatools bubble {input} > {output}'
+        '''
+        bedtools intersect -a /cluster/work/pausch/alex/REF_DATA/ARS.{wildcards.annotation}.106.bed -b {input.bubbles} -wo | awk 'BEGIN{{print "chr a_s a_e p_s p_e overlap gene degree min_l max_l"}}{{print $1,$2,$3,$8,$9,$21,$4,$10-2,$13,$14}}' > {output.overlap}
+        
+        echo "chr a_s a_e p_s p_e overlap gene degree min_l max_l" > {output.solid}
+        while read p; do
+          stringarray=($p);
+          if [ $(awk -v S=${{stringarray[3]}} -v E=${{stringarray[4]}} '$2==S&&$3==E&&$6!="."' {input.beds} | wc -l) -eq {params.size} ]; then 
+            echo $p >> {output.solid}
+          fi
+        done < {output.overlap}
+
+        '''
+
 
 rule minigraph_align:
     input:
@@ -166,8 +194,8 @@ rule minigraph_align:
         lambda wildcards: '--call' if wildcards.ext == 'bed' else '--show-unmap=yes'
     threads: lambda wildcards: 12 if wildcards.chr == 'all' else 1
     resources:
-        mem_mb = 8000,
-        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '4:00'
+        mem_mb = 10000,
+        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '1:00'
     shell:
         'minigraph {params} -xasm -t {threads} -l 300k  {input.gfa} {input.fasta} > {output}'
 
@@ -208,6 +236,20 @@ rule group_unmapped:
         get_dir('SV','unmapped.L{L}.bed')
     shell:
         'cat {input} > {output}'
+
+rule unique_bubbles:
+    input:
+        first = get_dir('SV','{chr}.L{L}.gfa'),
+        second = get_dir('SV','{chr}.L{L}.gfa')
+    output:
+        'a'
+
+    shell:
+        '''
+        bedtools intersect -v -a <(gfatools bubble ARS_run_20/1.L50.gfa) -b <(gfatools bubble ARS_run_0/1.L50.gfa) | awk '{{print "shs",$8-$7}}'
+
+        '''
+
 
 import re
 def get_bubble_links(bed,bubbles,mode):
