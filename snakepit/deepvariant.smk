@@ -74,7 +74,7 @@ rule minimap_align:
         reads = lambda wildcards: config['animals'][wildcards.animal]['individual' if 'parent' not in wildcards.haplotype else wildcards.haplotype]['short_reads']
     output:
         temp(get_dir('input','{haplotype}.unphased.{ref}.mm2.bam'))
-    threads: 24
+    threads: 32
     resources:
         mem_mb = 5000,
         walltime = '4:00',
@@ -196,7 +196,7 @@ rule deepvariant_call_variants:
     output:
         temp(get_dir('work','call_variants_output{subset}.tfrecord.gz'))
     params:
-        examples = lambda wildcards: (f'make_examples{wildcards.subset}.tfrecord@{config["shards"]}.gz'),
+        examples = lambda wildcards,input: PurePath(input[0]).with_suffix('').with_suffix(f'.tfrecord@{config["shards"]}.gz'),
         model = lambda wildcards: get_model(wildcards),
         dir_ = lambda wildcards: get_dir('work',**wildcards),
         singularity_call = lambda wildcards, threads: make_singularity_call(wildcards,f'--env OMP_NUM_THREADS={threads}'),
@@ -204,17 +204,17 @@ rule deepvariant_call_variants:
         vino = lambda wildcards: '--use_openvino' if wildcards.subset == '' else ''
     threads: 32
     resources:
-        mem_mb = 4000,
+        mem_mb = 2000,
         disk_scratch = 1,
         use_singularity = True,
-        walltime = lambda wildcards: '4:00' if wildcards.subset == '' else '24:00'
+        walltime = lambda wildcards: '14:00' if wildcards.subset == '' else '24:00'
     shell:
         '''
         {params.singularity_call} \
         {params.contain} \
-        /bin/bash -c "cd {params.dir_}; /opt/deepvariant/bin/call_variants \
+        /bin/bash -c "cd /tmp; /opt/deepvariant/bin/call_variants \
         --outfile /{output} \
-        --examples {params.examples} \
+        --examples /{params.examples} \
         --checkpoint {params.model} \
         {params.vino}"
         '''
