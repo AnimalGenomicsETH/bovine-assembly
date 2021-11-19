@@ -1,8 +1,55 @@
-localrules: merqury_formatting, merqury_formatting_simple
+localrules: merqury_formatting, merqury_formatting_simple,phase_block_PG50
+
+### LOCAL EXECUTION TEMPORARY CODE ###
+
+if 'get_dir' not in dir():
+    from pathlib import PurePath
+
+    wildcard_constraints:
+        assembler = r'[^\W_]+',
+        parent = r'dam|sire',
+        individual = r'dam|sire|offspring',
+        haplotype = r'asm|hap1|hap2|sire|dam|ref',
+        hap = r'\w+',
+        sample = r'\d+',
+        data = r'[^\W_]+',
+        modifier = r'\w+',
+        read_t  = r'hifi|SR',
+        mapper = r'mm2|wm2'
+
+    class Default(dict):
+        def __missing__(self, key):
+            return '{'+key+'}'
+
+    def get_dir(base,ext='',**kwargs):
+        if base == 'work':
+            base_dir = 'merqury_{haplotype}'
+        elif base == 'result':
+            base_dir = 'merqury_{haplotype}'
+        elif base == 'data':
+            base_dir = 'data'
+        else:
+            raise Exception('Base not found')
+        if ext and ext[0] == '.':
+            return f'{base_dir}{ext}'.format_map(Default(kwargs))
+        return str(PurePath(base_dir.format_map(Default(kwargs))) / ext)
+
+    config['k-mers']=21
+    config['mem_adj']=1100
+    config['merqury_root']='/cluster/work/pausch/alex/software/merqury'
+    config['genome_est']=2.7
+
+    rule all:
+        input:
+            get_dir('result','.merqury.full.stats',haplotype='asm')
+
+for configuration in ('assembly','short_reads'):
+    if configuration not in config:
+        config[configuration] = None
 
 rule count_asm_kmers:
     input:
-        get_dir('work','{haplotype}.contigs.fasta')
+        config['assembly'] or get_dir('work','{haplotype}.contigs.fasta')
     output:
         directory(get_dir('work','{haplotype}.contigs.meryl'))
     threads: 8
@@ -15,7 +62,7 @@ rule count_asm_kmers:
 
 rule count_SR_reads:
     input:
-        'data/{individual}.read_R{N}.SR.fq.gz'
+        'data/{individual}.read_R{N}.SR.fq.gz' #config['short_reads'] or
     output:
         temp(directory('data/{individual}.read_R{N}.meryl'))
     threads: 24
@@ -63,10 +110,22 @@ rule generate_hapmers:
         $MERQURY/trio/hapmers.sh {params.sire} {params.dam} {params.child}
         '''
 
+rule meryl_lookup_exclude:
+    input:
+        reads = expand('data/offspring.read_R{N}.SR.fq.gz', N=(1,2)),
+        #get opposite parental hapmers
+        hapmer = lambda wildcards: f'data/{"dam" if wildcards.parent == "sire" else "sire"}.hapmer.meryl'
+    output:
+        reads = expand('data/offspring.{{parent}}.read_R{N}.SR.fq.gz', N=(1,2))
+    shell:
+        '''
+        meryl-lookup -exclude -sequence {input.reads} -mers {input.hapmer} -threads {threads} -output {output.reads}
+        '''
+
 rule hap_blob:
     input:
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
-        asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2'))
+        asm = lambda wildcards: (get_dir('work',f'{X}.contigs.fasta') for X in (('asm',) if wildcards.hap == 'asm' else ('hap1','hap2')))
     output:
         get_dir('work','{hap}.hapmers.blob.png')
     params:
@@ -91,8 +150,8 @@ rule merqury_spectra_cn:
     input:
         read_db = lambda wildcards: 'data/offspring.meryl' if wildcards.hap in ('asm','trio') else 'data/{hap}.meryl',
         filt =  lambda wildcards: 'data/offspring.filt' if wildcards.hap in ('asm','trio') else 'data/{hap}.filt',
-        asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = ('hap1','hap2') if wildcards.hap == 'trio' else wildcards.hap),
-        asm_dbs = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.meryl', X = ('hap1','hap2') if wildcards.hap == 'trio' else wildcards.hap)
+        asm = lambda wildcards: (get_dir('work',f'{X}.contigs.fasta') for X in (('asm',) if wildcards.hap == 'asm' else ('hap1','hap2'))),
+        asm_dbs = lambda wildcards: (get_dir('work',f'{X}.contigs.meryl') for X in (('asm',) if wildcards.hap == 'asm' else ('hap1','hap2')))
     output:
         multiext(get_dir('work','{hap}'), '.qv', '.completeness.stats')
     params:
@@ -121,7 +180,7 @@ rule merqury_spectra_hap:
     input:
         reads = 'data/offspring.meryl',
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam')),
-        asm = lambda wildcards: expand('{{assembler}}_{{sample}}/{X}.contigs.fasta', X = 'asm' if wildcards.hap == 'asm' else ('hap1','hap2')),
+        asm = lambda wildcards: (get_dir('work',f'{X}.contigs.fasta') for X in (('asm',) if wildcards.hap == 'asm' else ('hap1','hap2'))),
         stats = get_dir('work','{hap}.completeness.stats')
     output:
         get_dir('work','{hap}.hap.completeness.stats')
@@ -145,7 +204,7 @@ rule merqury_spectra_hap:
 
 rule merqury_phase_block:
     input:
-        asm = WORK_PATH + '{haplotype}.contigs.fasta',
+        asm = get_dir('work','{haplotype}.contigs.fasta'),
         hapmers = expand('data/{parent}.hapmer.meryl',parent=('sire','dam'))
     output:
         multiext(get_dir('work','{haplotype}.100_20000.'),'phased_block.bed','switch.bed', 'switches.txt','phased_block.stats')
@@ -154,9 +213,9 @@ rule merqury_phase_block:
         out = '{haplotype}',
         hapmers = lambda wildcards, input: tuple('..' / PurePath(fname) for fname in input['hapmers']),
         asm = lambda wildcards, input: PurePath(input['asm']).name
-    threads: 12
+    threads: 8
     resources:
-        mem_mb = 3500
+        mem_mb = 2000
     envmodules:
        'gcc/8.2.0',
        'r/4.0.2'
@@ -165,6 +224,16 @@ rule merqury_phase_block:
         cd {params.dir_}
         export MERQURY={config[merqury_root]}
         $MERQURY/trio/phase_block.sh {params.asm} {params.hapmers} {params.out}
+        '''
+
+rule phase_block_PG50:
+    input:
+        get_dir('work','{haplotype}.100_20000.phased_block.bed')
+    output:
+        get_dir('work','{haplotype}.100_20000.PG50')
+    shell:
+        '''
+        awk '{{print $1"\t"$3-$2}}' {input} | calN50.js -L 2.7g - | awk '$2=="50" {{print $3}}' > {output} 
         '''
 
 rule merqury_block_n_stats:
@@ -176,9 +245,10 @@ rule merqury_block_n_stats:
         dir_ = lambda wildcards, output: PurePath(output[0]).parent,
         out = '{haplotype}',
         asm_block = lambda wildcards,input: tuple(PurePath(i).name for i in input['asm_block'])
-    threads: 6
+    threads: 1
     resources:
-        mem_mb = 2500
+        mem_mb = 2000,
+        walltime = '30'
     envmodules:
         'gcc/8.2.0',
         'r/4.0.2'
@@ -213,6 +283,7 @@ rule merqury_formatting:
         stats = lambda wildcards: multiext(get_dir('work','asm' if wildcards.haplotype == 'asm' else 'trio'),'.hapmers.blob.png','.completeness.stats','.hap.completeness.stats','.qv'),
         switches = get_dir('work','{haplotype}.100_20000.switches.txt'),
         phase = get_dir('work','{haplotype}.100_20000.phased_block.stats'),
+        p_bed = get_dir('work','{haplotype}.100_20000.phased_block.bed')
     output:
         get_dir('result','.merqury.full.stats')
     shell:
@@ -223,6 +294,7 @@ rule merqury_formatting:
         awk '/{wildcards.haplotype}/ && /dam/ {{print "dam "$5}}' {input.stats[2]} >> {output}
         awk '{{print "switches "$14+0}}' {input.switches} >> {output}
         awk '{{print "phased "$6}}' {input.phase} >> {output}
+        awk '{{print $1"\t"$3-$2}}' {input.p_bed} | calN50.js -L 2.7g - | awk '$2=="50" {{print "PG50 "$3}}' >> {output}
         '''
 
 rule merqury_formatting_simple:

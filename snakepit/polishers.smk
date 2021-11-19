@@ -16,14 +16,14 @@ rule map_ONT_reads:
         mem_mb = 4500,
         walltime = '24:00'
     shell:
-        'minimap2 -ax map-ont -t {threads} {input.asm} {input.reads} | samtools view -hb -F 0x904 -o {output}'
+        'minimap2 -ax map-ont -t {threads} {input.asm} {input.reads} | samtools view -@ 2 -hb -F 0x904 -o {output}'
 
 rule sort_bam:
     input:
         '{haplotype}_ONT_reads.unsorted.bam'
     output:
         temp('{haplotype}_ONT_reads.sorted.bam')
-    threads: 8
+    threads: 12
     resources:
         mem_mb = 6000,
         disk_scratch = 200
@@ -48,7 +48,7 @@ rule pepper_make_images:
         bai = '{haplotype}_ONT_reads.sorted.bam.bai'
     output:
         temp(directory('pepper_images_{haplotype}'))
-    threads: 12
+    threads: 16
     resources:
         mem_mb = 6000,
         walltime = '24:00'
@@ -76,23 +76,12 @@ rule pepper_stitch:
         'pepper_predictions_{haplotype}'
     output:
         '{haplotype}.contigs.fasta'
-    threads: 6
+    threads: 8
     resources:
-        mem_mb = 12000,
-        walltime = '12:00'
+        mem_mb = 23000,
+        walltime = '24:00'
     shell:
-        'pepper stitch -i {input} -o {output} -t {threads}'
-
-# rule racon_polish:
-#     input:
-#         scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',
-#         aln = WORK_PATH + '{haplotype}_scaffolds_reads.sam',
-#         reads = 'data/offspring.{sample}.hifi.fq.gz'
-#     output:
-#         WORK_PATH + '{haplotype}.polished.fasta'
-#     threads: 16
-#     resources:
-#         mem_mb = 28000,
-#         walltime = '2:30'
-#     shell:
-#         'racon -t {threads} {input.reads} {input.aln} {input.scaffolds} > {output}'
+        '''
+        pepper stitch -i {input} -o {output} -t {threads}
+        mv {output}_pepper_polished.fa {output}
+        '''

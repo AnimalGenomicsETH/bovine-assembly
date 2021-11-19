@@ -8,10 +8,9 @@ if config['animal'] != 'test':
     workdir: PurePath(config['workdir']).joinpath(config['animal'])
 
 #GLOBAL VAR
-raw_long_reads = f'{config["data"][config["animal"]]["long_reads"]["offspring"]}{{read_name}}.ccs.bam'
 
 ##DEFINE LOCAL RULES FOR MINIMAL EXECUTION
-localrules: all, analysis_report, plot_dot, generate_reffai, validation_auN, validation_refalign, validation_yak_completeness, validation_asmgene
+localrules: all, analysis_report, plot_dot, samtools_faidx, strip_canu_bubbles, validation_auN, validation_refalign, validation_yak_completeness, validation_asmgene
 
 for _dir in ['data','results']:
     Path(_dir).mkdir(exist_ok=True)
@@ -28,18 +27,22 @@ def get_dir(base,ext='',**kwargs):
         base_dir = '{assembler}_{sample}'
     elif base == 'result':
         base_dir = 'results/{haplotype}_{sample}_{assembler}'
+    elif base =='summary':
+        base_dir = 'results'
+    elif base == 'comparison':
+        base_dir = 'comparison'
     elif base == 'data':
         base_dir = 'data'
     else:
         raise Exception('Base not found')
     if ext and ext[0] == '.':
         return f'{base_dir}{ext}'.format_map(Default(kwargs))
-    return str(PurePath(base_dir.format_map(Default(kwargs))) / ext)
+    return str(PurePath(base_dir.format_map(Default(kwargs))) / ext.format_map(Default(kwargs)))
 
 WORK_PATH = '{assembler}_{sample}/'
 RESULT_PATH = 'results/{haplotype}_{sample}_{assembler}'
 
-include: 'snakepit/kmer_meryl.smk'
+include: 'snakepit/merqury.smk'
 include: 'snakepit/cross_analysis.smk'
 include: 'snakepit/data_preparation.smk'
 include: 'snakepit/trio_assemblies.smk'
@@ -47,6 +50,11 @@ include: 'snakepit/purge_duplicates.smk'
 include: 'snakepit/variant_calling.smk'
 include: 'snakepit/mappers.smk'
 include: 'snakepit/capture_logic.smk'
+#include: 'snakepit/gap_closing.smk'
+include: 'snakepit/scaffolding.smk'
+include: 'snakepit/summariser.smk'
+include: 'snakepit/structural_variants.smk'
+include: 'snakepit/ont.smk'
 
 wildcard_constraints:
     assembler = r'[^\W_]+',
@@ -58,7 +66,7 @@ wildcard_constraints:
     data = r'[^\W_]+',
     modifier = r'\w+',
     read_t  = r'hifi|SR',
-    mapper = r'mm2|wm2'
+    mapper = r'mm2|wm'
 
 #------------#
 #DEFINE RULES#
@@ -72,11 +80,12 @@ if 'hifiasm' in config['assemblers']:
         input:
             'data/offspring.{sample}.hifi.fq.gz'
         output:
-            get_dir('work','asm.p_ctg.gfa',assembler='hifiasm')
+            #note can change to primary
+            get_dir('work','asm.bp.p_ctg.gfa',assembler='hifiasm')
         params:
             out = lambda wildcards, output: PurePath(output[0]).with_name('asm'),
-            settings = '-r 4 -a 5 -n 5'
-        threads: 36
+            settings = '-r 3 -a 5 -n 5'
+        threads: 34
         resources:
             mem_mb = lambda wildcards, input, threads: max(int(input.size_mb*1.75/threads),1500),
             walltime = '24:00'
@@ -86,7 +95,7 @@ if 'hifiasm' in config['assemblers']:
     ##Requires gfatools installed
     rule assembler_hifiasm_conversion:
         input:
-            get_dir('work','{haplotype}.p_ctg.gfa',assembler='hifiasm')
+            lambda wildcards: get_dir('work','{haplotype}.p_ctg.gfa',assembler='hifiasm')#,dip='dip' if wildcards.haplotype!='asm' else 'bp')
         output:
             get_dir('work','{haplotype}.contigs.fasta',assembler='hifiasm')
         resources:
@@ -109,7 +118,7 @@ if 'hifiasm' in config['assemblers']:
         shell:
             'hifiasm -o {params.out} -t {threads} {params.settings} {input}'
 
-if 'canu' in config['assemblers']:
+if 'canuhifi' in config['assemblers']:
     localrules: assembler_canu, strip_canu_bubbles, assembler_canu_parents
     rule assembler_canu:
         input:
@@ -147,13 +156,13 @@ if 'canu' in config['assemblers']:
             mv {params.dir_}/{wildcards.parent}.contigs.fasta {output}
             '''
 
-    rule strip_canu_bubbles:
-        input:
-            get_dir('work','{haplotype}.contigs_all.fa',assembler='canu')
-        output:
-            get_dir('work','{haplotype}.contigs_raw.fa',assembler='canu')
-        shell:
-            'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 --no-group-separator > {output}'
+rule strip_canu_bubbles:
+    input:
+        get_dir('work','{haplotype}.contigs_all.fa')
+    output:
+        get_dir('work','{haplotype}.contigs_raw.fa')
+    shell:
+        'seqtk seq -l0 {input} | grep "suggestBubble=no" -A 1 --no-group-separator > {output}'
 
 if 'flye' in config['assemblers']:
     rule assembler_flye:
@@ -180,6 +189,24 @@ if 'IPA' in config['assemblers']:
             get_dir('work','{haplotype}.contigs.fasta',assembler='IPA')
         shell:
             'snakemake --profile "lsf" -n --snakefile /cluster/work/pausch/alex/software/miniconda3/envs/pbipa/etc/ipa.snakefile --configfile config.yaml  -U finish -d {wildcards.haplotype}'
+
+if 'peregrine' in config['assemblers']:
+    rule assembler_peregrine:
+        input:
+            'data/offspring.{sample}.hifi.fq.gz'
+        output:
+            get_dir('work','{haplotype}.contigs.fasta',assembler='peregrine')
+        params:
+            dir_ = lambda wildcards, output: PurePath(output[0]).parent,
+            procs = lambda wildcards, threads: ' '.join(str(threads)*9)
+        shell:
+            '''
+            rsync -aq {input} $TMPDIR
+            cd $TMPDIR
+            singularity run -B ${TMPDIR}:/data /cluster/work/pausch/alex/peregrine_latest.sif asm <(echo {input}) {params.procs} --with-consensus --shimmer-r 3 --best_n_ovlp 8 --output data/asm <<< "yes"
+            cp -r ${TMPDIR}/asm {params.dir_}
+            #mv final name to {output}
+            '''
 
 ##Requires yak installed
 rule count_yak_asm:
@@ -252,7 +279,7 @@ rule validation_refalign:
 
 rule validation_asmgene:
     input:
-        asm = get_dir('work','{haplotype}_asm_splices.paf'),
+        asm = get_dir('work','{haplotype}_cDNAs_splices.paf'),
         ref = str(PurePath(f'{config["ref_genome"]}').with_name('ref_cDNAs_splices.paf'))
     output:
         get_dir('result','.asmgene.{opt}.txt')
@@ -276,11 +303,11 @@ rule validation_busco:
         tmp_dir = '{haplotype}_{sample}_{assembler}_busco_results'
     threads: 12
     resources:
-        mem_mb = 5000,
-        walltime = '16:00'
+        mem_mb = 8000,
+        walltime = '24:00'
     shell:
         '''
-        busco --cpu {threads} -i {input} -o {params.tmp_dir}
+        busco --cpu {threads} -i {input} -o {params.tmp_dir} --offline
         cp {params.tmp_dir}/short_summary*.txt {output.summary}
         mv {params.tmp_dir} {output.out_dir}
         '''
@@ -293,11 +320,39 @@ rule plot_dot:
     shell:
         'minidot -L {input} | convert -density 150 - {output}'
 
-rule generate_reffai:
+rule samtools_faidx:
+    input:
+        '{fasta}.{fa_ext}'
     output:
-        f'{config["ref_genome"]}.fai'
+        '{fasta}.{fa_ext,fa|fasta}.fai'
     shell:
-        'samtools faidx {config[ref_genome]}'
+        'samtools faidx {input}'
+
+rule samtools_index_bam:
+    input:
+        '{bam}.bam'
+    output:
+        '{bam}.bam.bai'
+    threads: 8
+    resources:
+        mem_mb = 4000
+    shell:
+        'samtools index -@ {threads} {input}'
+
+rule summarise_statistics_row:
+    input:
+        capture_logic
+    output:
+        get_dir('summary','assembly_statistics.csv')
+    run:
+        with open(output[0],'w') as fout:
+            fout.write('assembler,haplotype,size,contigs,NG50,P50,QV,BUSCO\n')
+            
+#/cluster/work/pausch/group_bin/plink --het --cow --allow-extra-chr --vcf hap2.unphased.BSW_hifiasm.pbmm2.vcf.gz
+#bcftools view --threads 4 -g ^miss -U -v snps hap2.unphased.BSW_hifiasm.pbmm2.vcf.gz > temp.vcf
+#grep -oE "([0-2]/[0-2])" temp.vcf | sort | uniq -c
+
+#jupiter name=test ref=../../../../REF_DATA/ARS-UCD1.2_Btau5.0.1Y.fa fa=../hap1.scaffolds.fasta ng=100 m=1000000 #sam=...
 
 rule analysis_report:
     input:

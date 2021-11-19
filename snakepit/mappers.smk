@@ -1,4 +1,4 @@
-ruleorder: convert_sam_to_paf > map_asm_ref
+ruleorder: map_asm_ref > convert_sam_to_paf
 
 rule generate_winnow_meryl:
     input:
@@ -40,6 +40,18 @@ rule convert_sam_to_paf:
     shell:
         'paftools.js sam2paf {input} > {output}'
 
+rule map_mm2fast:
+    input:
+        lambda wildcards: 'data/hap2' + 'r'*(wildcards.assembler.count('repeat')) + f'.{wildcards.sample}.hifi.fa.gz' 
+    output:
+        get_dir('work','{haplotype}_sample.bam')
+    threads: 16
+    resources:
+        mem_mb = 5500,
+        disk_scratch=200
+    shell:
+        'mm2-fast -t {threads} -ax asm20 {config[ref_genome]} {input} | samtools sort - -m 3000M -@ {threads} -T $TMPDIR -o {output}'
+
 rule map_minigraph:
     input:
         get_dir('work','{haplotype}.contigs.fasta')
@@ -53,7 +65,7 @@ rule map_minigraph:
 
 rule map_hifi_cell:
     input:
-        reads = lambda wildcards: f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz',
+        reads = config['hifi'],#lambda wildcards: f'data/{wildcards.haplotype if wildcards.haplotype in ("dam","sire") else "offspring"}_{{read_name}}.temp.fastq.gz',
         asm = get_dir('work','{haplotype}.scaffolds.fasta'),
         rep = get_dir('work','{haplotype}_repetitive_k15.txt')
     output:
@@ -64,6 +76,34 @@ rule map_hifi_cell:
         walltime = '20:00'
     shell:
         'winnowmap -t {threads} -W {input.rep} -ax map-pb {input.asm} {input.reads} | samtools view -b -o {output} -'
+
+rule winnowmap_align:
+    input:
+        asm = get_dir('work','{haplotype}.scaffolds.fasta'),
+        reads = lambda wildcards: config['data'][wildcards.read][wildcards.haplotype],
+        rep = get_dir('work','{haplotype}_repetitive_k15.txt')
+    output:
+        temp(get_dir('work','{haplotype}.{read}.unsrt.wm.bam'))
+    params:
+        lambda wildcards: 'map-pb' if wildcards.read == 'hifi' else 'map-ont'
+    threads: 18
+    resources:
+        mem_mb = 5000,
+        walltime = '96:00'
+    shell:
+        'winnowmap -t {threads} -W {input.rep} -ax {params} {input.asm} {input.reads} | samtools view -@ 4 -b -o {output} -'
+
+rule samtools_sort:
+    input:
+        get_dir('work','{haplotype}.{read}.unsrt.wm.bam')
+    output:
+        get_dir('work','{haplotype}.{read}.wm.bam')
+    threads: 12
+    resources:
+        mem_mb = 6000,
+        disk_scratch=300
+    shell:
+        'samtools sort -m 3000M -@ {threads} -T $TMPDIR -o {output} {input}'
 
 rule merge_sort_map_cells:
     input:
@@ -80,10 +120,10 @@ rule merge_sort_map_cells:
 
 rule map_SR_reads:
     input:
-        reads = expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
+        reads = config['SR'],#expand('data/offspring.read_R{N}.SR.fq.gz', N = (1,2)),
         asm = get_dir('work','{haplotype}.scaffolds.fasta')
     output:
-        get_dir('work','{haplotype}_scaffolds_SR_reads.bam')
+        get_dir('work','{haplotype}_scaffolds_SR_reads.mm2.bam')
     threads: 24
     resources:
         mem_mb = 6000,
@@ -94,9 +134,9 @@ rule map_SR_reads:
 
 rule map_splice_asm:
     input:
-        lambda wildcards: (get_dir('work','{haplotype}.contigs.fasta')) if wildcards.reference == 'asm' else f'{config["ref_genome"]}'
+        get_dir('work','{haplotype}.contigs.fasta')
     output:
-        temp(get_dir('work','{haplotype}_{reference}_splices.paf'))
+        temp(get_dir('work','{haplotype}_cDNAs_splices.paf'))
     threads: 4
     resources:
         mem_mb = 10000,

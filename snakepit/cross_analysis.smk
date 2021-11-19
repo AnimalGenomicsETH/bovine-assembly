@@ -4,19 +4,20 @@ rule count_telomers:
     input:
         WORK_PATH + '{haplotype}.scaffolds.fasta'
     output:
-        RESULT_PATH + '.telo.txt'
+        RESULT_PATH + '.telo.{size}.txt'
     run:
         import re, screed
         from scipy.stats import binom
-        region = 1000
+        region = int(wildcards.size) * 1000
         telomere = re.compile("TTAGGG", re.IGNORECASE)
-
         with open(output[0],'w') as fout:
             fout.write('name\trepeat_count\tprobability\n')
             for seq in screed.open(input[0]):
-                c_repeats = len(telomere.findall(seq.sequence[region:]))
+                c_repeats = len(telomere.findall(seq.sequence[-1*region:]))
                 fout.write(f'{seq.name}\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
-
+                c_repeats = len(telomere.findall(seq.sequence[:region]))
+                fout.write(f'{seq.name}\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
+               
 rule count_scaffold_gaps:
     input:
         WORK_PATH + '{haplotype}.scaffolds.fasta'
@@ -34,64 +35,19 @@ rule count_scaffold_gaps:
                 #     map(lambda s: str(len(s)), F(scaffold.sequence))
                 fout.write('\t'.join((scaffold.name,str(len(contig_lengths)-1),','.join(map(str,contig_lengths)),','.join(map(str,gap_lengths))))+'\n')
 
-#ragtag.py correct, full reads mapping, c_mapping
-rule ragtag_correct:
-    input:
-        asm = WORK_PATH + '{haplotype}.contigs.fasta',
-        reads = 'data/offspring.cleaned.hifi.fq.gz'
-    output:
-        WORK_PATH + '{haplotype}.contigs.corrected.fasta'
-    threads: 24
-    resources:
-        mem_mb = 3000
-    shell:
-        '''
-        ragtag.py correct {config[ref_genome]} {input.asm} -o {wildcards.assembler}_{wildcards.sample} -R {input.reads} -T corr -t {threads} --mm2-params "-c -x asm20"
-        #mv {wildcards.assembler}_{wildcards.sample}/ragtag.contigs.corrected {output}
-        '''
-
-rule ragtag_scaffold:
-    input:
-        WORK_PATH + '{haplotype}.contigs.fasta'
-    output:
-        WORK_PATH + '{haplotype}.scaffolds.fasta'
-    params:
-        WORK_PATH + '{haplotype}_scaf'
-    threads: 24
-    resources:
-        mem_mb = 2000
-    shell:
-        '''
-        ragtag.py scaffold {config[ref_genome]} {input} -o {params} -t {threads} --mm2-params "-c -x asm5" -r -m 1000000
-        cp {params}/ragtag.scaffolds.fasta {output}
-        '''
-
 rule prep_window:
     input:
-        WORK_PATH + '{haplotype}.scaffolds.fasta'
+        get_dir('work','{haplotype}.scaffolds.fasta.fai')
     output:
-        fai = WORK_PATH + '{haplotype}.scaffolds.fasta.fai',
         genome = WORK_PATH + '{haplotype}.genome',
         bed = WORK_PATH + '{haplotype}.windows.bed'
     params:
         10000
     shell:
         '''
-        samtools faidx {input}
-        awk -v OFS='\\t' {{'print $1,$2'}} {output.fai} > {output.genome}
+        awk -v OFS='\\t' {{'print $1,$2'}} {input} > {output.genome}
         bedtools makewindows -g {output.genome} -w {params} > {output.bed}
         '''
-
-rule index_bam:
-    input:
-        WORK_PATH + '{haplotype}_scaffolds_{type}_reads.bam'
-    output:
-        WORK_PATH + '{haplotype}_scaffolds_{type}_reads.bam.bai'
-    threads: 8
-    resources:
-        mem_mb = 4000
-    shell:
-        'samtools index -@ {threads} {input}'
 
 rule window_coverage:
     input:
@@ -112,7 +68,21 @@ rule chromosome_coverage:
     shell:
         'samtools coverage {input.bam} -o {output}'
 
-checkpoint split_chromosomes:
+rule megadepth_coverage:
+    input:
+        multiext(get_dir('work','{haplotype}_sample.bam'),'','.bai')
+    output:
+        get_dir('result','.coverage.sample.all.bw')
+    params:
+        out = lambda wilcards, output: PurePath(output[0]).with_suffix('').with_suffix(''),
+        opt = lambda wildcards: '--longreads' #if wildcards.type == 'hifi' else ''
+    threads: 4
+    resources:
+        mem_mb = 7000
+    shell:
+        'megadepth {input[0]} --threads {threads} {params.opt} --filter-out 260 --bigwig --prefix {params.out}'
+        
+checkpoint split_chromosomes:       
     input:
         WORK_PATH + '{haplotype}.scaffolds.fasta'
     output:
@@ -127,9 +97,9 @@ checkpoint split_chromosomes:
         '''
         mkdir -p {output} && cd {output}
         grep ">" {params.asm} | cut -c 2- > {params.headers}
-        grep "{config[ref_chrm]}" {params.headers} | seqtk subseq {params.asm} - > {params.chrm}
-        grep "{config[ref_tig]}" {params.headers} | seqtk subseq {params.asm} - > {params.ur_tigs}
-        grep -v -e "{config[ref_chrm]}" -e "{config[ref_tig]}" {params.headers} | seqtk subseq {params.asm} - > {params.ua_tigs}
+        grep -P "^[YX\d]" {params.headers} | seqtk subseq {params.asm} - > {params.chrm}
+        grep "^{config[ref_tig]}" {params.headers} | seqtk subseq {params.asm} - > {params.ur_tigs}
+        grep -v -P "^([XY\d]|{config[ref_tig]})" {params.headers} | seqtk subseq {params.asm} - > {params.ua_tigs}
         awk '$0 ~ "^>" {{ match($1, /^>([^:|\s]+)/, id); filename=id[1]}} {{print >> filename".chrm.fa"}}' {params.chrm}
 
         for val in ref asm; do
@@ -146,9 +116,9 @@ rule repeat_masker:
     output:
         #NOTE repeatmasker doesn't output .masked if no masking, so just wrap the plain sequence via seqtk
         WORK_PATH + '{haplotype}_split_chrm/{chunk}.chrm.fa.masked'
-    threads: 24#lambda wildcards, input: 18 if input.size_mb < 100 else 24
+    threads: 6#lambda wildcards, input: 18 if input.size_mb < 100 else 24
     resources:
-        mem_mb = 400,
+        mem_mb = 1000,
         walltime = '4:00'
     shell:
         '''
@@ -181,13 +151,12 @@ rule merge_masked_chromosomes:
 
 rule TGS_gapcloser:
     input:
-        scaffolds = WORK_PATH + '{haplotype}.scaffolds.fasta',
+        scaffolds = get_dir('work','{haplotype}.scaffolds.fasta'),
         reads = lambda wildcards: f'data/{"sire" if wildcards.haplotype == "hap1" else "dam"}.hifi.fasta'
     output:
-        WORK_PATH + '{haplotype}.filled.fasta'
+        get_dir('work','{haplotype}.filled.fasta')
     params:
-        dir_ = WORK_PATH + '{haplotype}_TGS',
-        out = '{haplotype}',
+        dir_ = get_dir('work','{haplotype}_TGS'),
         scaffolds = lambda wildcards, input: '../' + PurePath(input['scaffolds']).name,
         reads = lambda wildcards, input: '../../' + input['reads']
     threads: 12
@@ -197,8 +166,6 @@ rule TGS_gapcloser:
     shell:
         '''
         mkdir -p {params.dir_}
-        (cd {params.dir_} && {config[tgs_root]}/TGS-GapCloser.sh --scaff {params.scaffolds} --reads {params.reads} --output {params.out} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads})
+        (cd {params.dir_} && {config[tgs_root]}/TGS-GapCloser.sh --scaff {params.scaffolds} --reads {params.reads} --output {wildcards.haplotype} --minmap_arg '-x asm20' --tgstype pb --ne --thread {threads})
         cp {params.dir_}/{params.out}.scaff_seqs {output}
         '''
-
-# prepare gapcloser for ONT reads
