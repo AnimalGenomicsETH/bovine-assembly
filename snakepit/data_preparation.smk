@@ -56,11 +56,12 @@ rule filter_SR_data:
     shell:
         'fastp -i {input.reads[0]} -I {input.reads[1]} -o {output.reads[0]} -O {output.reads[1]} -g --thread {threads} --html {params.html} --json /dev/null'
 
+import random
 rule sample_data:
     input:
         'data/offspring.cleaned.hifi.fq.gz'
     output:
-        temp('data/offspring.{sample}.hifi.fq.gz')
+        temp('data/offspring.{sample}.hifi.fa.gz')
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
@@ -73,7 +74,8 @@ rule sample_data:
         then
             ln -s $(pwd)/{input} {output}
         else
-            seqtk sample {input} $(bc <<<"scale=2;{wildcards.sample}/100") | pigz -p {threads} > {output}
+            echo $(python -c 'import random; print(random.getrandbits(64))')
+            seqtk seq -A -s $(python -c 'import random; print(random.getrandbits(64))') -f $(bc <<<"scale=2;{wildcards.sample}/100") {input} | pigz -p {threads} > {output}
         fi
         '''
 

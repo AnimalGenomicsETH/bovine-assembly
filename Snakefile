@@ -2,7 +2,7 @@ from pathlib import Path, PurePath
 from glob import glob
 from itertools import product
 
-configfile: 'config/run_parameters.yaml'
+#configfile: 'config/run_parameters.yaml'
 
 if config['animal'] != 'test':
     workdir: PurePath(config['workdir']).joinpath(config['animal'])
@@ -75,6 +75,23 @@ rule all:
     input:
         f'{config["animal"]}_analysis_report.pdf'
 
+
+rule assembler_hifiasmhap:
+    input:
+        'data/hap2.{sample}.hifi.fa.gz'
+    output:
+        #note can change to primary
+        get_dir('work','asm.p_ctg.gfa',assembler='hifiasmhaplotype')
+    params:
+        out = lambda wildcards, output: PurePath(output[0]).with_name('asm'),
+        settings = '-r 3 -a 5 -n 5'
+    threads: 16
+    resources:
+       mem_mb = lambda wildcards, input, threads: max(int(input.size_mb*.5/threads),4000),
+        walltime = '12:00'
+    shell:
+        'hifiasm -o {params.out} --primary -t {threads} {params.settings} {input}'
+
 if 'hifiasm' in config['assemblers']:
     rule assembler_hifiasm:
         input:
@@ -85,19 +102,19 @@ if 'hifiasm' in config['assemblers']:
         params:
             out = lambda wildcards, output: PurePath(output[0]).with_name('asm'),
             settings = '-r 3 -a 5 -n 5'
-        threads: 34
+        threads: 16
         resources:
-            mem_mb = lambda wildcards, input, threads: max(int(input.size_mb*1.75/threads),1500),
+            mem_mb = lambda wildcards, input, threads: max(int(input.size_mb*1.75/threads),6000),
             walltime = '24:00'
         shell:
-            'hifiasm -o {params.out} -t {threads} {params.settings} {input}'
+            'hifiasm_new -o {params.out} -t {threads} {params.settings} {input}'
 
     ##Requires gfatools installed
     rule assembler_hifiasm_conversion:
         input:
-            lambda wildcards: get_dir('work','{haplotype}.p_ctg.gfa',assembler='hifiasm')#,dip='dip' if wildcards.haplotype!='asm' else 'bp')
+            lambda wildcards: get_dir('work','{haplotype}.bp.p_ctg.gfa')#,assembler='hifiasmhaplotyperepeat')#,dip='dip' if wildcards.haplotype!='asm' else 'bp')
         output:
-            get_dir('work','{haplotype}.contigs.fasta',assembler='hifiasm')
+            get_dir('work','{haplotype}.contigs.fasta')#,assembler='hifiasmhaplotyperepeat')
         resources:
             mem_mb = 10000,
             walltime = '60'
@@ -286,9 +303,9 @@ rule validation_asmgene:
     params:
         thresh = lambda wildcards: '-i.97' if wildcards.opt == '97' else '-i.99',
         hap_opt = lambda wildcards: '' if wildcards.haplotype == 'asm' else '-a'
-    threads: 24
+    threads: 1
     resources:
-        mem_mb = 2500
+        mem_mb = 4000
     shell:
         'paftools.js asmgene {params.thresh} {params.hap_opt} {input.ref} {input.asm} > {output}'
 
