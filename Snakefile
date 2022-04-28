@@ -95,7 +95,7 @@ if 'hifiasm' in config['assemblers']:
     ##Requires gfatools installed
     rule assembler_hifiasm_conversion:
         input:
-            lambda wildcards: get_dir('work','{haplotype}.p_ctg.gfa',assembler='hifiasm')#,dip='dip' if wildcards.haplotype!='asm' else 'bp')
+            lambda wildcards: get_dir('work','{haplotype}.bp.p_ctg.gfa',assembler='hifiasm')#,dip='dip' if wildcards.haplotype!='asm' else 'bp')
         output:
             get_dir('work','{haplotype}.contigs.fasta',assembler='hifiasm')
         resources:
