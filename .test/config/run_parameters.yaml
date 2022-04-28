@@ -1,18 +1,19 @@
 workdir: '../'
 animal: 'test'
 data:
-  test:
-    long_reads:
-      offspring: 'offspring/'
-      dam: 'dam/'
-      sire: 'sire/'
-    short_reads:
-      sire: 'ssire'
-      dam: 'sdam'
-      offspring: 'soffspring'
+  long_reads:
+    offspring: 'offspring/'
+    dam: 'dam/'
+    sire: 'sire/'
+  short_reads:
+    sire: 'ssire'
+    dam: 'sdam'
+    offspring: 'soffspring'
+
 ref_genome: 'test_ref.fasta'
 ref_chrm: 'NC'
 ref_tig: 'NW'
+repeat_library: ''
 
 cDNAs: ''
 ont_reads: ''
