@@ -1,23 +1,33 @@
-localrules: count_telomers, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes
+localrules: count_telomers, inconsistent_telomeres, count_scaffold_gaps, prep_window, window_coverage, chromosome_coverage, split_chromosomes, merge_masked_chromosomes
 
 rule count_telomers:
     input:
-        WORK_PATH + '{haplotype}.scaffolds.fasta'
+        get_dir('work','{haplotype}.scaffolds.fasta')
     output:
-        RESULT_PATH + '.telo.{size}.txt'
+        get_dir('result','.telo.{size}.txt')
     run:
         import re, screed
         from scipy.stats import binom
         region = int(wildcards.size) * 1000
         telomere = re.compile("TTAGGG", re.IGNORECASE)
         with open(output[0],'w') as fout:
-            fout.write('name\trepeat_count\tprobability\n')
+            fout.write('name\tdirection\trepeat_count\tprobability\n')
             for seq in screed.open(input[0]):
                 c_repeats = len(telomere.findall(seq.sequence[-1*region:]))
-                fout.write(f'{seq.name}\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
+                fout.write(f'{seq.name}\tFOR\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
                 c_repeats = len(telomere.findall(seq.sequence[:region]))
-                fout.write(f'{seq.name}\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
-               
+                fout.write(f'{seq.name}\tREV\t{c_repeats}\t{binom.sf(c_repeats,region,0.25**6):.4f}\n')
+ 
+rule inconsistent_telomeres:
+    input:
+        telos = (get_dir('result','.telo.{size}.txt',size=S) for S in (1,10,100))
+    output:
+        get_dir('result','.inconsistent.telo.txt')
+    shell:
+        '''
+        paste {input} | awk '$12<0.005&&$4>0.2' > {output}
+        '''
+
 rule count_scaffold_gaps:
     input:
         WORK_PATH + '{haplotype}.scaffolds.fasta'
@@ -112,16 +122,17 @@ checkpoint split_chromosomes:
 
 rule repeat_masker:
     input:
-        WORK_PATH + '{haplotype}_split_chrm/{chunk}.chrm.fa'
+        get_dir('work','{haplotype}_split_chrm/{chunk}.chrm.fa')
     output:
         #NOTE repeatmasker doesn't output .masked if no masking, so just wrap the plain sequence via seqtk
-        WORK_PATH + '{haplotype}_split_chrm/{chunk}.chrm.fa.masked'
-    threads: 6#lambda wildcards, input: 18 if input.size_mb < 100 else 24
+        get_dir('work','{haplotype}_split_chrm/{chunk}.chrm.fa.masked')
+    threads: 8#lambda wildcards, input: 18 if input.size_mb < 100 else 24
     resources:
         mem_mb = 1000,
-        walltime = '4:00'
+        walltime = '24:00'
     shell:
         '''
+        #-no_is -species Capreolinae {input}
         RepeatMasker -xsmall -pa $(({threads}/2)) -lib {config[repeat_library]} -qq -no_is {input} #-species "Bos taurus"
         if [ ! -f {output} ]; then
           seqtk seq -l60 {input} > {output}

@@ -15,7 +15,7 @@ rule yak_count_SR:
 
 rule trio_hifiasm:
     input:
-        reads = 'data/offspring.{sample}.hifi.fq.gz',
+        #reads = 'data/offspring.{sample}.hifi.fa.gz',
         mat = 'data/dam.yak',
         pat = 'data/sire.yak',
         asm = get_dir('work','asm.bp.p_ctg.gfa',assembler='hifiasm')
@@ -25,7 +25,7 @@ rule trio_hifiasm:
         out = get_dir('work','asm',assembler='hifiasm'),
         old = expand('hifiasm_{{sample}}/asm.dip.hap{N}.p_ctg.gfa', N = (1,2)),
         new = expand('hifiasm_{{sample}}/hap{N}.p_ctg.gfa', N = (1,2)),
-        settings = '-r 4 -a 5 -n 5'
+        settings = '-r 3 -a 5 -n 5'
     threads: 32
     resources:
         mem_mb = 4000,

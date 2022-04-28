@@ -19,6 +19,6 @@ rule resolve_haplotype_fastq:
         'pigz/2.4'
     shell:
         '''
-        zcat {input.fasta_reads} | grep ">" | cut -c 2- | seqtk subseq {input.fastq_data} - | pigz -4 -p {threads} > {output}
+        cat {input.fasta_reads} | grep ">" | cut -c 2- | seqtk subseq {input.fastq_data} - | pigz -4 -p {threads} > {output}
         '''
 
