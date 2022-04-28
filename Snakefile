@@ -107,7 +107,7 @@ if 'hifiasm' in config['assemblers']:
         input:
             'data/{parent}.cleaned.hifi.fq.gz'
         output:
-            get_dir('work','{parent}.p_ctg.gfa',assembler='hifiasm',sample=100)
+            get_dir('work','{parent}.bp.p_ctg.gfa',assembler='hifiasm',sample=100)
         params:
             out = lambda wildcards, output: PurePath(output[0]).with_name(wildcards.parent),
             settings = '-r 4 -a 5 -n 5'
