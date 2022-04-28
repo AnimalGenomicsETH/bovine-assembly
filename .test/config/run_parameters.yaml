@@ -46,7 +46,6 @@ target_metrics:
     - 'ref.mm2.dot.png'
     - 'ref.wm2.dot.png'
     - 'gaps.txt'
-    - 'ref.mumSV.txt'
     - 'mm2.vcf'
     - 'wm2.vcf'
   primary:
