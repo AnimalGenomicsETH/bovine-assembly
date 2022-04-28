@@ -118,7 +118,7 @@ if 'hifiasm' in config['assemblers']:
         shell:
             'hifiasm -o {params.out} -t {threads} {params.settings} {input}'
 
-if 'canuhifi' in config['assemblers']:
+if 'canu' in config['assemblers']:
     localrules: assembler_canu, strip_canu_bubbles, assembler_canu_parents
     rule assembler_canu:
         input:
