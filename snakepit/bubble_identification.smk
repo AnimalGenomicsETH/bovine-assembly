@@ -40,7 +40,6 @@ for r_range, func in config['runs'].items():
         l,h = (int(i) for i in r_range.split('-'))
         for n in range(l,h):
             order_functions[str(n)] = func
-
 rule all:
     input:
         #expand(get_dir('SV','{asm}.path.{chr}.L{L}.unmapped.bed'),L=config['L'],asm=list(config['assemblies'].keys())[1:],chr=valid_chromosomes(config['chromosomes'])),
@@ -139,8 +138,8 @@ rule minigraph_ggs:
         asm = ' --gg-match-pen 5' #NOTE not currently set in the shell #'-g250k -r250k -j0.05 -l250k'
     threads: lambda wildcards: 16 if wildcards.chr == 'all' else 1
     resources:
-        mem_mb = 10000,
-        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '1:00'
+        mem_mb = 15000,
+        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '4:00'
     shell:
         'minigraph -xggs -t {threads} -L {wildcards.L} {params.backbone} {params.input_order} > {output}'
 
@@ -150,7 +149,7 @@ rule gfatools_bubble:
     output:
         bubble = get_dir('SV','{chr}.L{L}.bubble.bed')
     resources:
-        walltime = '5'
+        walltime = '10'
     shell:
         '''
         gfatools bubble {input} | sed 's/_ARS//g' > {output}
@@ -183,6 +182,18 @@ rule overlap_annotations:
 
         '''
 
+localrules: merge_annotations
+rule merge_annotations:
+    input:
+        (get_dir('SV','{chr}.{annotation}.solid.L{L}.bed',chr=CHR) for CHR in range(1,30))
+    output:
+        get_dir('SV','all.{annotation}.solid.L{L}.bed')
+    shell:
+        '''
+        echo "chr a_s a_e p_s p_e overlap gene degree min_l max_l" > {output}
+        cat {input} | sed '/chr/d' >> {output}
+        '''
+
 
 rule minigraph_align:
     input:
@@ -194,8 +205,8 @@ rule minigraph_align:
         lambda wildcards: '--call' if wildcards.ext == 'bed' else '--show-unmap=yes'
     threads: lambda wildcards: 12 if wildcards.chr == 'all' else 1
     resources:
-        mem_mb = 10000,
-        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '1:00'
+        mem_mb = 15000,
+        walltime = lambda wildcards: '4:00' if wildcards.chr == 'all' else '4:00'
     shell:
         'minigraph {params} -xasm -t {threads} -l 300k  {input.gfa} {input.fasta} > {output}'
 
@@ -333,7 +344,7 @@ rule generate_newick_tree:
         newick = get_dir('SV','{chr}.L{L}.{mode}.nw'),
         df = get_dir('SV','{chr}.L{L}.{mode}.df')
     resources:
-        walltime = '5'
+        walltime = '30'
     run:
         from upsetplot import from_contents
 

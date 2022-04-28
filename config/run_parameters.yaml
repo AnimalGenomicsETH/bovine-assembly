@@ -25,7 +25,8 @@ ref_tig: 'NW'
 #'/cluster/work/pausch/alex/REF_DATA/ARS_UNL1.fasta'
 cDNAs: '/cluster/work/pausch/alex/REF_DATA/Bos_taurus.ARS-UCD1.2.cdna.all.fa.gz'
 repeat_library: '/cluster/work/pausch/alex/Libraries/BosTau9_repeat_library.fasta'
-
+hifi: ''
+SR: ''
 k-mers: 21
 genome_est: 2.7
 mem_adj: 1100
