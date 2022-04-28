@@ -15,7 +15,7 @@ rule sample_hap:
     input:
         config['ont_reads']
     output:
-        'data/hap2.{sample}.hifi.fa.gz'
+        'data/hap2rr.{sample}.hifi.fa.gz'
     envmodules:
         'gcc/8.2.0',
         'pigz/2.4'
@@ -24,31 +24,32 @@ rule sample_hap:
         mem_mb = 3000
     shell:
         '''
-        seqtk seq -A -f $(bc <<<"scale=2;{wildcards.sample}/100") {input} | pigz -p {threads} > {output}
+        seqtk seq -A -f $(bc <<<"scale=2;{wildcards.sample}/100") -s 2125870297 {input} | pigz -p {threads} > {output}
         '''
 
+import random
 rule sample_ont:
     input:
-        config['ont_reads']
+        lambda wildcards: config['ont_reads'][wildcards.haplotype]
     output:
-        'data/hap2.{sample}.pion.fasta'
+        'data/{haplotype}.{sample}.pion.fasta'
     resources:
         mem_mb = 3000
     shell:
         '''
-        seqtk seq -A -f $(bc <<<"scale=2;{wildcards.sample}/100") {input} > {output}
+        seqtk seq -A -s $(python -c 'import random; print(random.getrandbits(64))') -f $(bc <<<"scale=2;{wildcards.sample}/100") {input} > {output}
         '''
 
 rule assembler_shasta:
     input:
-        'data/hap2.{sample}.pion.fasta'
+        'data/{haplotype}.{sample}.pion.fasta'
     output:
         dir_ = directory(get_dir('work','shasta_{haplotype}',assembler='shasta'))
     params:
         Path('config/shasta_config.conf').resolve() #get full path as required by shasta
-    threads: 12
+    threads: 36
     resources:
-        mem_mb = 25000,
+        mem_mb = 16000,
         walltime = '4:00'
     shell:
         '''
@@ -61,15 +62,15 @@ rule polish_shasta:
     output:
         get_dir('work','{haplotype}.contigs.fasta',assembler='shasta')
     params:
-        data = lambda wildcards: Path(f'data/offspring.{wildcards.sample}.pion.fasta').resolve(),
+        data = lambda wildcards: Path(f'data/{wildcards.haplotype}.{wildcards.sample}.pion.fasta').resolve(),
         dir_ = lambda wildcards, output: PurePath(output[0]).parent
     shell:
         '''
         cd {input}
         snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/polishers.smk --config reads={params.data} --profile "lsf_nt" --quiet --nolock
-        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/deepvariant.smk --configfile /cluster/work/pausch/alex/assembly/BSWCHEM120151536851/config/shasta_DV.yaml --profile "lsf_nt" --quiet --nolock
-        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/merfin.smk --configfile /cluster/work/pausch/alex/assembly/BSWCHEM120151536851/config/shasta_merfin.yaml --profile "lsf_nt" --quiet --nolock
-        cp merfin_NxB/polishing_asm_hifi/asm.merfin.fasta ../../{output}
+        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/deepvariant.smk --configfile ../../config/shasta_DV_{wildcards.haplotype}.yaml --profile "lsf_nt" --quiet --nolock
+        snakemake -s /cluster/work/pausch/alex/assembly/bovine-assembly/snakepit/merfin.smk --configfile ../../config/shasta_merfin_{wildcards.haplotype}.yaml --profile "lsf_nt" --quiet --nolock
+        cp merfin_F1/polishing_{wildcards.haplotype}_hifi/{wildcards.haplotype}.merfin.fasta ../../{output}
         '''
 
 rule assembler_raven:
