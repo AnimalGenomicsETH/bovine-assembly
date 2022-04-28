@@ -15,6 +15,7 @@ ref_chrm: 'NC'
 ref_tig: 'NW'
 
 cDNAs: ''
+ont_reads: ''
 hifi: ''
 SR: ''
 k-mers: 21
