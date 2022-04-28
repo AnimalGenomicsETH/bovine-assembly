@@ -53,6 +53,26 @@ rule all:
         (get_dir('SV','{chr}.L{L}.{mode}.nw',chr=c,run=n,L=config['L'],mode='join') for (c,n) in product(range(1,30),order_functions.keys()))
 
 
+rule ragtag_patch:
+    input:
+        asm1 = lambda wildcards: config['assemblies'][wildcards.asm1],
+        asm2 = lambda wildcards: config['assemblies'][wildcards.asm2],
+        ref = lambda wildcards: config['assemblies']['ARS']
+    output:
+        '{asm1}.{asm2}.patch.fasta'
+    threads: 12
+    params:
+        lambda wildcards: f'{wildcards.asm1}_{wildcards.asm2}_patching'
+    resources:
+        mem_mb = 4000,
+        walltime = '4:00'
+    shell:
+        '''
+        ragtag.py patch {input.asm1} {input.asm2} --aligner minimap2 --mm2-params "-cx asm5 -t {threads}" -o {params}
+        ragtag.py scaffold {input.ref} {params}/ragtag.patch.fasta -o {params} --mm2-params "-cx asm5 -t {threads}" -r -m 1000000
+        sed 's/_RagTag//g' {params}/ragtag.scaffold.fasta > {output}
+        '''
+
 rule mash_sketch:
     input:
         lambda wildcards: config['assemblies'][wildcards.asm]

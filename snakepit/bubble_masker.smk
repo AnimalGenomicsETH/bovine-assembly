@@ -43,7 +43,7 @@ def find_repeats(bubbles,dtype):
         fout = f'{root}repeat_nodes/{chrom}.{node}.fa'
 
         shellx(f'awk {search_string} {fname} > {fout}')
-        shellx(f'RepeatMasker -xsmall -lib /cluster/work/pausch/alex/Libraries/BosTau9_repeat_library.fasta -qq -no_is {fout}')
+        shellx(f'RepeatMasker -xsmall -lib /cluster/work/pausch/alex/Libraries/BosTau9_repeat_library.fasta -s -no_is {fout}')
         
         try:
             row = extract_repeats(fout+'.tbl')
@@ -74,8 +74,9 @@ def extract_repeats(fname):
 h_only = eval(slicer_h)
 s_only = eval(slicer_s)
 rs = []
-rs.extend(find_repeats(h_only[h_only['length']>1000]['id'],'HiFi'))
-rs.extend(find_repeats(s_only[s_only['length']>1000]['id'],'ONT'))
+print(h_only[h_only['length']>50]['id'])
+#rs.extend(find_repeats(h_only[h_only['length']>1000]['id'],'HiFi'))
+#rs.extend(find_repeats(s_only[s_only['length']>1000]['id'],'ONT'))
 
-df = pd.DataFrame(rs)
-df.to_csv(f'bubbles_repeat.{run_n}.df',index=False)
+#df = pd.DataFrame(rs)
+#df.to_csv(f'bubbles_repeat.{run_n}.df',index=False)
