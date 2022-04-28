@@ -37,7 +37,7 @@ def capture_logic(wildcards):
                         required_files.append(r_path / f'{parent}_{sample}_{assembler}.{extension}')
 
                 if 'trio' in config['haplotypes']:
-                    required_files.extend([r_path / f'hap2_100_{assembler}.dam.mumSV.txt', r_path / f'hap1_100_{assembler}.sire.mumSV.txt'])
+                    #required_files.extend([r_path / f'hap2_100_{assembler}.dam.mumSV.txt', r_path / f'hap1_100_{assembler}.sire.mumSV.txt'])
                     required_files.extend([r_path / f'hap2_100_{assembler}.dam.mm2.dot.png', r_path / f'hap1_100_{assembler}.sire.mm2.dot.png'])
 
     sample_haplotypes = []
