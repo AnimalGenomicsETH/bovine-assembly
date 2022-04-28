@@ -45,9 +45,9 @@ rule mumandco_summarise:
 
 rule paf_variants:
     input:
-        WORK_PATH + '{haplotype}_scaffolds_ref.{mapper}.paf'
+        get_dir('work','{haplotype}_scaffolds_ref.{mapper}.paf')
     output:
-        RESULT_PATH + '.{mapper}.vcf'
+        get_dir('result','.{mapper}.vcf')
     shell:
         'sort {input} -k6,6 -k8,8n | paftools.js call -f {config[ref_genome]} - > {output}'
 

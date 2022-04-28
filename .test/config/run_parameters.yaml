@@ -27,7 +27,6 @@ split_size:
   SR: 100000000
 winnow_threshold: 0.9998
 haplotypes:
-  - 'asm'
   - 'trio'
   - 'parents'
 assemblers:
@@ -49,7 +48,7 @@ target_metrics:
     - 'mm2.vcf'
     - 'wm2.vcf'
   primary:
-    - 'telo.txt'
+    - 'telo.100.txt'
     - 'repeats.csv'
     - 'repeats.tbl'
     - 'merqury.full.stats'

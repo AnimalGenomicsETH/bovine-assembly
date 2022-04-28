@@ -66,7 +66,7 @@ wildcard_constraints:
     data = r'[^\W_]+',
     modifier = r'\w+',
     read_t  = r'hifi|SR',
-    mapper = r'mm2|wm'
+    mapper = r'mm2|wm2'
 
 #------------#
 #DEFINE RULES#
