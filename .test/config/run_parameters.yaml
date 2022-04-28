@@ -49,10 +49,6 @@ target_metrics:
     - 'mm2.vcf'
     - 'wm2.vcf'
   primary:
-    - 'windows.hifi.coverage.txt'
-    - 'chrm.hifi.coverage.txt'
-    - 'windows.SR.coverage.txt'
-    - 'chrm.SR.coverage.txt'
     - 'telo.txt'
     - 'repeats.csv'
     - 'repeats.tbl'
