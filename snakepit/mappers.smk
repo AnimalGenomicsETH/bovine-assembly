@@ -40,9 +40,17 @@ rule convert_sam_to_paf:
     shell:
         'paftools.js sam2paf {input} > {output}'
 
+def get_ext(wildcards):
+    if wildcards.assembler == 'hifiasmhaplotype':
+        return f'data/hap2.{wildcards.sample}.hifi.fa.gz'
+    elif wildcards.assembler == 'hifiasmhaplotyperepeat':
+        return f'data/hap2r.{wildcards.sample}.hifi.fa.gz'
+    else:
+        return f'data/hap2rr.{wildcards.sample}.hifi.fa.gz'
+
 rule map_mm2fast:
     input:
-        lambda wildcards: 'data/hap2' + 'r'*(wildcards.assembler.count('repeat')) + f'.{wildcards.sample}.hifi.fa.gz' 
+        lambda wildcards: get_ext(wildcards)#'data/hap2' + 'r'*(wildcards.assembler.count('repeat')) + f'.{wildcards.sample}.hifi.fa.gz' 
     output:
         get_dir('work','{haplotype}_sample.bam')
     threads: 16

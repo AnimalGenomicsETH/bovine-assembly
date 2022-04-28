@@ -283,7 +283,8 @@ rule merqury_formatting:
         stats = lambda wildcards: multiext(get_dir('work','asm' if wildcards.haplotype == 'asm' else 'trio'),'.hapmers.blob.png','.completeness.stats','.hap.completeness.stats','.qv'),
         switches = get_dir('work','{haplotype}.100_20000.switches.txt'),
         phase = get_dir('work','{haplotype}.100_20000.phased_block.stats'),
-        p_bed = get_dir('work','{haplotype}.100_20000.phased_block.bed')
+        p_bed = get_dir('work','{haplotype}.100_20000.phased_block.bed'),
+        ref = f'{config["ref_genome"]}.fai'
     output:
         get_dir('result','.merqury.full.stats')
     shell:
@@ -294,7 +295,7 @@ rule merqury_formatting:
         awk '/{wildcards.haplotype}/ && /dam/ {{print "dam "$5}}' {input.stats[2]} >> {output}
         awk '{{print "switches "$14+0}}' {input.switches} >> {output}
         awk '{{print "phased "$6}}' {input.phase} >> {output}
-        awk '{{print $1"\t"$3-$2}}' {input.p_bed} | calN50.js -L 2.7g - | awk '$2=="50" {{print "PG50 "$3}}' >> {output}
+        awk '{{print $1"\t"$3-$2}}' {input.p_bed} | calN50.js -f {input.ref} - | awk '$2=="50" {{print "PG50 "$3}}' >> {output}
         '''
 
 rule merqury_formatting_simple:

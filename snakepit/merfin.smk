@@ -103,6 +103,7 @@ rule merfin_vmer:
         coverage = lambda wildcards, input: float([line for line in open(input.model)][8].split()[1])
     threads: 12
     resources:
+        walltime = '24:00',
         mem_mb = 8000
     shell:
         'merfin -vmer -sequence {input.fasta} -seqmers {input.seqmers} -readmers {input.readmers} -lookup {input.lookup} -threads {threads} -peak {params.coverage} -vcf {input.vcf} -output {params.out}'
