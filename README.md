@@ -1,6 +1,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![snakemaker](https://github.com/AnimalGenomicsETH/bovine-assembly/workflows/snakemaker/badge.svg?branch=master)
-![DOI](https://zenodo.org/badge/284966379.svg)](https://zenodo.org/badge/latestdoi/284966379)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6503779.svg)](https://doi.org/10.5281/zenodo.6503779)
 # Bovine pangenomes
 
 
