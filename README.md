@@ -20,13 +20,14 @@ There are also multiple pipelines and scripts used to construct different pangen
 
 ## Citation
 
-Details on the results can be found in our [manuscript](https://www.biorxiv.org/content/10.1101/2021.11.02.466900v2), or the assemblies hosted [here](https://doi.org/10.5281/ZENODO.5906579). 
+Details on the results can be found in our [publication](https://www.nature.com/articles/s41467-022-30680-2), or the assemblies hosted [here](https://doi.org/10.5281/ZENODO.5906579). 
 
 > **Structural variant-based pangenome construction has low sensitivity to variability of haplotype-resolved bovine assemblies**
 > 
 > Alexander S. Leonard, Danang Crysnanto, Zih-Hua Fang, Michael P Heaton, Brian L. Vander Ley, Carolina Herrera, Heinrich Bollwein, Derek M. Bickhart, Kristen L. Kuhn, Timothy PL. Smith, Benjamin D. Rosen, Hubert Pausch
 > 
-> bioRxiv 2021.11.02.466900; doi: https://doi.org/10.1101/2021.11.02.466900
+> _Nat Commun_ 13, 3012 (2022). https://doi.org/10.1038/s41467-022-30680-2
+> 
 
 
 ## Usage
